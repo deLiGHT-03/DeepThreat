@@ -1,0 +1,7 @@
+# Extra tools for working on the app. Not needed to run it.
+# Playwright drives the browser for tools/check_layout.py; it uses the Edge or Chrome you
+# already have, so `playwright install` is only needed on a machine without either.
+playwright>=1.40
+# Pillow draws the app icon in packaging/make_icon.py. Not needed to run or install the app;
+# the generated DeepThreat.ico is what both the build and the desktop shortcut use.
+pillow>=10

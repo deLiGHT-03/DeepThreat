@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Choose a league · DeepThreat{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('connect') }}">← Change account</a>
+<div class="eyebrow">SLEEPER ACCOUNT · {{ season }}</div><h1 class="section-title">Choose your league</h1><p class="muted">Found {{ leagues|length }} league{% if leagues|length != 1 %}s{% endif %} for <strong>{{ username }}</strong>.</p>
+{% if leagues %}<div class="league-grid">{% for league in leagues %}<form action="{{ url_for('league', league_id=league.league_id) }}" method="post" class="league-card"><input type="hidden" name="username" value="{{ username }}"><input type="hidden" name="manager_id" value="{{ manager_id }}"><input type="hidden" name="season" value="{{ season }}"><button class="league-pick" type="submit"><span class="league-icon">🏈</span><span class="league-name">{{ league.name }}</span><span class="league-meta">{{ league.total_rosters }} teams · {{ league.status|title }}</span><span class="arrow">↗</span></button></form>{% endfor %}</div>{% else %}<div class="empty-state">No leagues found for this season. Try another season or check the username.</div>{% endif %}
+{% endblock %}

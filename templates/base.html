@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}DeepThreat{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='player_hub.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='matchups.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='themes.css') }}">
+</head>
+<body>
+  {% if hide_brand_logo or league_options %}
+  <header class="topbar topbar-spacer" aria-hidden="true"></header>
+  {% else %}
+  <header class="topbar"><a href="/" class="brand" aria-label="DeepThreat home"><img class="brand-logo" src="{{ url_for('static', filename='deepthreat-arc-logo.png') }}" alt="DeepThreat"></a></header>
+  {% endif %}
+  <main class="page">
+    {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="notice {{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
+    {% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+  <script src="{{ url_for('static', filename='preload-data.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='theme.js') }}" defer></script>
+</body>
+</html>

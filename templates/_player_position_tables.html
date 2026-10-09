@@ -1,0 +1,17 @@
+{# One table per position, best first. The weekly Player Data page scores on that week's
+   points and the Season page on points per game; nothing else about the grid differs, so
+   both render it from here and cannot drift apart. #}
+{% macro position_grid(tables, names, season=True, week_label=none) %}
+{% set score_key = 'ppg' if season else 'points' %}
+{% set score_format = '%+.1f' if season else '%+.0f' %}
+{% if tables %}<div class="player-data-week-grid">
+        {% for table in tables %}
+          <section class="player-data-position-card"><h2><span class="position pos-{{ table.position|lower|replace('/', '-') }}">{{ names.get(table.position, table.position) }}</span></h2>
+            <div class="player-data-table-wrap"><table class="player-data-table" data-player-sort>
+              <thead><tr><th><button type="button" data-sort-key="team" data-sort-direction="asc">TEAM <span>↕</span></button></th><th><button type="button" data-sort-key="name" data-sort-direction="asc">PLAYER <span>↕</span></button></th><th><button type="button" data-sort-key="ppg" data-sort-direction="desc" aria-sort="descending">PPG <span>↓</span></button></th><th><button type="button" title="Value Over Average Starter: difference from the top-starter positional average." data-sort-key="voas" data-sort-direction="desc">VOAS <span>↕</span></button></th></tr></thead>
+              <tbody>{% for player in table.players %}<tr class="{% if player.is_mine %}player-data-you-row{% endif %}" data-team="{{ player.team.name|lower }}" data-name="{{ player.name|lower }}" data-ppg="{{ player[score_key] }}" data-voas="{{ player.voas if player.voas is not none else '' }}"><td><span class="player-data-team player-data-team-name" data-team-name="{{ player.team.name|lower }}">{% if player.team.logo_url %}<img class="season-team-avatar" src="{{ player.team.logo_url }}" data-avatar-fallbacks="{{ player.team.logo_fallback_urls|join('|') }}" alt=""><span class="team-logo-placeholder" hidden>{{ player.team.name[0]|upper }}</span>{% else %}<span class="team-logo-placeholder season-team-avatar">{{ player.team.name[0]|upper }}</span>{% endif %}{{ player.team.name }}</span></td><td><span class="player-card-target" data-player-id="{{ player.id }}">{{ player.name }}</span></td><td class="player-data-ppg">{{ '%.1f'|format(player[score_key]) }}</td><td class="player-data-voas {% if player.voas is not none and player.voas > 0 %}positive{% elif player.voas is not none and player.voas < 0 %}negative{% endif %}">{% if player.voas is not none %}{{ score_format|format(player.voas) }}{% else %}&mdash;{% endif %}</td></tr>{% endfor %}</tbody>
+            </table></div>
+          </section>
+        {% endfor %}
+      </div>{% else %}<div class="empty-state">{% if season %}No players with recorded scores were found.{% else %}No players with recorded scores were found for {{ week_label }}.{% endif %}</div>{% endif %}
+{% endmacro %}

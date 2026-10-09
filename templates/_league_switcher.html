@@ -1,0 +1,53 @@
+{% if league_options %}
+<div class="league-controls">
+<a class="reset-username-key" href="{{ url_for('reset_username') }}" aria-label="Change saved Sleeper username" title="Change saved Sleeper username">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 14a5.5 5.5 0 1 1 4.9-3H22v3h-2v3h-3v3h-4v-4.1l-.6-.6A5.5 5.5 0 0 1 7.5 14Zm0-3a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/></svg>
+</a>
+{# Sits left of the league list so the brand logo above it still ends flush with the page edge. #}
+<button class="preload-button" type="button" data-preload data-preload-url="{{ url_for('preload', league_id=current_league_id, username=username, manager_id=manager_id) }}" title="Load all league data now">
+  <span class="preload-dot" aria-hidden="true"></span>
+  <span class="preload-label" aria-live="polite">Preload Data</span>
+</button>
+<div class="league-switcher-stack">
+<a class="switcher-brand" href="/" aria-label="DeepThreat home"><img class="switcher-brand-logo" src="{{ url_for('static', filename='deepthreat-arc-logo.png') }}" alt="DeepThreat"></a>
+<label class="league-switcher">
+  <span class="visually-hidden">Switch leagues</span>
+  {% set current_option = league_options | selectattr('is_current') | list | first %}
+  {# The closed select names the league you are viewing; the season stays as a header inside the open list. #}
+  {% set closed_label = ('Current · ' ~ current_league_name) if current_league_name and not current_option else (season ~ ' Season') %}
+  <select aria-label="Switch leagues" onchange="if (this.value) window.location.assign(this.value)">
+    <option value="" {% if not current_option %}selected{% endif %} disabled>{{ closed_label }}</option>
+    {% for option in league_options %}
+    {% if switch_page == 'matchups' %}
+    {% set destination = url_for('matchups', league_id=option.league_id, week=switch_week, username=username, manager_id=manager_id, broad='1' if switch_broad else None, impact='1' if switch_impact else None, history_id=option.league_id) %}
+    {% elif switch_page == 'player_data' %}
+    {% set destination = url_for('player_data', league_id=option.league_id, week=switch_week, seasonal='1' if switch_player_seasonal else None, team='1' if switch_player_team else None, drop_lowest='1' if switch_drop_lowest else None, drop_highest='1' if switch_drop_highest else None, username=username, manager_id=manager_id, history_id=option.league_id) %}
+    {% elif switch_page == 'seasonal' %}
+    {% set destination = url_for('seasonal', league_id=option.league_id, username=username, manager_id=manager_id, broad='1' if switch_broad else None, defense='1' if switch_defense else None, true_record='1' if switch_true_record else None, impact='1' if switch_impact else None, history_id=option.league_id) %}
+    {% else %}
+    {% set destination = url_for('league', league_id=option.league_id, username=username, manager_id=manager_id, season=season, history_id=option.league_id) %}
+    {% endif %}
+    <option value="{{ destination }}" {% if option.is_current %}selected disabled{% endif %}>
+      {% if option.is_current %}Current · {% endif %}{{ option.name }}
+    </option>
+    {% endfor %}
+  </select>
+</label>
+</div>
+<div class="skin-picker" data-skin-picker>
+  <button class="skin-picker-trigger" type="button" aria-label="Change color theme" title="Change color theme" aria-haspopup="true" aria-expanded="false" aria-controls="skin-picker-menu">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18h1.2a2.8 2.8 0 0 0 2.1-4.7 1 1 0 0 1 .8-1.6H18a3 3 0 0 0 3-3c0-4.8-4-8.7-9-8.7ZM6.8 12.2a1.4 1.4 0 1 1 0-2.8 1.4 1.4 0 0 1 0 2.8Zm2.7-4a1.4 1.4 0 1 1 0-2.8 1.4 1.4 0 0 1 0 2.8Zm5 0a1.4 1.4 0 1 1 0-2.8 1.4 1.4 0 0 1 0 2.8Zm3.2 3.8a1.4 1.4 0 1 1 0-2.8 1.4 1.4 0 0 1 0 2.8Z"/></svg>
+  </button>
+  <div class="skin-picker-menu" id="skin-picker-menu" role="menu" aria-label="Color themes" hidden>
+    <div class="skin-picker-title">Color theme</div>
+    <button type="button" role="menuitemradio" data-skin-choice="deepthreat" aria-checked="true"><i class="skin-swatch swatch-deepthreat"></i><span>DeepThreat</span><b>✓</b></button>
+    <button type="button" role="menuitemradio" data-skin-choice="classic" aria-checked="false"><i class="skin-swatch swatch-classic"></i><span>Classic Lime</span><b>✓</b></button>
+    <button type="button" role="menuitemradio" data-skin-choice="arctic" aria-checked="false"><i class="skin-swatch swatch-arctic"></i><span>Arctic Glass</span><b>✓</b></button>
+    <button type="button" role="menuitemradio" data-skin-choice="ember" aria-checked="false"><i class="skin-swatch swatch-ember"></i><span>Ember Glow</span><b>✓</b></button>
+    <button type="button" role="menuitemradio" data-skin-choice="forest" aria-checked="false"><i class="skin-swatch swatch-forest"></i><span>Evergreen</span><b>✓</b></button>
+    <button type="button" role="menuitemradio" data-skin-choice="royal" aria-checked="false"><i class="skin-swatch swatch-royal"></i><span>Royal Box</span><b>✓</b></button>
+    <button type="button" role="menuitemradio" data-skin-choice="copper" aria-checked="false"><i class="skin-swatch swatch-copper"></i><span>Copper Circuit</span><b>✓</b></button>
+  </div>
+</div>
+</div>
+{% endif %}

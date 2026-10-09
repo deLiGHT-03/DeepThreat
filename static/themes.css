@@ -1,0 +1,152 @@
+/* Theme palettes affect surfaces and accents only. Position badges and +/- colors stay fixed. */
+.topbar-spacer{height:72px}
+.brand-logo{display:block;width:160px;height:72px;object-fit:contain}
+.league-controls{display:flex;align-items:center;gap:8px;flex:0 0 auto;margin-left:auto}
+.league-controls .league-switcher{margin-left:0}
+.league-switcher-stack{position:relative;display:block;height:38px}
+.switcher-brand{position:absolute;right:-46px;bottom:calc(100% + 10px);display:block;width:350px;max-width:min(44vw,440px);height:auto;overflow:hidden;line-height:0}
+.switcher-brand-logo{display:block;width:100%;height:auto;object-fit:contain}
+/* The brand logo floats above the heading band, so heading text keeps out of its lane:
+   350px of logo plus a gap. Below 981px the logo is in flow and needs no reservation. */
+@media(min-width:981px){.matchups-heading>div{max-width:calc(100% - 374px)}}
+.season-account-tools{display:inline-flex;align-items:center}
+.reset-username-key{display:grid;place-items:center;width:22px;height:22px;border:1px solid #344038;border-radius:5px;color:#a9c68b;opacity:.78;transition:color .15s,border-color .15s,opacity .15s}
+.reset-username-key:hover,.reset-username-key:focus-visible{color:#c4f487;border-color:#9bd85b;opacity:1;outline:none}
+.reset-username-key svg{width:12px;height:12px;fill:currentColor}
+.preload-button{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 12px;flex:none;border:1px solid #344038;border-radius:8px;background:#1b221e;color:#a9c68b;font:700 10px 'DM Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;cursor:pointer;transition:color .15s,border-color .15s,opacity .15s}
+.preload-button:hover,.preload-button:focus-visible{color:#c4f487;border-color:#9bd85b;outline:none}
+.preload-button:disabled{cursor:progress;opacity:.85}
+.preload-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#4d5a52}
+.preload-button[data-state="loading"] .preload-dot{background:#c4f487;animation:preload-pulse 1s ease-in-out infinite}
+.preload-button[data-state="ready"] .preload-dot{background:#b7f56d}
+.preload-button[data-state="error"]{color:#ff9d88;border-color:#6d3b33}
+.preload-button[data-state="error"] .preload-dot{background:#ff9d88}
+@keyframes preload-pulse{0%,100%{opacity:.25}50%{opacity:1}}
+@media(prefers-reduced-motion:reduce){.preload-button[data-state="loading"] .preload-dot{animation:none}}
+.season-switcher{display:inline-flex;align-items:center;margin:0 0 4px}
+.season-switcher select{appearance:none;width:150px;min-width:150px;max-width:min(190px,100%);padding:4px 28px 4px 7px;border:1px solid #344038;border-radius:6px;background-color:#151b17;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='m2 3.5 3 3 3-3' fill='none' stroke='%23a9c68b' stroke-width='1.4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;color:#a9c68b;font:700 10px 'DM Sans',sans-serif;letter-spacing:.12em;cursor:pointer}
+.season-switcher select:focus{outline:2px solid #a8f32f;outline-offset:2px}
+.season-switcher option{background:#121713;color:#f0f3ed}
+@media(max-width:650px){.brand-logo{width:144px;height:64px}.league-controls{gap:6px}.season-switcher select{width:145px;min-width:145px;max-width:155px;font-size:9px}}
+.skin-picker{position:relative;display:inline-flex;align-items:center;flex:none}
+.skin-picker-trigger{display:grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid #344038;border-radius:8px;background:#1b221e;color:#dce6df;cursor:pointer;transition:transform .15s,border-color .15s,background .15s}
+.skin-picker-trigger:hover,.skin-picker-trigger:focus-visible{border-color:#b7f56d;color:#b7f56d;outline:none;transform:rotate(12deg)}
+.skin-picker-trigger svg{width:20px;height:20px;fill:currentColor}
+.skin-picker-menu{position:absolute;z-index:30;top:calc(100% + 8px);right:0;width:205px;padding:7px;border:1px solid #39473e;border-radius:11px;background:#151c18;box-shadow:0 14px 34px #0009}
+.skin-picker-title{padding:6px 9px 8px;color:#85948b;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.skin-picker-menu button{display:flex;align-items:center;gap:9px;width:100%;padding:8px;border:0;border-radius:7px;background:transparent;color:#d8e1db;text-align:left;font:600 11px 'DM Sans',sans-serif;cursor:pointer}
+.skin-picker-menu button:hover,.skin-picker-menu button:focus-visible{background:#26312a;outline:none}
+.skin-picker-menu button[aria-checked="true"]{background:#202a23;color:#fff}
+.skin-picker-menu button b{margin-left:auto;color:#b7f56d;font-size:12px;opacity:0}
+.skin-picker-menu button[aria-checked="true"] b{opacity:1}
+.skin-swatch{width:17px;height:17px;flex:0 0 17px;border:1px solid #ffffff2b;border-radius:50%;background:conic-gradient(#b7f56d,#4aa6a0,#b7f56d)}
+.swatch-arctic{background:conic-gradient(#72d9e8,#5689d6,#b9e4f3,#72d9e8)}
+.swatch-ember{background:conic-gradient(#ffac67,#e45f48,#f0cf77,#ffac67)}
+.swatch-forest{background:conic-gradient(#9acb77,#4fa98f,#d1bc72,#9acb77)}
+.swatch-royal{background:conic-gradient(#bb9aff,#637de0,#e58dc0,#bb9aff)}
+.swatch-copper{background:conic-gradient(#f0a15e,#db6e45,#d7bd82,#f0a15e)}
+.swatch-deepthreat{background:conic-gradient(#b7ff28,#75ce20,#f4f7ef,#b7ff28)}
+.swatch-classic{background:conic-gradient(#b7f56d,#7ccf53,#e6f5d1,#b7f56d)}
+
+body[data-skin="deepthreat"]{background:radial-gradient(ellipse at 50% -18%,#1a2517 0,transparent 48%),#090c0a;color:#f0f3ed}
+body[data-skin="deepthreat"] .topbar{border-color:#273226}
+body[data-skin="deepthreat"] .provider,body[data-skin="deepthreat"] .eyebrow{color:#a9c68b}
+body[data-skin="deepthreat"] .brand-mark,body[data-skin="deepthreat"] .week-tab.active,body[data-skin="deepthreat"] .mode-button.active,body[data-skin="deepthreat"] .form-row button,body[data-skin="deepthreat"] .secondary-button{background:#a8f32f;color:#11180b}
+body[data-skin="deepthreat"] .week-tab,body[data-skin="deepthreat"] .mode-switch{background-color:#121813;border-color:#2c382a}
+body[data-skin="deepthreat"] .matchup-card,body[data-skin="deepthreat"] .season-table,body[data-skin="deepthreat"] .player-data-table,body[data-skin="deepthreat"] .player-data-position-card,body[data-skin="deepthreat"] .season-impact-card,body[data-skin="deepthreat"] .season-summary>div{background:#121713;border-color:#2b3528}
+body[data-skin="deepthreat"] .my-matchup .matchup-scoreline{background:#202c19}
+body[data-skin="deepthreat"] .matchup-card:not(.my-matchup):not(.impact-matchup) .matchup-scoreline{background:#18241d;border-color:#304135}
+body[data-skin="deepthreat"] .season-table th,body[data-skin="deepthreat"] .player-data-table th,body[data-skin="deepthreat"] .player-data-position-card h2,body[data-skin="deepthreat"] .season-impact-team{background:#1b231c;color:#a7b8a2}
+body[data-skin="deepthreat"] .season-table th,body[data-skin="deepthreat"] .season-table td,body[data-skin="deepthreat"] .player-data-table th,body[data-skin="deepthreat"] .player-data-table td{border-color:#2b3528}
+body[data-skin="deepthreat"] .player-data-table td.player-data-ppg{background:#0b100d;border-color:#2a3828}
+body[data-skin="deepthreat"] .season-my-team th:first-child{background:#1a2815}
+body[data-skin="deepthreat"] .league-switcher select,body[data-skin="deepthreat"] .skin-picker-trigger,body[data-skin="deepthreat"] .preload-button{background:#121713;border-color:#3a4a35}
+body[data-skin="deepthreat"] .feature-tab:hover,body[data-skin="deepthreat"] .feature-tab.active,body[data-skin="deepthreat"] .back-link:hover,body[data-skin="deepthreat"] .sort-button:hover,body[data-skin="deepthreat"] .sort-button:focus-visible{color:#a8f32f}
+body[data-skin="deepthreat"] .week-tab:hover{color:#11180b;background:#a8f32f;border-color:#a8f32f}
+body[data-skin="deepthreat"] .mode-button.active{color:#11180b}
+body[data-skin="deepthreat"] .skin-picker-trigger:hover,body[data-skin="deepthreat"] .skin-picker-trigger:focus-visible{border-color:#a8f32f;color:#a8f32f}
+body[data-skin="deepthreat"] .skin-picker-menu button b,body[data-skin="deepthreat"] .skin-picker-menu button[aria-checked="true"] b{color:#a8f32f}
+body[data-skin="deepthreat"] .week-badge,body[data-skin="deepthreat"] .me-dot{background:#a8f32f;color:#11180b}
+
+body[data-skin="arctic"]{background:radial-gradient(ellipse at 50% -18%,#1d3a50 0,transparent 48%),#0d1720;color:#e7f2f7}
+body[data-skin="arctic"] .topbar{border-color:#294152}
+body[data-skin="arctic"] .brand-mark,body[data-skin="arctic"] .week-tab.active,body[data-skin="arctic"] .mode-button.active{background:#83d8e7;color:#10212a}
+body[data-skin="arctic"] .week-tab,body[data-skin="arctic"] .mode-switch{background-color:#152631;border-color:#294152}
+body[data-skin="arctic"] .matchup-card,body[data-skin="arctic"] .season-table,body[data-skin="arctic"] .player-data-table,body[data-skin="arctic"] .player-data-position-card{background:#14232d;border-color:#294152}
+body[data-skin="arctic"] .my-matchup .matchup-scoreline{background:#1c3936}
+body[data-skin="arctic"] .matchup-card:not(.my-matchup):not(.impact-matchup) .matchup-scoreline{background:#1b3041;border-color:#294152}
+body[data-skin="arctic"] .season-table th,body[data-skin="arctic"] .player-data-table th{background:#1b2d38;color:#a6bec9}
+body[data-skin="arctic"] .season-table th,body[data-skin="arctic"] .season-table td,body[data-skin="arctic"] .player-data-table th,body[data-skin="arctic"] .player-data-table td{border-color:#294152}
+body[data-skin="arctic"] .league-switcher select,body[data-skin="arctic"] .skin-picker-trigger{background:#14232d;border-color:#355268}
+body[data-skin="arctic"] .season-switcher select{background-color:#14232d;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='m2 3.5 3 3 3-3' fill='none' stroke='%2372d9e8' stroke-width='1.4'/%3E%3C/svg%3E");border-color:#355268;color:#a9e7f2}
+
+body[data-skin="ember"]{background:radial-gradient(ellipse at 50% -18%,#4a2923 0,transparent 48%),#1b1211;color:#f5e9e2}
+body[data-skin="ember"] .topbar{border-color:#4b3029}
+body[data-skin="ember"] .brand-mark,body[data-skin="ember"] .week-tab.active,body[data-skin="ember"] .mode-button.active{background:#f2a767;color:#29170f}
+body[data-skin="ember"] .week-tab,body[data-skin="ember"] .mode-switch{background-color:#271916;border-color:#4b3029}
+body[data-skin="ember"] .matchup-card,body[data-skin="ember"] .season-table,body[data-skin="ember"] .player-data-table,body[data-skin="ember"] .player-data-position-card{background:#241916;border-color:#4b3029}
+body[data-skin="ember"] .my-matchup .matchup-scoreline{background:#34301d}
+body[data-skin="ember"] .matchup-card:not(.my-matchup):not(.impact-matchup) .matchup-scoreline{background:#30221f;border-color:#553a31}
+body[data-skin="ember"] .season-table th,body[data-skin="ember"] .player-data-table th{background:#30211d;color:#c7a99c}
+body[data-skin="ember"] .season-table th,body[data-skin="ember"] .season-table td,body[data-skin="ember"] .player-data-table th,body[data-skin="ember"] .player-data-table td{border-color:#4b3029}
+body[data-skin="ember"] .league-switcher select,body[data-skin="ember"] .skin-picker-trigger{background:#241916;border-color:#654337}
+body[data-skin="ember"] .season-switcher select{background-color:#241916;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='m2 3.5 3 3 3-3' fill='none' stroke='%23ffac67' stroke-width='1.4'/%3E%3C/svg%3E");border-color:#654337;color:#ffc18e}
+
+body[data-skin="forest"]{background:radial-gradient(ellipse at 50% -18%,#294637 0,transparent 48%),#101914;color:#e8f1e8}
+body[data-skin="forest"] .topbar{border-color:#344a3b}
+body[data-skin="forest"] .brand-mark,body[data-skin="forest"] .week-tab.active,body[data-skin="forest"] .mode-button.active{background:#a8ca79;color:#1a271a}
+body[data-skin="forest"] .week-tab,body[data-skin="forest"] .mode-switch{background-color:#19251d;border-color:#344a3b}
+body[data-skin="forest"] .matchup-card,body[data-skin="forest"] .season-table,body[data-skin="forest"] .player-data-table,body[data-skin="forest"] .player-data-position-card{background:#19251d;border-color:#344a3b}
+body[data-skin="forest"] .my-matchup .matchup-scoreline{background:#2b3c2a}
+body[data-skin="forest"] .matchup-card:not(.my-matchup):not(.impact-matchup) .matchup-scoreline{background:#21352e;border-color:#3b5748}
+body[data-skin="forest"] .season-table th,body[data-skin="forest"] .player-data-table th{background:#223129;color:#aabdac}
+body[data-skin="forest"] .season-table th,body[data-skin="forest"] .season-table td,body[data-skin="forest"] .player-data-table th,body[data-skin="forest"] .player-data-table td{border-color:#344a3b}
+body[data-skin="forest"] .league-switcher select,body[data-skin="forest"] .skin-picker-trigger{background:#19251d;border-color:#45604d}
+body[data-skin="forest"] .season-switcher select{background-color:#19251d;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='m2 3.5 3 3 3-3' fill='none' stroke='%239acb77' stroke-width='1.4'/%3E%3C/svg%3E");border-color:#45604d;color:#b4d994}
+
+body[data-skin="royal"]{background:radial-gradient(ellipse at 50% -18%,#35275a 0,transparent 48%),#13111d;color:#eeeafa}
+body[data-skin="royal"] .topbar{border-color:#3d3454}
+body[data-skin="royal"] .brand-mark,body[data-skin="royal"] .week-tab.active,body[data-skin="royal"] .mode-button.active{background:#bea6ff;color:#211936}
+body[data-skin="royal"] .week-tab,body[data-skin="royal"] .mode-switch{background-color:#1d192b;border-color:#3d3454}
+body[data-skin="royal"] .matchup-card,body[data-skin="royal"] .season-table,body[data-skin="royal"] .player-data-table,body[data-skin="royal"] .player-data-position-card{background:#1d192b;border-color:#3d3454}
+body[data-skin="royal"] .my-matchup .matchup-scoreline{background:#2c3028}
+body[data-skin="royal"] .matchup-card:not(.my-matchup):not(.impact-matchup) .matchup-scoreline{background:#29243d;border-color:#493d63}
+body[data-skin="royal"] .season-table th,body[data-skin="royal"] .player-data-table th{background:#29243a;color:#b9afce}
+body[data-skin="royal"] .season-table th,body[data-skin="royal"] .season-table td,body[data-skin="royal"] .player-data-table th,body[data-skin="royal"] .player-data-table td{border-color:#3d3454}
+body[data-skin="royal"] .league-switcher select,body[data-skin="royal"] .skin-picker-trigger{background:#1d192b;border-color:#51456e}
+body[data-skin="royal"] .season-switcher select{background-color:#1d192b;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='m2 3.5 3 3 3-3' fill='none' stroke='%23bb9aff' stroke-width='1.4'/%3E%3C/svg%3E");border-color:#51456e;color:#d0c2f4}
+
+body[data-skin="copper"]{background:radial-gradient(ellipse at 50% -18%,#493323 0,transparent 48%),#191512;color:#f3ece5}
+body[data-skin="copper"] .topbar{border-color:#4a382d}
+body[data-skin="copper"] .brand-mark,body[data-skin="copper"] .week-tab.active,body[data-skin="copper"] .mode-button.active{background:#eda15f;color:#2a1b11}
+body[data-skin="copper"] .week-tab,body[data-skin="copper"] .mode-switch{background-color:#251d18;border-color:#4a382d}
+body[data-skin="copper"] .matchup-card,body[data-skin="copper"] .season-table,body[data-skin="copper"] .player-data-table,body[data-skin="copper"] .player-data-position-card{background:#241c17;border-color:#4a382d}
+body[data-skin="copper"] .my-matchup .matchup-scoreline{background:#30301f}
+body[data-skin="copper"] .matchup-card:not(.my-matchup):not(.impact-matchup) .matchup-scoreline{background:#34251d;border-color:#604632}
+body[data-skin="copper"] .season-table th,body[data-skin="copper"] .player-data-table th{background:#30241c;color:#d1b6a0}
+body[data-skin="copper"] .season-table th,body[data-skin="copper"] .season-table td,body[data-skin="copper"] .player-data-table th,body[data-skin="copper"] .player-data-table td{border-color:#4a382d}
+body[data-skin="copper"] .player-data-table td.player-data-ppg{background:#17120f;border-color:#4a382d}
+body[data-skin="copper"] .league-switcher select,body[data-skin="copper"] .skin-picker-trigger{background:#241c17;border-color:#694c36}
+body[data-skin="copper"] .season-switcher select{background-color:#241c17;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='m2 3.5 3 3 3-3' fill='none' stroke='%23f0a15e' stroke-width='1.4'/%3E%3C/svg%3E");border-color:#694c36;color:#f5bd8a}
+body[data-skin="copper"] .skin-picker-menu{background:#201914;border-color:#4a382d}
+
+/* The two warm palettes are already brown, so the team-hover highlight needs more light in
+   it there to stay as visible as it is on the darker, cooler surfaces. */
+body[data-skin="ember"] .player-data-table tbody tr.player-data-team-hover td:not(.player-data-ppg),
+body[data-skin="copper"] .player-data-table tbody tr.player-data-team-hover td:not(.player-data-ppg){background:#4a3320}
+body[data-skin="copper"] .skin-picker-menu button:hover,body[data-skin="copper"] .skin-picker-menu button[aria-checked="true"]{background:#38291e}
+
+/* Keep established scoring semantics identical in every palette. */
+.positive{color:#b7f56d!important}.negative{color:#ff9d88!important}
+.position.pos-qb1{background:#662f35!important;color:#ffd2d2!important}.position.pos-sf{background:#662f35!important;color:#ffd2d2!important}.position.pos-te{background:#68452a!important;color:#ffe0b5!important}.position.pos-rb1,.position.pos-rb2,.position.pos-rb3{background:#31553a!important;color:#cef4ce!important}.position.pos-wr1,.position.pos-wr2,.position.pos-wr3{background:#294e69!important;color:#ceeaff!important}.position.pos-flex1,.position.pos-flex2,.position.pos-flex3{background:#513765!important;color:#f0d5ff!important}
+
+@media(max-width:980px){
+  .feature-toolbar{align-items:stretch;flex-direction:column;gap:9px}
+  .feature-toolbar .mode-switch{align-self:stretch;max-width:100%;overflow-x:auto;white-space:nowrap}
+  .league-controls{display:flex;align-items:stretch;flex-direction:column;width:100%;gap:7px;margin-left:0}
+  .league-switcher-stack{display:flex;align-items:stretch;flex-direction:column;width:100%;height:auto;gap:12px}
+  .switcher-brand{position:static;width:100%;max-width:none;height:auto;aspect-ratio:1519/670;transform:none}
+  .league-switcher{width:100%}
+  .league-switcher select{width:100%;max-width:none}
+  .league-controls .skin-picker,.league-controls .preload-button{align-self:flex-end}
+}

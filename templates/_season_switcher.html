@@ -1,0 +1,21 @@
+<div class="season-account-tools">
+  {% if season_options %}
+  <label class="season-switcher eyebrow">
+    <span class="visually-hidden">Choose season</span>
+    <select aria-label="Choose season" onchange="if (this.value) window.location.assign(this.value)">
+      {% for option in season_options %}
+      {% if switch_page == 'matchups' %}
+      {% set destination = url_for('matchups', league_id=option.league_id, week=switch_week, username=username, manager_id=manager_id, broad='1' if switch_broad else None, impact='1' if switch_impact else None, history_id=history_league_id) %}
+      {% elif switch_page == 'player_data' %}
+      {% set destination = url_for('player_data', league_id=option.league_id, week=switch_week, seasonal='1' if switch_player_seasonal else None, team='1' if switch_player_team else None, drop_lowest='1' if switch_drop_lowest else None, drop_highest='1' if switch_drop_highest else None, username=username, manager_id=manager_id, history_id=history_league_id) %}
+      {% else %}
+      {% set destination = url_for('seasonal', league_id=option.league_id, username=username, manager_id=manager_id, broad='1' if switch_broad else None, defense='1' if switch_defense else None, true_record='1' if switch_true_record else None, impact='1' if switch_impact else None, history_id=history_league_id) %}
+      {% endif %}
+      <option value="{{ destination }}" {% if option.league_id|string == current_league_id|string %}selected{% endif %}>{{ option.season }} Season</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% else %}
+  <div class="eyebrow">{{ season }} SEASON</div>
+  {% endif %}
+</div>

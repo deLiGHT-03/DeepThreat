@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Player Data · {{ summary.league.name }}{% endblock %}
+{% block content %}
+{% import "_player_position_tables.html" as position_tables %}
+{% set position_names = {'QB': 'Quarterback', 'RB': 'Running Back', 'WR': 'Wide Receiver', 'TE': 'Tight End', 'K': 'Kicker', 'DEF': 'Defense', 'DL': 'Defensive Line', 'LB': 'Linebacker', 'DB': 'Defensive Back', 'IDP': 'IDP', 'P': 'Punter', 'OL': 'Offensive Line'} %}
+<div class="player-data-page">
+  <div class="matchups-heading"><div>{% include "_season_switcher.html" %}<h1 class="section-title">Player Data</h1><p class="muted">{% if team_view %}Season points per game for every player on each roster.{% elif summary.seasonal %}Season points per game for every rostered player, by intrinsic position.{% else %}Player points scored in {{ summary.week_label }} by intrinsic position.{% endif %}</p></div></div>
+  <div class="feature-toolbar"><div class="mode-switch">{% if summary.seasonal %}<a class="mode-button" href="{{ url_for('seasonal', league_id=summary.league.league_id, username=summary.username, manager_id=summary.manager_id) }}">Matchups</a>{% if show_impact_players %}<a class="mode-button" href="{{ url_for('seasonal', league_id=summary.league.league_id, impact='1', username=summary.username, manager_id=summary.manager_id) }}">Impact Players</a>{% endif %}{% else %}<a class="mode-button" href="{{ url_for('matchups', league_id=summary.league.league_id, week=summary.week, username=summary.username, manager_id=summary.manager_id) }}">Matchups</a>{% if show_impact_players %}<a class="mode-button" href="{{ url_for('matchups', league_id=summary.league.league_id, week=summary.week, impact='1', username=summary.username, manager_id=summary.manager_id) }}">Impact Players</a>{% endif %}{% endif %}<span class="mode-button active" aria-current="page">Player Data</span></div>{% include "_league_switcher.html" %}</div>
+  <nav class="week-tabs" aria-label="Choose Player Data period"><a class="week-tab seasonal-tab {% if team_view %}active{% endif %}" href="{{ url_for('player_data', league_id=summary.league.league_id, team='1', username=summary.username, manager_id=summary.manager_id) }}">Team</a><a class="week-tab seasonal-tab {% if summary.seasonal and not team_view %}active{% endif %}" href="{{ url_for('player_data', league_id=summary.league.league_id, seasonal='1', username=summary.username, manager_id=summary.manager_id) }}">Season</a>{% for tab in summary.league.week_tabs %}<a class="week-tab{% if tab.playoff %} playoff-tab{% endif %}{% if not summary.seasonal and tab.week == summary.week %} active{% endif %}" href="{{ url_for('player_data', league_id=summary.league.league_id, week=tab.week, username=summary.username, manager_id=summary.manager_id) }}">{{ tab.label }}</a>{% endfor %}</nav>
+  {% if summary.team %}
+    {% if summary.failed_weeks %}<p class="season-warning">Couldn’t load Sleeper data for {{ summary.failed_weeks|join(', ') }}.</p>{% endif %}
+    {% if summary.seasonal %}
+      <form class="player-score-trim" method="get" action="{{ url_for('player_data', league_id=summary.league.league_id) }}">
+        <input type="hidden" name="username" value="{{ summary.username }}"><input type="hidden" name="manager_id" value="{{ summary.manager_id }}"><input type="hidden" name="seasonal" value="1">{% if team_view %}<input type="hidden" name="team" value="1">{% endif %}
+        <span>Drop score:</span>
+        <label><input type="checkbox" name="drop_lowest" value="1" {% if summary.drop_lowest %}checked{% endif %} onchange="this.form.submit()"> Lowest</label>
+        <span class="player-score-trim-separator">|</span>
+        <label><input type="checkbox" name="drop_highest" value="1" {% if summary.drop_highest %}checked{% endif %} onchange="this.form.submit()"> Highest</label>
+      </form>
+      <p class="season-games">PPG uses recorded weekly points for every player currently on a roster, whether they started or were benched. GP counts only NFL weeks they appeared in; bye and missed games are excluded. Data runs through Week {{ summary.weeks_played }}, playoffs included once the league has scored them.{% if summary.drop_lowest or summary.drop_highest %} Selected score(s) are excluded from both totals and GP.{% endif %}</p>
+      {% if team_view %}
+        {% if summary.teams %}
+        <div class="season-impact-grid player-data-grid">
+          {% for item in summary.teams %}
+            <article class="season-impact-card player-data-card {% if item.is_mine %}my-matchup{% endif %}">
+              <header class="season-impact-team">
+                {% if item.team.logo_url %}<img class="season-team-avatar" src="{{ item.team.logo_url }}" data-avatar-fallbacks="{{ item.team.logo_fallback_urls|join('|') }}" alt=""><span class="team-logo-placeholder" hidden>{{ item.team.name[0]|upper }}</span>{% else %}<span class="team-logo-placeholder season-team-avatar">{{ item.team.name[0]|upper }}</span>{% endif %}
+                {% if item.is_mine %}<span class="me-dot">YOU</span>{% endif %}<strong class="player-data-team-name" data-team-name="{{ item.team.name|lower }}">{{ item.team.name }}</strong><span class="record">{{ item.team.record }}</span>
+              </header>
+              <div class="player-data-table-wrap"><table class="player-data-table" data-player-sort>
+                <thead><tr><th><button type="button" data-sort-key="position" data-sort-direction="asc">POS <span>↕</span></button></th><th><button type="button" data-sort-key="name" data-sort-direction="asc">PLAYER <span>↕</span></button></th><th><button type="button" data-sort-key="ppg" data-sort-direction="desc" aria-sort="descending">PPG <span>↓</span></button></th><th><button type="button" title="Value Over Average Starter: points per game above the average of the top starters at his position." data-sort-key="voas" data-sort-direction="desc">VOAS <span>↕</span></button></th></tr></thead>
+                <tbody>{% for player in item.players %}<tr data-team="{{ item.team.name|lower }}" data-position="{{ player.position }}" data-name="{{ player.name|lower }}" data-ppg="{{ player.ppg }}" data-voas="{{ player.voas if player.voas is not none else '' }}"><td><span class="position pos-{{ player.position|lower|replace('/', '-') }}">{{ player.position }}</span></td><td><span class="player-card-target" data-player-id="{{ player.id }}">{{ player.name }}</span><small>{{ player.games }} GP · {{ '%.1f'|format(player.total_points) }} pts</small></td><td class="player-data-ppg">{{ '%.1f'|format(player.ppg) }}</td><td class="player-data-voas {% if player.voas is not none and player.voas > 0 %}positive{% elif player.voas is not none and player.voas < 0 %}negative{% endif %}">{% if player.voas is not none %}{{ '%+.1f'|format(player.voas) }}{% else %}&mdash;{% endif %}</td></tr>{% else %}<tr><td colspan="4" class="muted">No players on this roster.</td></tr>{% endfor %}</tbody>
+              </table></div>
+            </article>
+          {% endfor %}
+        </div>
+        {% else %}<div class="empty-state">No players with recorded scores were found.</div>{% endif %}
+      {% else %}
+        {{ position_tables.position_grid(summary.position_tables, position_names, season=True) }}
+      {% endif %}
+    {% else %}
+      {{ position_tables.position_grid(summary.position_tables, position_names, season=False, week_label=summary.week_label) }}
+    {% endif %}
+  {% else %}<div class="empty-state">I couldn’t match this Sleeper username to a team. Reconnect using your Sleeper username.</div>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='player-data.js') }}" defer></script><script src="{{ url_for('static', filename='avatar-fallback.js') }}" defer></script><script src="{{ url_for('static', filename='player-card.js') }}" defer></script>{% endblock %}

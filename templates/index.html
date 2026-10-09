@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Connect a league · DeepThreat{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="eyebrow">YOUR LEAGUE, AT A GLANCE</div>
+  <h1>Make your next<br><span>move with confidence.</span></h1>
+  <p class="intro">Connect a Sleeper account to explore your leagues and get quick access to player news and social updates.</p>
+  <form class="connect-card" action="{{ url_for('leagues') }}" method="post">
+    <label for="username">Sleeper username</label>
+    <input id="username" name="username" value="{{ username|default('', true) }}" placeholder="e.g. gridiron_guru" required autocomplete="username">
+    <div class="form-row"><div><label for="season">Season</label><select id="season" name="season">{% for year in range(2026, 2019, -1) %}<option value="{{ year }}" {% if year == 2026 %}selected{% endif %}>{{ year }}</option>{% endfor %}</select></div><button type="submit">Find my leagues <span>→</span></button></div>
+    <div class="privacy-note">Read-only connection · No Sleeper password needed</div>
+  </form>
+  <div class="feature-row"><div><b>01</b><span>Weekly matchups</span></div><div><b>02</b><span>Season trends</span></div><div><b>03</b><span>Player news links</span></div></div>
+</section>
+{% endblock %}
