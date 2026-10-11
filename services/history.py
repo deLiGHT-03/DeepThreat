@@ -45,6 +45,14 @@ MOVE_TYPES = ("trade", "waiver", "free_agent")
 LEADER_ROWS = 8
 #: How many seasons of a league are walked before the chain is treated as too long to read.
 MAX_SEASONS = 25
+#: How many of the page's reads are kept in flight at once. The History page is the heaviest
+#: reader in the app -- this league's chain is eight seasons and 311 responses, 243 of them one
+#: week of games or moves -- and what a visitor waits for is those reads, since each one is a
+#: small JSON document whose cost is the round trip rather than the bytes. Measured on a cold
+#: chain, three rounds of each: eight workers 1.69s, sixteen 1.18s, for the same 311 reads.
+#: Sixteen is as far as this goes while the reads still share the session's connections, which
+#: are pooled 32 per host in services/sleeper.py.
+READ_WORKERS = 16
 #: A rookie draft is the short draft a season runs: a startup runs twenty-odd rounds, a rookie
 #: draft five or fewer. A season whose only draft is the long one has no rookie draft to read.
 MAX_ROOKIE_ROUNDS = 8
@@ -220,7 +228,7 @@ def warm_history(plan: list[dict], season: str = "", progress=None) -> list[str]
     failed = []
     done = 0
     total = len(jobs) or 1
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    with ThreadPoolExecutor(max_workers=READ_WORKERS) as executor:
         futures = {executor.submit(_fetch_job, path, failure): name
                    for path, failure, name in jobs}
         for future in as_completed(futures):
@@ -887,7 +895,7 @@ def get_history_summary(league_id: str, username: str = "", manager_id: str = ""
     usernames: dict[str, str] = {}
     if owner_display:
         ordered_owners = sorted(owner_display)
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=READ_WORKERS) as executor:
             found = list(executor.map(
                 lambda owner_id: _clean(get_user_by_id(owner_id).get("username")),
                 ordered_owners))

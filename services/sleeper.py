@@ -46,8 +46,9 @@ _BRACKET_PATH = re.compile(r"^/league/(?P<league_id>[^/]+)/(?:winners|losers)_br
 # handshake is not small next to the response -- measured against Sleeper, 57ms per call made
 # with a fresh connection against 15ms with a kept one, and one page makes between seventeen and
 # three hundred calls, so it is most of what a page spends waiting. The pool is sized for the
-# concurrency the app itself uses, because the preload and the History page read a league with
-# six threads at a time and a pool that is too small throws away the connections it just made.
+# concurrency the app itself uses, because the preload and the History page read a league with up
+# to sixteen threads at a time (services/history.py) and a pool that is too small throws away the
+# connections it just made: thirty-two holds two such readers at once.
 #
 # The retry is there for the one failure a kept connection adds: the far end can drop an idle
 # one between two calls, and the first call to notice should open another rather than fail a
