@@ -58,6 +58,17 @@ Nothing else is configurable, and no secret belongs in this repository: `.gitign
   paid web services. So the first visit to a URL still reaches the instance; the header is what
   a paid service, or a Cloudflare zone of your own in front of a custom domain, would need to
   make the second visit free as well.
+- **The History page's numbers come from the image, not from the instance.** History is the one
+  page that reads a league's whole past — every week of matchups and every week of transactions of
+  every season it has played — so what each *finished* season added up to is kept, and a copy
+  holding nothing rebuilds the page from that instead of reading those weeks again. A summary is
+  only ever used for a season whose every week is scored, and only while the season still agrees
+  with what the summary was built from, so a season being played is still read live. The desktop
+  app writes its own summaries under `%APPDATA%\DeepThreat\history`; a served copy keeps nothing
+  on its host (see *Remembering the connection*), and Render's free instances throw the filesystem
+  away when they sleep, so what it rebuilds from is the snapshot committed beside the app in
+  `data/history/`. Refresh it with `python tools/build_history_snapshot.py`, which builds the page,
+  rebuilds it from the snapshot and refuses to succeed unless the two are byte-identical.
 - **It treats its address as public.** Crawlers are asked to stay out and every request is
   counted, against the visitor and against the instance as a whole; see *Keeping crawlers and
   loops out* below for the counts and how to change them.
@@ -133,7 +144,10 @@ without becoming a flood of its own.
 
 - A free instance **sleeps when nothing is asking**, and the first request after that waits for
   it to wake (tens of seconds). The pages are read-heavy, so the first hit on a cold instance is
-  the slow one; every hit after it is served from the in-memory cache.
+  the slow one; every hit after it is served from the in-memory cache. Sleeping also throws away
+  the instance's own filesystem, which is why the History page's season summaries are committed
+  to the image rather than written on the host: a file written during one life of the instance is
+  not there when it wakes.
 - There is **one worker, deliberately**: the cache, the preload and the Sleeper reads all live in
   this process, and more workers would mean reading the same thing several times over.
 
@@ -181,6 +195,10 @@ Then the same checks on the deployed copy, which answer the questions a local ru
   through, and are not read, which is why rotating them buys a caller nothing.
 - A visitor with no cookie gets the connect page rather than somebody else's league, and the
   league that is open on the copy comes from that browser's own session.
+- A cold History render on the deployed copy rebuilds the finished seasons from the snapshot in
+  its image, and asks the process what it did (`/league/<id>/preload` reports `summaries`, counted
+  per tier, and a restarted process reports all zeroes): the whole chain came back as the same
+  65,954 bytes the local app serves, with 60 upstream reads against 309.
 - The pages load a 284 KB lossless `.webp` logo rather than the 840 KB PNG (the PNG stays as the
   icon master, and `packaging/make_web_logo.py` regenerates the web one), it is served as
   `image/webp` and is byte-identical to the file in this repository, all thirteen stylesheets

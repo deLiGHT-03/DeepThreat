@@ -45,6 +45,18 @@ def keeps_a_file() -> bool:
     return _REMEMBER_FILE or not _SERVED
 
 
+def keeps_files() -> bool:
+    """Whether this copy may keep something in a file at all, of any kind.
+
+    The same rule as :func:`keeps_a_file`, asked of a different thing. Not because a derived
+    cache holds anything personal -- a league's own public numbers are not somebody's memory --
+    but because it is the same question asked of the same host: a served copy is a fresh
+    container every time it wakes, so a file it writes there is a file it will not find again,
+    and work done to be thrown away is worse than work not done.
+    """
+    return keeps_a_file()
+
+
 def _settings_path() -> Path:
     app_data = os.environ.get("APPDATA") or os.environ.get("LOCALAPPDATA")
     root = Path(app_data) if app_data else Path.home() / "AppData" / "Roaming"

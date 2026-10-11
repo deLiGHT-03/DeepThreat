@@ -20,6 +20,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from services import history_digest
 from services.history import READ_WORKERS, season_plan, warm_history
 from services.sleeper import (SleeperError, cached_response_count, fetched_response_count,
                               get_json, get_league_dashboard, get_nfl_schedule,
@@ -62,6 +63,11 @@ def preload_status(league_id: str) -> dict:
         # network, but this does not, so "is the copy I am measuring the copy I built" is answered
         # rather than assumed.
         "read_workers": READ_WORKERS,
+        # What this process has done with kept season summaries: how many it rebuilt a season from
+        # and where they came from (see services/history_digest.py). Counted since the process
+        # started, so all-zeroes is a process that has not read History yet, and it is how a served
+        # copy says whether it found the snapshot shipped in its image or nothing at all.
+        "summaries": history_digest.stats(),
     }
 
 

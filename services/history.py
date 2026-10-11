@@ -31,6 +31,7 @@ from __future__ import annotations
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from services import history_digest
 from services.sleeper import (MAX_NFL_WEEK, SleeperError, display_handle, get_json,
                               get_league_dashboard, get_league_season_history,
                               get_player_index, get_user_by_id, regular_season_week_count,
@@ -198,7 +199,9 @@ def warm_history(plan: list[dict], season: str = "", progress=None) -> list[str]
 
     Every season in the chain is read for its bracket and its teams, because the season chips
     name the champion of each year whatever year is being read. Only the season in view has its
-    weeks and its draft read: a page about 2024 has no use for 2022's weekly scores.
+    weeks and its draft read: a page about 2024 has no use for 2022's weekly scores. A finished
+    season that already has a summary kept for it is not read for its weeks at all -- the page
+    will not ask for them, so a preload that fetched them would be fetching for nobody.
 
     Returns a list of what could not be read, named the way the page names it (``"2024 Wk9"``),
     because a league history that is one week short is still a history worth showing.
@@ -217,6 +220,10 @@ def warm_history(plan: list[dict], season: str = "", progress=None) -> list[str]
         jobs.append((f"/league/{season_id}/rosters", f"{name} rosters", name))
         jobs.append((f"/league/{season_id}/users", f"{name} managers", name))
         if season and entry["season"] != season:
+            continue
+        if history_digest.load(entry) is not None:
+            # Its weeks have already been added up and kept, so neither the page nor a preload
+            # needs them: what is skipped here is what the page would skip too.
             continue
         for week in range(1, entry["played"] + 1):
             jobs.append((f"/league/{season_id}/matchups/{week}", f"{name} Wk{week}", name))
@@ -380,8 +387,7 @@ def _pick_weight(picks: list[dict]) -> float:
 
 
 def _big_swing_row(transaction: dict, teams: dict, labels: dict, scored_by: dict,
-                   player_index: dict, league: dict, season: str, week: int,
-                   own_roster) -> dict | None:
+                   player_index: dict, league: dict, season: str, week: int) -> dict | None:
     """Read one trade as a player bought with picks alone, and what he scored afterwards.
 
     Only a trade that sent exactly one player one way and nothing but picks the other is one of
@@ -413,7 +419,7 @@ def _big_swing_row(transaction: dict, teams: dict, labels: dict, scored_by: dict
         "week_label": week_label(league, week),
         "team": labels.get(buyer) or _clean(team["name"]),
         "price": _pick_price(picks), "weight": _pick_weight(picks), "picks": len(picks),
-        "is_mine": buyer == own_roster,
+        "roster_id": buyer,
     }
 
 
@@ -863,6 +869,354 @@ def _season_record_groups(team_rows: list[dict], games: list[dict], streaks: lis
     ]
 
 
+def _as_mine(rows: list[dict], own_roster) -> list[dict]:
+    """The rows a page is about to draw, each saying whether it belongs to the reader's team.
+
+    A kept summary cannot answer that itself: the roster a row belongs to is the same for
+    everybody, and which one is yours is not. So it is answered here, once, for rows read from
+    Sleeper and for rows rebuilt from a summary alike. Each row is copied rather than marked
+    where it stands, because the summary underneath may be shared -- another page, of the same
+    league, read by another manager, can be drawing from it at the same moment.
+    """
+    return [{**row, "is_mine": own_roster is not None and row.get("roster_id") == own_roster}
+            for row in rows]
+
+
+def _season_digest(season_id: str, label: str, league: dict, teams: dict, owner_of: dict,
+                   roster_label: dict, regular: int, played: int, read_weeks: int,
+                   player_index: dict) -> dict:
+    """Read one season's weeks and its draft, and return everything they add up to as rows.
+
+    This is the whole of what a cold History page spends its time on: every scored week's
+    matchups paired into games and added up, every week's transactions read into moves, claims,
+    bids and trades, and the draft read into picks and what became of them. The rows it returns
+    are the page's own -- the week label, the record and the name are already on them -- so a page
+    built from these numbers and a page rebuilt from the kept copy of them are the same page.
+
+    Two things are deliberate about what it hands back. A row names the roster it belongs to
+    rather than saying whether it is *yours*, because the same season is read for whoever is
+    looking; and the totals are this function's own rather than the page's, because this is the
+    half of the work that a later page may not have to do at all -- given a kept summary, its
+    caller only merges. Nothing named in here is a Sleeper payload: a kept payload would have to
+    be parsed and added up again, which is the cost this exists to remove.
+    """
+    game_rows: list[dict] = []
+    player_weeks: list[dict] = []
+    team_seasons: list[dict] = []
+    draft_rows: list[dict] = []
+    rookie_rows: list[dict] = []
+    rookie_game_rows: list[dict] = []
+    rookie_draft_rows: list[dict] = []
+    rookie_cut_rows: list[dict] = []
+    rookie_trade_rows: list[dict] = []
+    streak_rows: list[dict] = []
+    move_rows: list[dict] = []
+    gem_rows: list[dict] = []
+    bid_rows: list[dict] = []
+    swing_rows: list[dict] = []
+    points_scored = 0.0
+    move_count = 0
+    trade_count = 0
+    # Every played week, paired into games. Regular-season weeks are what the season totals
+    # count; every week is what the game records and the streaks count.
+    team_stats = {roster_id: {"points": 0.0, "wins": 0, "losses": 0, "ties": 0, "games": 0}
+                  for roster_id in teams}
+    results = defaultdict(list)
+    season_players = defaultdict(lambda: {"points": 0.0, "weeks": {}})
+    week_best: dict[str, dict] = {}
+    for week in range(1, played + 1):
+        rows = get_json(f"/league/{season_id}/matchups/{week}") or []
+        label_of_week = week_label(league, week)
+        playoff = week > regular
+        for row in rows:
+            roster_id = row.get("roster_id")
+            if roster_id not in teams:
+                continue
+            for player_id, score in (row.get("players_points") or {}).items():
+                if score is None:
+                    continue
+                player_id = str(player_id)
+                scored = season_players[player_id]
+                scored["points"] += float(score)
+                scored["weeks"][week] = scored["weeks"].get(week, 0.0) + float(score)
+                best = week_best.get(player_id)
+                if best is None or float(score) > best["points"]:
+                    week_best[player_id] = {
+                        "id": player_id,
+                        "points": float(score), "week": week,
+                        "week_label": label_of_week, "season": label,
+                        "team": roster_label[roster_id],
+                        "roster_id": roster_id,
+                    }
+        for roster_id, opponent_id, score, opponent_score in _pair_rows(rows):
+            team = teams.get(roster_id)
+            if team is None:
+                continue
+            opponent = teams.get(opponent_id)
+            margin = score - opponent_score
+            result = "win" if margin > 0 else "loss" if margin < 0 else "tie"
+            game_rows.append({
+                "season": label, "week": week, "week_label": label_of_week,
+                "playoff": playoff, "team": roster_label[roster_id],
+                "opponent": roster_label[opponent_id] if opponent else "—",
+                "points": score, "opponent_points": opponent_score,
+                "margin": margin, "combined": score + opponent_score,
+                "result": result, "roster_id": roster_id,
+            })
+            results[roster_id].append((week, result))
+            # Only the regular season reaches the season and career totals: it is the stretch
+            # every team plays the same number of games, and what Sleeper's own totals show.
+            # The games themselves are still kept, for the records that count any week.
+            if playoff:
+                continue
+            stats = team_stats[roster_id]
+            stats["games"] += 1
+            stats[{"win": "wins", "loss": "losses", "tie": "ties"}[result]] += 1
+            stats["points"] += score
+            points_scored += score
+    for player_id, best in week_best.items():
+        player = player_index.get(player_id) or {}
+        best["name"] = _player_name(player, player_id)
+        best["position"] = player.get("position") or "—"
+    player_weeks.extend(week_best.values())
+
+    # The draft is read before the moves, because the rookies a team drafted are what its
+    # later cuts and trades are read against. The longest draft is the one whose capital is
+    # counted -- a startup runs twenty-odd rounds deep and a rookie draft four or five --
+    # while the shortest is the rookie draft itself, and where every rookie below comes from.
+    season_drafts: list[tuple[dict, list[dict]]] = []
+    picks: list[dict] = []
+    for draft in get_json(f"/league/{season_id}/drafts") or []:
+        if not isinstance(draft, dict) or not draft.get("draft_id"):
+            continue
+        made = [pick for pick in (get_json(f"/draft/{draft['draft_id']}/picks") or [])
+                if isinstance(pick, dict)]
+        season_drafts.append((draft, made))
+        if len(made) > len(picks):
+            picks = made
+    drafted = {str(pick.get("player_id")) for pick in picks if pick.get("player_id") is not None}
+    pick_counts = defaultdict(int)
+    for pick in picks:
+        pick_counts[pick.get("roster_id")] += 1
+    base = len(picks) // len(teams) if teams else 0
+    for roster_id, count in pick_counts.items():
+        if roster_id not in teams:
+            continue
+        draft_rows.append({
+            "season": label, "name": roster_label[roster_id], "picks": count,
+            "base": base, "extra": count - base, "roster_id": roster_id,
+        })
+
+    rookie_draft = _rookie_draft_of(season_drafts)
+    rookies: dict[str, dict] = {}
+    if rookie_draft is not None:
+        rookie_picks, rookie_rounds = rookie_draft
+        for pick in rookie_picks:
+            player_id = pick.get("player_id")
+            if player_id is not None:
+                rookies.setdefault(str(player_id), pick)
+        used_by_team = defaultdict(int)
+        for pick in rookies.values():
+            used_by_team[pick.get("roster_id")] += 1
+        for roster_id, team in teams.items():
+            rookie_draft_rows.append({
+                "season": label, "name": roster_label[roster_id],
+                "picks": used_by_team.get(roster_id, 0), "rounds": rookie_rounds,
+                "roster_id": roster_id,
+            })
+    for player_id, pick in rookies.items():
+        player = player_index.get(player_id) or {}
+        scored = season_players.get(player_id)
+        team = teams.get(pick.get("roster_id"))
+        if not scored or not scored["points"] or team is None:
+            continue
+        rookie_rows.append({
+            "season": label, "id": player_id, "name": _player_name(player, player_id),
+            "position": player.get("position") or "—", "points": scored["points"],
+            "weeks": len(scored["weeks"]),
+            "ppg": scored["points"] / len(scored["weeks"]) if scored["weeks"] else 0.0,
+            "round": int(pick.get("round") or 0), "pick_no": int(pick.get("pick_no") or 0),
+            "round_label": round_label(int(pick.get("round") or 0)),
+            "team": roster_label[team["roster_id"]],
+            "roster_id": pick.get("roster_id"),
+        })
+        best_week_of = week_best.get(player_id)
+        if best_week_of is not None:
+            rookie_game_rows.append({**best_week_of,
+                                    "round": int(pick.get("round") or 0),
+                                    "drafted_by": roster_label[team["roster_id"]]})
+
+    # Season totals per team, and the career line they feed. Only counted weeks are in
+    # here, so a season in progress adds the games it has actually played.
+    for roster_id, stats in team_stats.items():
+        if not stats["games"]:
+            continue
+        team = teams[roster_id]
+        owner_id = owner_of.get(roster_id, "")
+        record = f"{stats['wins']}-{stats['losses']}"
+        if stats["ties"]:
+            record = f"{record}-{stats['ties']}"
+        team_seasons.append({
+            "season": label, "name": roster_label[roster_id],
+            "owner": _clean(team.get("owner")),
+            "owner_id": owner_id, "roster_id": roster_id,
+            "wins": stats["wins"], "losses": stats["losses"], "ties": stats["ties"],
+            "games": stats["games"], "points": stats["points"], "record": record,
+            "ppg": stats["points"] / stats["games"] if stats["games"] else 0.0,
+            # A season is only compared against another when the regular season is done:
+            # a 4-0 start is not a better record than 14 games of work.
+            "full": regular > 0 and stats["games"] >= regular,
+        })
+
+    for roster_id, week_results in results.items():
+        team = teams.get(roster_id)
+        if team is None:
+            continue
+        wins, losses = _best_streaks(week_results)
+        if max(wins[0], losses[0]) > 1:
+            streak_rows.append({"season": label, "name": roster_label[roster_id], "win": wins,
+                                "loss": losses, "roster_id": roster_id})
+
+    # Moves: every settled trade, waiver claim and free-agent add, counted once per roster
+    # involved. A transaction Sleeper files under two weeks is only read once.
+    move_counts = defaultdict(int)
+    move_types = defaultdict(lambda: defaultdict(int))
+    adds: dict[str, dict] = {}
+    # Keyed by player so a rookie dropped, re-added and dropped again is one cut, not two.
+    rookie_cuts: dict = defaultdict(dict)
+    seen = set()
+    for week in range(1, read_weeks + 1):
+        for transaction in get_json(f"/league/{season_id}/transactions/{week}") or []:
+            if not isinstance(transaction, dict):
+                continue
+            if transaction.get("status") not in SETTLED_STATUSES:
+                continue
+            kind = transaction.get("type")
+            if kind not in MOVE_TYPES:
+                continue
+            transaction_id = str(transaction.get("transaction_id") or "")
+            if not transaction_id or transaction_id in seen:
+                continue
+            seen.add(transaction_id)
+            try:
+                leg = int(transaction.get("leg") or week)
+            except (TypeError, ValueError):
+                leg = week
+            move_count += 1
+            if kind == "trade":
+                trade_count += 1
+                swing = _big_swing_row(transaction, teams, roster_label, season_players,
+                                       player_index, league, label, leg)
+                if swing is not None:
+                    swing_rows.append(swing)
+                for player_id, roster_id in (transaction.get("adds") or {}).items():
+                    player_id = str(player_id)
+                    rookie_pick = rookies.get(player_id)
+                    if rookie_pick is None or rookie_pick.get("roster_id") == roster_id:
+                        continue  # a rookie only counts as traded once he changes teams
+                    drafted_by = teams.get(rookie_pick.get("roster_id"))
+                    rookie_trade_rows.append({
+                        "season": label, "id": player_id,
+                        "created": int(transaction.get("created") or 0), "week": leg,
+                        "name": _player_name(player_index.get(player_id) or {}, player_id),
+                        "from": roster_label[drafted_by["roster_id"]] if drafted_by else "—",
+                        "to": roster_label[roster_id] if roster_id in teams else "—",
+                        "round": int(rookie_pick.get("round") or 0),
+                        "roster_id": roster_id,
+                    })
+            for roster_id in transaction.get("roster_ids") or []:
+                if roster_id not in teams:
+                    continue
+                move_counts[roster_id] += 1
+                move_types[roster_id][kind] += 1
+            if kind not in ("waiver", "free_agent"):
+                continue
+            try:
+                amount = int((transaction.get("settings") or {}).get("waiver_bid") or 0)
+            except (TypeError, ValueError):
+                amount = 0
+            for player_id, roster_id in (transaction.get("drops") or {}).items():
+                player_id = str(player_id)
+                rookie_pick = rookies.get(player_id)
+                if rookie_pick is None or rookie_pick.get("roster_id") != roster_id:
+                    continue  # only a team cutting the rookie it drafted counts as a cut
+                rookie_cuts[roster_id][player_id] = _player_name(
+                    player_index.get(player_id) or {}, player_id)
+            for player_id, roster_id in (transaction.get("adds") or {}).items():
+                player_id = str(player_id)
+                previous = adds.get(player_id)
+                if previous is None or leg < previous["week"]:
+                    adds[player_id] = {"week": leg, "roster_id": roster_id, "kind": kind}
+                if amount > 0 and roster_id in teams:
+                    player = player_index.get(player_id) or {}
+                    bid_rows.append({
+                        "season": label, "amount": amount, "week": leg,
+                        "id": player_id, "name": _player_name(player, player_id),
+                        "position": player.get("position") or "—",
+                        "team": roster_label[roster_id],
+                        "roster_id": roster_id,
+                    })
+    for roster_id, count in move_counts.items():
+        move_rows.append({
+            "season": label, "name": roster_label[roster_id], "moves": count,
+            "trades": move_types[roster_id].get("trade", 0),
+            "waivers": move_types[roster_id].get("waiver", 0),
+            "free_agents": move_types[roster_id].get("free_agent", 0),
+            "roster_id": roster_id,
+        })
+    for roster_id, cut_players in rookie_cuts.items():
+        team = teams.get(roster_id)
+        if team is None:
+            continue
+        names = sorted(cut_players.values(), key=str.casefold)
+        rookie_cut_rows.append({
+            "season": label, "name": roster_label[roster_id], "cuts": len(names),
+            "names": names[:3], "roster_id": roster_id,
+        })
+
+    # Waiver gems: players added off the wire that season, measured by what they scored in
+    # it, with the points from the week they were added separated out -- that second number
+    # is what the manager actually got out of the pickup.
+    for player_id, add in adds.items():
+        scored = season_players.get(player_id)
+        team = teams.get(add["roster_id"])
+        if not scored or scored["points"] <= 0 or team is None:
+            continue
+        player = player_index.get(player_id) or {}
+        gem_rows.append({
+            "season": label, "week": add["week"], "id": player_id,
+            "name": _player_name(player, player_id),
+            "position": player.get("position") or "—", "team": roster_label[add["roster_id"]],
+            "points": scored["points"],
+            "after": sum(points for week, points in scored["weeks"].items()
+                         if week >= add["week"]),
+            "undrafted": player_id not in drafted,
+            "roster_id": add["roster_id"],
+        })
+    return {
+        "league_id": season_id,
+        "season": label,
+        "regular": regular,
+        "played": played,
+        "team_seasons": team_seasons,
+        "games": game_rows,
+        "player_weeks": player_weeks,
+        "drafts": draft_rows,
+        "rookies": rookie_rows,
+        "rookie_games": rookie_game_rows,
+        "rookie_drafts": rookie_draft_rows,
+        "rookie_cuts": rookie_cut_rows,
+        "rookie_trades": rookie_trade_rows,
+        "streaks": streak_rows,
+        "moves": move_rows,
+        "gems": gem_rows,
+        "bids": bid_rows,
+        "swings": swing_rows,
+        "totals": {"points": points_scored, "moves": move_count, "trades": trade_count},
+    }
+
+
+
 def get_history_summary(league_id: str, username: str = "", manager_id: str = "",
                         season: str = "") -> dict:
     """Answer the record book for one season, or for every season the league has played."""
@@ -1008,298 +1362,50 @@ def get_history_summary(league_id: str, username: str = "", manager_id: str = ""
         if not collect:
             continue
 
-        # Every played week, paired into games. Regular-season weeks are what the season totals
-        # count; every week is what the game records and the streaks count.
-        team_stats = {roster_id: {"points": 0.0, "wins": 0, "losses": 0, "ties": 0, "games": 0}
-                      for roster_id in teams}
-        results = defaultdict(list)
-        season_players = defaultdict(lambda: {"points": 0.0, "weeks": {}})
-        week_best: dict[str, dict] = {}
-        for week in range(1, played + 1):
-            rows = get_json(f"/league/{season_id}/matchups/{week}") or []
-            label_of_week = week_label(league, week)
-            playoff = week > regular
-            for row in rows:
-                roster_id = row.get("roster_id")
-                if roster_id not in teams:
-                    continue
-                for player_id, score in (row.get("players_points") or {}).items():
-                    if score is None:
-                        continue
-                    player_id = str(player_id)
-                    scored = season_players[player_id]
-                    scored["points"] += float(score)
-                    scored["weeks"][week] = scored["weeks"].get(week, 0.0) + float(score)
-                    best = week_best.get(player_id)
-                    if best is None or float(score) > best["points"]:
-                        week_best[player_id] = {
-                            "id": player_id,
-                            "points": float(score), "week": week,
-                            "week_label": label_of_week, "season": label,
-                            "team": roster_label[roster_id],
-                            "is_mine": roster_id == own_roster,
-                        }
-            for roster_id, opponent_id, score, opponent_score in _pair_rows(rows):
-                team = teams.get(roster_id)
-                if team is None:
-                    continue
-                opponent = teams.get(opponent_id)
-                margin = score - opponent_score
-                result = "win" if margin > 0 else "loss" if margin < 0 else "tie"
-                game_rows.append({
-                    "season": label, "week": week, "week_label": label_of_week,
-                    "playoff": playoff, "team": roster_label[roster_id],
-                    "opponent": roster_label[opponent_id] if opponent else "—",
-                    "points": score, "opponent_points": opponent_score,
-                    "margin": margin, "combined": score + opponent_score,
-                    "result": result, "is_mine": roster_id == own_roster,
-                })
-                results[roster_id].append((week, result))
-                # Only the regular season reaches the season and career totals: it is the stretch
-                # every team plays the same number of games, and what Sleeper's own totals show.
-                # The games themselves are still kept, for the records that count any week.
-                if playoff:
-                    continue
-                stats = team_stats[roster_id]
-                stats["games"] += 1
-                stats[{"win": "wins", "loss": "losses", "tie": "ties"}[result]] += 1
-                stats["points"] += score
-                totals["points"] += score
-        for player_id, best in week_best.items():
-            player = player_index.get(player_id) or {}
-            best["name"] = _player_name(player, player_id)
-            best["position"] = player.get("position") or "—"
-        player_weeks.extend(week_best.values())
+        # Everything this season adds up to: read from Sleeper once and kept for next time, or
+        # rebuilt from the copy kept when a page last asked. Both arrive here as the same rows,
+        # so the merge below is the only thing that has to know how the page gets its numbers --
+        # a page read from a summary and a page read from the weeks are one page.
+        digest = history_digest.load(entry)
+        if digest is None:
+            digest = _season_digest(season_id, label, league, teams, owner_of, roster_label,
+                                    regular, entry["played"], entry["read"], player_index)
+            history_digest.save(entry, digest)
+        team_rows = _as_mine(digest["team_seasons"], own_roster)
+        team_seasons.extend(team_rows)
+        game_rows.extend(_as_mine(digest["games"], own_roster))
+        player_weeks.extend(_as_mine(digest["player_weeks"], own_roster))
+        draft_rows.extend(_as_mine(digest["drafts"], own_roster))
+        rookie_rows.extend(_as_mine(digest["rookies"], own_roster))
+        rookie_game_rows.extend(_as_mine(digest["rookie_games"], own_roster))
+        rookie_draft_rows.extend(_as_mine(digest["rookie_drafts"], own_roster))
+        rookie_cut_rows.extend(_as_mine(digest["rookie_cuts"], own_roster))
+        rookie_trade_rows.extend(_as_mine(digest["rookie_trades"], own_roster))
+        streak_rows.extend(_as_mine(digest["streaks"], own_roster))
+        move_rows.extend(_as_mine(digest["moves"], own_roster))
+        gem_rows.extend(_as_mine(digest["gems"], own_roster))
+        bid_rows.extend(_as_mine(digest["bids"], own_roster))
+        swing_rows.extend(_as_mine(digest["swings"], own_roster))
+        totals["points"] += digest["totals"]["points"]
+        totals["moves"] += digest["totals"]["moves"]
+        totals["trades"] += digest["totals"]["trades"]
 
-        # The draft is read before the moves, because the rookies a team drafted are what its
-        # later cuts and trades are read against. The longest draft is the one whose capital is
-        # counted -- a startup runs twenty-odd rounds deep and a rookie draft four or five --
-        # while the shortest is the rookie draft itself, and where every rookie below comes from.
-        season_drafts: list[tuple[dict, list[dict]]] = []
-        picks: list[dict] = []
-        for draft in get_json(f"/league/{season_id}/drafts") or []:
-            if not isinstance(draft, dict) or not draft.get("draft_id"):
-                continue
-            made = [pick for pick in (get_json(f"/draft/{draft['draft_id']}/picks") or [])
-                    if isinstance(pick, dict)]
-            season_drafts.append((draft, made))
-            if len(made) > len(picks):
-                picks = made
-        drafted = {str(pick.get("player_id")) for pick in picks if pick.get("player_id") is not None}
-        pick_counts = defaultdict(int)
-        for pick in picks:
-            pick_counts[pick.get("roster_id")] += 1
-        base = len(picks) // len(teams) if teams else 0
-        for roster_id, count in pick_counts.items():
-            if roster_id not in teams:
-                continue
-            draft_rows.append({
-                "season": label, "name": roster_label[roster_id], "picks": count,
-                "base": base, "extra": count - base, "is_mine": roster_id == own_roster,
-            })
-
-        rookie_draft = _rookie_draft_of(season_drafts)
-        rookies: dict[str, dict] = {}
-        if rookie_draft is not None:
-            rookie_picks, rookie_rounds = rookie_draft
-            for pick in rookie_picks:
-                player_id = pick.get("player_id")
-                if player_id is not None:
-                    rookies.setdefault(str(player_id), pick)
-            used_by_team = defaultdict(int)
-            for pick in rookies.values():
-                used_by_team[pick.get("roster_id")] += 1
-            for roster_id, team in teams.items():
-                rookie_draft_rows.append({
-                    "season": label, "name": roster_label[roster_id],
-                    "picks": used_by_team.get(roster_id, 0), "rounds": rookie_rounds,
-                    "is_mine": roster_id == own_roster,
-                })
-        for player_id, pick in rookies.items():
-            player = player_index.get(player_id) or {}
-            scored = season_players.get(player_id)
-            team = teams.get(pick.get("roster_id"))
-            if not scored or not scored["points"] or team is None:
-                continue
-            rookie_rows.append({
-                "season": label, "id": player_id, "name": _player_name(player, player_id),
-                "position": player.get("position") or "—", "points": scored["points"],
-                "weeks": len(scored["weeks"]),
-                "ppg": scored["points"] / len(scored["weeks"]) if scored["weeks"] else 0.0,
-                "round": int(pick.get("round") or 0), "pick_no": int(pick.get("pick_no") or 0),
-                "round_label": round_label(int(pick.get("round") or 0)),
-                "team": roster_label[team["roster_id"]],
-                "is_mine": pick.get("roster_id") == own_roster,
-            })
-            best_week_of = week_best.get(player_id)
-            if best_week_of is not None:
-                rookie_game_rows.append({**best_week_of,
-                                        "round": int(pick.get("round") or 0),
-                                        "drafted_by": roster_label[team["roster_id"]]})
-
-        # Season totals per team, and the career line they feed. Only counted weeks are in
-        # here, so a season in progress adds the games it has actually played.
-        for roster_id, stats in team_stats.items():
-            if not stats["games"]:
-                continue
-            team = teams[roster_id]
-            owner_id = owner_of.get(roster_id, "")
-            record = f"{stats['wins']}-{stats['losses']}"
-            if stats["ties"]:
-                record = f"{record}-{stats['ties']}"
-            is_mine = roster_id == own_roster
-            team_seasons.append({
-                "season": label, "name": roster_label[roster_id],
-                "owner": _clean(team.get("owner")),
-                "wins": stats["wins"], "losses": stats["losses"], "ties": stats["ties"],
-                "games": stats["games"], "points": stats["points"], "record": record,
-                "ppg": stats["points"] / stats["games"] if stats["games"] else 0.0,
-                # A season is only compared against another when the regular season is done:
-                # a 4-0 start is not a better record than 14 games of work.
-                "full": regular > 0 and stats["games"] >= regular,
-                "is_mine": is_mine,
-            })
-            manager = _manager_entry(managers, owner_id, team)
-            manager["wins"] += stats["wins"]
-            manager["losses"] += stats["losses"]
-            manager["ties"] += stats["ties"]
-            manager["games"] += stats["games"]
-            manager["points"] += stats["points"]
-            manager["is_mine"] = manager["is_mine"] or is_mine
+        # The career line each team's season feeds, and the playoff trip it took with it. Both
+        # are about the manager rather than about the season, so they are counted here rather
+        # than kept with the season: a win, a title and a trip belong to the chain, not to a year.
+        for row in team_rows:
+            manager = _manager_entry(managers, row["owner_id"], teams[row["roster_id"]])
+            manager["wins"] += row["wins"]
+            manager["losses"] += row["losses"]
+            manager["ties"] += row["ties"]
+            manager["games"] += row["games"]
+            manager["points"] += row["points"]
+            manager["is_mine"] = manager["is_mine"] or row["is_mine"]
             if label not in manager["seasons"]:
                 manager["seasons"].append(label)
-
-        # Playoff trips are counted once the season's own entries exist, so the trip lands on
-        # the career line whether or not that manager won a game in the bracket.
         for owner_id in finalist_owners:
             if owner_id in managers:
                 managers[owner_id]["playoffs"] += 1
-
-        for roster_id, week_results in results.items():
-            team = teams.get(roster_id)
-            if team is None:
-                continue
-            wins, losses = _best_streaks(week_results)
-            if max(wins[0], losses[0]) > 1:
-                streak_rows.append({"season": label, "name": roster_label[roster_id], "win": wins,
-                                    "loss": losses, "is_mine": roster_id == own_roster})
-
-        # Moves: every settled trade, waiver claim and free-agent add, counted once per roster
-        # involved. A transaction Sleeper files under two weeks is only read once.
-        move_counts = defaultdict(int)
-        move_types = defaultdict(lambda: defaultdict(int))
-        adds: dict[str, dict] = {}
-        # Keyed by player so a rookie dropped, re-added and dropped again is one cut, not two.
-        rookie_cuts: dict = defaultdict(dict)
-        seen = set()
-        for week in range(1, entry["read"] + 1):
-            for transaction in get_json(f"/league/{season_id}/transactions/{week}") or []:
-                if not isinstance(transaction, dict):
-                    continue
-                if transaction.get("status") not in SETTLED_STATUSES:
-                    continue
-                kind = transaction.get("type")
-                if kind not in MOVE_TYPES:
-                    continue
-                transaction_id = str(transaction.get("transaction_id") or "")
-                if not transaction_id or transaction_id in seen:
-                    continue
-                seen.add(transaction_id)
-                try:
-                    leg = int(transaction.get("leg") or week)
-                except (TypeError, ValueError):
-                    leg = week
-                totals["moves"] += 1
-                if kind == "trade":
-                    totals["trades"] += 1
-                    swing = _big_swing_row(transaction, teams, roster_label, season_players,
-                                           player_index, league, label, leg, own_roster)
-                    if swing is not None:
-                        swing_rows.append(swing)
-                    for player_id, roster_id in (transaction.get("adds") or {}).items():
-                        player_id = str(player_id)
-                        rookie_pick = rookies.get(player_id)
-                        if rookie_pick is None or rookie_pick.get("roster_id") == roster_id:
-                            continue  # a rookie only counts as traded once he changes teams
-                        drafted_by = teams.get(rookie_pick.get("roster_id"))
-                        rookie_trade_rows.append({
-                            "season": label, "id": player_id,
-                            "created": int(transaction.get("created") or 0), "week": leg,
-                            "name": _player_name(player_index.get(player_id) or {}, player_id),
-                            "from": roster_label[drafted_by["roster_id"]] if drafted_by else "—",
-                            "to": roster_label[roster_id] if roster_id in teams else "—",
-                            "round": int(rookie_pick.get("round") or 0),
-                            "is_mine": roster_id == own_roster,
-                        })
-                for roster_id in transaction.get("roster_ids") or []:
-                    if roster_id not in teams:
-                        continue
-                    move_counts[roster_id] += 1
-                    move_types[roster_id][kind] += 1
-                if kind not in ("waiver", "free_agent"):
-                    continue
-                try:
-                    amount = int((transaction.get("settings") or {}).get("waiver_bid") or 0)
-                except (TypeError, ValueError):
-                    amount = 0
-                for player_id, roster_id in (transaction.get("drops") or {}).items():
-                    player_id = str(player_id)
-                    rookie_pick = rookies.get(player_id)
-                    if rookie_pick is None or rookie_pick.get("roster_id") != roster_id:
-                        continue  # only a team cutting the rookie it drafted counts as a cut
-                    rookie_cuts[roster_id][player_id] = _player_name(
-                        player_index.get(player_id) or {}, player_id)
-                for player_id, roster_id in (transaction.get("adds") or {}).items():
-                    player_id = str(player_id)
-                    previous = adds.get(player_id)
-                    if previous is None or leg < previous["week"]:
-                        adds[player_id] = {"week": leg, "roster_id": roster_id, "kind": kind}
-                    if amount > 0 and roster_id in teams:
-                        player = player_index.get(player_id) or {}
-                        bid_rows.append({
-                            "season": label, "amount": amount, "week": leg,
-                            "id": player_id, "name": _player_name(player, player_id),
-                            "position": player.get("position") or "—",
-                            "team": roster_label[roster_id],
-                            "is_mine": roster_id == own_roster,
-                        })
-        for roster_id, count in move_counts.items():
-            move_rows.append({
-                "season": label, "name": roster_label[roster_id], "moves": count,
-                "trades": move_types[roster_id].get("trade", 0),
-                "waivers": move_types[roster_id].get("waiver", 0),
-                "free_agents": move_types[roster_id].get("free_agent", 0),
-                "is_mine": roster_id == own_roster,
-            })
-        for roster_id, cut_players in rookie_cuts.items():
-            team = teams.get(roster_id)
-            if team is None:
-                continue
-            names = sorted(cut_players.values(), key=str.casefold)
-            rookie_cut_rows.append({
-                "season": label, "name": roster_label[roster_id], "cuts": len(names),
-                "names": names[:3], "is_mine": roster_id == own_roster,
-            })
-
-        # Waiver gems: players added off the wire that season, measured by what they scored in
-        # it, with the points from the week they were added separated out -- that second number
-        # is what the manager actually got out of the pickup.
-        for player_id, add in adds.items():
-            scored = season_players.get(player_id)
-            team = teams.get(add["roster_id"])
-            if not scored or scored["points"] <= 0 or team is None:
-                continue
-            player = player_index.get(player_id) or {}
-            gem_rows.append({
-                "season": label, "week": add["week"], "id": player_id,
-                "name": _player_name(player, player_id),
-                "position": player.get("position") or "—", "team": roster_label[add["roster_id"]],
-                "points": scored["points"],
-                "after": sum(points for week, points in scored["weeks"].items()
-                             if week >= add["week"]),
-                "undrafted": player_id not in drafted,
-                "is_mine": add["roster_id"] == own_roster,
-            })
 
     # Career lines are named the way every other row on the page is: by the manager himself,
     # not by the team he happened to be called the last season he played.
