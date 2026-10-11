@@ -17,6 +17,12 @@ The app opens in Firefox when available, otherwise in a resizable Edge app windo
 
 The launcher starts a local-only server on an available port and opens it in Firefox (or Edge if Firefox is unavailable).
 
+## Put it on the web
+
+The same app runs on a Python host. `wsgi.py` is the application object a platform's WSGI server imports, and `waitress` is the server it is served with. `DEPLOY.md` has the whole of it — the two variables that matter (`SECRET_KEY` signs the session cookie; `GEMINI_API_KEY` is only for Ask AI), the start command, the health check, and what a free instance does differently — and `render.yaml` and the `Dockerfile` are that same setup expressed for a platform.
+
+Nothing has to be provisioned alongside it: every page reads Sleeper over HTTPS at request time, so a hosted copy needs no database, no volume and no inbound access. The connection you last opened lives in the browser's session; the settings file is only a remembered default, and a server that cannot write one still serves every page.
+
 ## Check the page layout
 
 The brand logo in the toolbar is positioned absolutely, floating above the heading band, so heading text has to keep out of its lane. `python tools/check_layout.py` drives a real browser over every page mode the app links to, at widths on both sides of the 981px breakpoint, and fails if the two ever overlap. It starts its own server and checks the league already saved in your settings; install the extra tooling first with `python -m pip install -r requirements-dev.txt`.
@@ -29,7 +35,7 @@ Run `packaging\build_windows.ps1` in PowerShell on Windows. Install Inno Setup 6
 
 ## Modules
 
-- `run.py` starts the server and opens Firefox.
+- `run.py` starts the local server and opens Firefox; `wsgi.py` is what a hosting platform serves instead.
 - `services/local_settings.py` stores the per-user connection settings outside the install folder.
 - `app.py` defines the page routes.
 - `services/sleeper.py` handles Sleeper data.

@@ -57,17 +57,19 @@ def save_connection(username: str, manager_id: str = "", league_id: str = "",
             data["league_id"] = str(league_id)
         if history_league_id:
             data["history_league_id"] = str(history_league_id)
-        settings_path.parent.mkdir(parents=True, exist_ok=True)
         temporary_path = settings_path.with_name(
             f"{settings_path.name}.{os.getpid()}.{threading.get_ident()}.tmp"
         )
         try:
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
             temporary_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
             _replace(temporary_path, settings_path)
-        except PermissionError:
-            # Another process is swapping the same file in. The settings are only a
-            # remembered default and every writer saves the same values, so a lost
-            # race must never turn into a failed page; the next request writes again.
+        except OSError:
+            # Two ways this is not an error. Another process may be swapping the same file in --
+            # the settings are only a remembered default and every writer saves the same values,
+            # so a lost race must never turn into a failed page; the next request writes again.
+            # Or there is nowhere to write at all: a hosted copy runs where the filesystem can
+            # be read-only, and remembering the connection is a convenience, not the answer.
             pass
         finally:
             try:
@@ -79,5 +81,7 @@ def save_connection(username: str, manager_id: str = "", league_id: str = "",
 def clear_connection() -> None:
     try:
         _settings_path().unlink()
-    except FileNotFoundError:
+    except OSError:
+        # Already gone, or a filesystem that cannot be written to at all -- either way there is
+        # nothing remembered for the app to forget.
         pass

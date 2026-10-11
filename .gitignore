@@ -1,4 +1,6 @@
 api-key.txt
+# A hosting provider's API token, kept out of the repository the same way the Gemini key is.
+*-token.txt
 __pycache__/
 *.py[cod]
 .venv/

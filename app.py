@@ -2,6 +2,8 @@
 
 from urllib.parse import quote_plus
 from pathlib import Path
+import os
+import secrets
 import sys
 
 from flask import (Flask, Response, flash, jsonify, redirect, render_template, request,
@@ -26,11 +28,28 @@ from services.ask_model import MODEL as AI_MODEL, AiUnavailable, available as ai
 from services.ask_model import key_paths as ai_key_paths
 
 
+def session_secret() -> str:
+    """The key the session cookie is signed with.
+
+    Served to the internet this is a real secret -- anyone who knows it can mint a cookie that
+    says they are somebody -- so a hosted copy takes it from the environment (``SECRET_KEY`` or
+    ``FLASK_SECRET_KEY``, whichever the platform sets) and never from a constant in this file.
+    Run from source there is nothing to leak and nothing to configure, so one is generated per
+    start: the only cost is that a cookie from an earlier run is ignored, and the connection is
+    remembered in the settings file as well.
+    """
+    for variable in ("SECRET_KEY", "FLASK_SECRET_KEY"):
+        value = (os.environ.get(variable) or "").strip()
+        if value:
+            return value
+    return secrets.token_hex(32)
+
+
 def create_app() -> Flask:
     app_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
     app = Flask(__name__, template_folder=str(app_root / "templates"),
                 static_folder=str(app_root / "static"))
-    app.config["SECRET_KEY"] = "local-fantasy-football-app"
+    app.config["SECRET_KEY"] = session_secret()
     app.jinja_env.globals["quote_plus"] = quote_plus
     # The Impact Players page is hidden until its shape is settled. Its routes and data
     # stay live, so this one flag brings the tab back on every page that links to it.
@@ -241,6 +260,18 @@ def create_app() -> Flask:
                           manager_id=request.args.get("manager_id", ""),
                           force=request.args.get("refresh") == "1")
         response = jsonify(preload_status(league_id))
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.get("/healthz")
+    def healthz():
+        """A liveness endpoint for a hosting platform.
+
+        It answers without reading Sleeper, so a health check never waits on a page's worth of
+        requests and never fails because the upstream is slow. Deliberately not a status of the
+        league: it says this process is up, which is the only thing the platform can act on.
+        """
+        response = jsonify(ok=True, service="deepthreat")
         response.headers["Cache-Control"] = "no-store"
         return response
 

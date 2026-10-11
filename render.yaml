@@ -1,0 +1,28 @@
+# Render blueprint: one free web service running the app behind waitress.
+#
+# Render reads this file when the repository is connected as a Blueprint, so the build, the
+# start command and the health check are the repository's rather than something typed into a
+# dashboard. See DEPLOY.md for what the variables are and why.
+services:
+  - type: web
+    name: deepthreat
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    # The same command DEPLOY.md documents and the Dockerfile runs: one server, one way to
+    # start it, so what was verified on this machine is what runs here.
+    startCommand: waitress-serve --host=0.0.0.0 --port=$PORT --threads=8 --channel-timeout=300 wsgi:app
+    # Answered without reading Sleeper, so a waking instance is not failed for being slow.
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      # The session key. Generated per environment by the platform, so no value for it is
+      # ever written here or in the repository.
+      - key: SECRET_KEY
+        generateValue: true
+      # Ask AI's key. Left to the dashboard on purpose: a key does not belong in the repo, and
+      # the app runs without it (the tab is hidden until one is set).
+      - key: GEMINI_API_KEY
+        sync: false

@@ -2,3 +2,6 @@ Flask>=3.0,<4
 requests>=2.31,<3
 # Ask AI talks to Gemini. The app runs without it; only the Ask AI page needs it.
 google-genai>=2.0,<3
+# The production server used when the app is hosted (see DEPLOY.md). Pure Python, so the same
+# command starts it on the machine it is developed on and the one it is served from.
+waitress>=3.0,<4
