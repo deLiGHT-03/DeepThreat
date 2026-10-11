@@ -2,6 +2,7 @@
 
 from urllib.parse import quote_plus
 from pathlib import Path
+import hashlib
 import os
 import secrets
 import sys
@@ -46,12 +47,56 @@ def session_secret() -> str:
     return secrets.token_hex(32)
 
 
+#: What each static file's URL is stamped with, remembered between requests: the file's size
+#: and modification time, and the digest taken from its bytes at that moment.
+_asset_stamps: dict[str, tuple[int, int, str]] = {}
+
+
+def asset_stamp(filename: str, static_folder: str) -> str:
+    """The digest of one static file, or "" when it cannot be read.
+
+    Reading the file is what this costs, so the answer is kept and only read again once the
+    file's size or modification time has moved. Against the alternative -- an hour or a year of
+    caching on a URL that never changes, and every visitor re-asking for every stylesheet --
+    one ``stat`` per asset per page is the cheaper half of the bargain.
+    """
+    path = Path(static_folder) / filename
+    try:
+        info = path.stat()
+    except OSError:
+        return ""
+    remembered = _asset_stamps.get(filename)
+    if remembered is not None and remembered[:2] == (info.st_mtime_ns, info.st_size):
+        return remembered[2]
+    try:
+        digest = hashlib.sha1(path.read_bytes()).hexdigest()[:12]
+    except OSError:
+        return ""
+    _asset_stamps[filename] = (info.st_mtime_ns, info.st_size, digest)
+    return digest
+
+
 def create_app() -> Flask:
     app_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
     app = Flask(__name__, template_folder=str(app_root / "templates"),
                 static_folder=str(app_root / "static"))
     app.config["SECRET_KEY"] = session_secret()
     app.jinja_env.globals["quote_plus"] = quote_plus
+
+    def static_asset(filename: str) -> str:
+        """A static file's URL, stamped with a digest of the file's own bytes.
+
+        These files are served with a year of caching, which is only honest while the URL
+        changes whenever the file does. The stamp is the file's own content, so editing a
+        stylesheet produces a URL nothing has ever cached; without it, a year would mean a fix
+        reaching a returning visitor a year late.
+        """
+        stamp = asset_stamp(filename, app.static_folder or "")
+        return url_for("static", filename=filename, v=stamp or None)
+
+    # Every template builds its asset URLs here rather than with url_for("static", ...), so
+    # nothing can take the long-lived caching below without also carrying a stamp.
+    app.jinja_env.globals["asset_url"] = static_asset
     # The Impact Players page is hidden until its shape is settled. Its routes and data
     # stay live, so this one flag brings the tab back on every page that links to it.
     app.jinja_env.globals["show_impact_players"] = False
@@ -198,6 +243,25 @@ def create_app() -> Flask:
         response.status_code = 429
         response.headers["Retry-After"] = str(retry_after)
         response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.after_request
+    def cache_stamped_assets(response):
+        """Let a browser keep a static file until its URL changes, instead of re-asking for it.
+
+        One year is safe here for the one reason that makes it safe anywhere: the URL carries a
+        digest of the file it names (``static_asset``), so an edited file is a new URL and the
+        cached copy of the old one is never asked for again. ``immutable`` is the half that
+        matters day to day -- it is what stops so much as a reload from revalidating, which is
+        what turned every page view into nine conditional round trips for a handful of files
+        that had not changed since the last one.
+
+        The stamp has to be in the URL for any of that to be honest, so a static file asked for
+        without one keeps the default revalidation: the rule is that a long cache and a stamp
+        arrive together or not at all, and nothing needs to be trusted to keep that true.
+        """
+        if request.endpoint == "static" and request.args.get("v"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         return response
 
     @app.after_request

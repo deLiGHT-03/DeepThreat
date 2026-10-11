@@ -56,4 +56,4 @@
 </div>
 {% endblock %}
 
-{% block scripts %}{% if ai_ready %}<script src="{{ url_for('static', filename='ask.js') }}" defer></script>{% endif %}{% endblock %}
+{% block scripts %}{% if ai_ready %}<script src="{{ asset_url('ask.js') }}" defer></script>{% endif %}{% endblock %}

@@ -15,6 +15,10 @@ the executable, its shortcuts and the taskbar. That file is generated - after ch
 python packaging\make_icon.py
 ```
 
+The pages do not load that PNG: they load `static/deepthreat-arc-logo.webp`, a lossless WebP of
+the same picture in a third of the bytes, made from the master by `python tools/make_web_logo.py`.
+Changing the artwork means running both commands, the icon first.
+
 The icon is the arc logo on a dark rounded tile. The logo on its own is pale strokes on nothing,
 which disappears against a light wallpaper and thins out to a few grey pixels at 16 px; the tile
 gives it something to sit on at every size.

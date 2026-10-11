@@ -14,4 +14,4 @@
 {% else %}<div class="empty-state">I couldn’t match this Sleeper username to a team. Return to league selection and reconnect using your Sleeper username.</div>{% endif %}
 </div>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='seasonal.js') }}" defer></script><script src="{{ url_for('static', filename='avatar-fallback.js') }}" defer></script><script src="{{ url_for('static', filename='player-card.js') }}" defer></script><script src="{{ url_for('static', filename='screenshot.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ asset_url('seasonal.js') }}" defer></script><script src="{{ asset_url('avatar-fallback.js') }}" defer></script><script src="{{ asset_url('player-card.js') }}" defer></script><script src="{{ asset_url('screenshot.js') }}" defer></script>{% endblock %}

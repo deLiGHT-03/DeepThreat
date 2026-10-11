@@ -34,6 +34,25 @@ The brand logo in the toolbar is positioned absolutely, floating above the headi
 
 Exit code 0 means no overlap, 1 means text runs through the logo, and 2 means a page could not be measured — never silently a pass, because the logo only renders once Sleeper returns the account's leagues. Add `--base-url http://127.0.0.1:PORT` to check an app you already have open, or `--json out.json` to keep every measurement.
 
+## What a page sends
+
+Two things keep a first load small, and both are the kind of change that has to be checked on
+the page rather than trusted to a diff:
+
+- **The logo the pages load is not the PNG master.** `static/deepthreat-arc-logo.webp` is the
+  same 1519x670 picture as `static/deepthreat-arc-logo.png` in a third of the bytes (284 KB
+  against 840 KB), encoded losslessly, so no pixel and no dimension differs and nothing about
+  where it sits or how sharp it looks changes at any window width or screen density. The PNG
+  stays as the master `packaging/make_icon.py` draws the Windows icon from; regenerate the web
+  one with `python tools/make_web_logo.py`, which refuses to write a file that is not the
+  master's own pixels.
+- **Stylesheets and scripts are cached for a year, and their URLs are what makes that safe.**
+  Every one of them is written with `asset_url(...)` in `app.py`, which stamps the URL with a
+  digest of the file's own bytes: an edited file is a new URL, so nobody is ever shown a cached
+  copy of the old one, and a page view stops re-asking for files that have not changed. A
+  static file asked for at a URL without a stamp keeps the revalidate-every-time header, so the
+  long cache and the stamp cannot come apart.
+
 ## Rebuild the Windows installer
 
 Run `packaging\build_windows.ps1` in PowerShell on Windows. Install Inno Setup 6 to create the upgrade-safe installer in `release\DeepThreatSetup.exe`; the standalone application folder is written to `dist\DeepThreat`.
@@ -55,6 +74,7 @@ Run `packaging\build_windows.ps1` in PowerShell on Windows. Install Inno Setup 6
 - `static/player-card.js` opens the player card from any player name, on a click.
 - `templates/` contains the pages; `static/style.css` contains the visual styling.
 - `tools/check_layout.py` measures the heading text against the brand logo in a real browser.
+- `tools/make_web_logo.py` writes the lossless WebP the pages load from the PNG the Windows icon is drawn from.
 
 The player hub opens X's live search and Google News search for one player at a time. It does not fetch results for the full roster in the background.
 

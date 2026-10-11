@@ -7,19 +7,21 @@
      league -- so the tag and the X-Robots-Tag header say the same thing to different crawlers. #}
   <meta name="robots" content="noindex, nofollow">
   <title>{% block title %}DeepThreat{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='player_hub.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='matchups.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='trades.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='history.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='ask.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='themes.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('style.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('player_hub.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('matchups.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('trades.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('history.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('ask.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('themes.css') }}">
 </head>
 <body>
   {% if hide_brand_logo or league_options %}
   <header class="topbar topbar-spacer" aria-hidden="true"></header>
   {% else %}
-  <header class="topbar"><a href="/" class="brand" aria-label="DeepThreat home"><img class="brand-logo" src="{{ url_for('static', filename='deepthreat-arc-logo.png') }}" alt="DeepThreat"></a></header>
+  {# The .webp beside the .png master is the same picture in a third of the bytes; the master
+     is what packaging/make_icon.py draws the Windows icon from. See tools/make_web_logo.py. #}
+  <header class="topbar"><a href="/" class="brand" aria-label="DeepThreat home"><img class="brand-logo" src="{{ asset_url('deepthreat-arc-logo.webp') }}" alt="DeepThreat"></a></header>
   {% endif %}
   <main class="page">
     {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="notice {{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
@@ -27,7 +29,7 @@
     {% block content %}{% endblock %}
   </main>
   {% block scripts %}{% endblock %}
-  <script src="{{ url_for('static', filename='preload-data.js') }}" defer></script>
-  <script src="{{ url_for('static', filename='theme.js') }}" defer></script>
+  <script src="{{ asset_url('preload-data.js') }}" defer></script>
+  <script src="{{ asset_url('theme.js') }}" defer></script>
 </body>
 </html>

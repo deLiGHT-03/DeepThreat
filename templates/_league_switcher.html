@@ -9,7 +9,7 @@
   <span class="preload-label" aria-live="polite">Preload Data</span>
 </button>
 <div class="league-switcher-stack">
-<a class="switcher-brand" href="/" aria-label="DeepThreat home"><img class="switcher-brand-logo" src="{{ url_for('static', filename='deepthreat-arc-logo.png') }}" alt="DeepThreat"></a>
+<a class="switcher-brand" href="/" aria-label="DeepThreat home"><img class="switcher-brand-logo" src="{{ asset_url('deepthreat-arc-logo.webp') }}" alt="DeepThreat"></a>
 <label class="league-switcher">
   <span class="visually-hidden">Switch leagues</span>
   {% set current_option = league_options | selectattr('is_current') | list | first %}

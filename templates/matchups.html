@@ -49,4 +49,4 @@
 </div>
 {% else %}<div class="empty-state">No matchups are available for {{ weekly.week_label }} yet.</div>{% endif %}
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='avatar-fallback.js') }}" defer></script><script src="{{ url_for('static', filename='player-card.js') }}" defer></script><script src="{{ url_for('static', filename='screenshot.js') }}" defer></script>{% if weekly.projected %}<script src="{{ url_for('static', filename='matchup-live-refresh.js') }}" data-status-url="{{ url_for('week_status', season=weekly.league.season, week=weekly.week) }}" defer></script>{% endif %}{% endblock %}
+{% block scripts %}<script src="{{ asset_url('avatar-fallback.js') }}" defer></script><script src="{{ asset_url('player-card.js') }}" defer></script><script src="{{ asset_url('screenshot.js') }}" defer></script>{% if weekly.projected %}<script src="{{ asset_url('matchup-live-refresh.js') }}" data-status-url="{{ url_for('week_status', season=weekly.league.season, week=weekly.week) }}" defer></script>{% endif %}{% endblock %}

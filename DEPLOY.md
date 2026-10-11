@@ -48,6 +48,12 @@ Nothing else is configurable, and no secret belongs in this repository: `.gitign
   page's worth of upstream requests.
 - **The preload button stays a local convenience.** It warms this process's in-memory cache; on
   a hosted copy with a cold-started instance it warms that instance only. It is harmless.
+- **Its stylesheets and scripts are cached rather than re-asked for.** Every static URL carries a
+  digest of the file's own bytes, so the files can be served with a year of caching without a
+  stale copy ever reaching anybody -- and because the URL is stable between deploys, both the
+  browser and whatever sits in front of the instance can keep them. That matters more here than
+  on the desktop: in front of a free instance that sleeps, nine cached files are nine requests
+  that do not wake it.
 - **It treats its address as public.** Crawlers are asked to stay out and every request is
   counted, against the visitor and against the instance as a whole; see *Keeping crawlers and
   loops out* below for the counts and how to change them.

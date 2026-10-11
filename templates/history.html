@@ -199,4 +199,4 @@
 </div>
 {% endblock %}
 
-{% block scripts %}<script src="{{ url_for('static', filename='avatar-fallback.js') }}" defer></script><script src="{{ url_for('static', filename='screenshot.js') }}" defer></script><script src="{{ url_for('static', filename='history.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ asset_url('avatar-fallback.js') }}" defer></script><script src="{{ asset_url('screenshot.js') }}" defer></script><script src="{{ asset_url('history.js') }}" defer></script>{% endblock %}

@@ -177,4 +177,4 @@ trades means that week of that manager, not that week of your own. #}
 </div>
 {% endblock %}
 
-{% block scripts %}<script src="{{ url_for('static', filename='avatar-fallback.js') }}" defer></script><script src="{{ url_for('static', filename='player-card.js') }}" defer></script><script src="{{ url_for('static', filename='trades.js') }}" defer></script><script src="{{ url_for('static', filename='pick-trace.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ asset_url('avatar-fallback.js') }}" defer></script><script src="{{ asset_url('player-card.js') }}" defer></script><script src="{{ asset_url('trades.js') }}" defer></script><script src="{{ asset_url('pick-trace.js') }}" defer></script>{% endblock %}
