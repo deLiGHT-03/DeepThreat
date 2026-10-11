@@ -3,6 +3,7 @@
 from urllib.parse import quote_plus
 from pathlib import Path
 import hashlib
+import mimetypes
 import os
 import secrets
 import sys
@@ -46,6 +47,15 @@ def session_secret() -> str:
             return value
     return secrets.token_hex(32)
 
+
+# Python's own table of file types has no entry for the logo's format, and on a desktop the
+# operating system answers instead -- which is exactly how the pages' one image can look right
+# on this machine and arrive as ``application/octet-stream`` from a Linux host, where there is no
+# registry and a slim container ships no ``/etc/mime.types`` either. A browser renders the image
+# regardless, because an ``<img>`` does not read the type, but everything else that looks at the
+# response does: a proxy deciding what to cache, a download, a scanner. So the type is declared
+# here rather than left to whatever the platform happens to know.
+mimetypes.add_type("image/webp", ".webp")
 
 #: What each static file's URL is stamped with, remembered between requests: the file's size
 #: and modification time, and the digest taken from its bytes at that moment.
