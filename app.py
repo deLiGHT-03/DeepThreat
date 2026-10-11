@@ -6,8 +6,8 @@ import os
 import secrets
 import sys
 
-from flask import (Flask, Response, flash, jsonify, redirect, render_template, request,
-                   session, url_for)
+from flask import (Flask, Response, flash, jsonify, make_response, redirect,
+                   render_template, request, session, url_for)
 
 from services.sleeper import (CDN_SECONDS, MAX_NFL_WEEK, SleeperError, display_handle,
                               get_cdn_file, get_league_dashboard, get_json,
@@ -20,6 +20,7 @@ from services.player_card import get_player_card
 from services.trades import get_trades_summary
 from services import draft_picks
 from services import pick_query
+from services import rate_limit
 from services.history import get_history_summary
 from services.preload import preload_status, start_preload
 from services.local_settings import clear_connection, load_connection, save_connection
@@ -139,6 +140,88 @@ def create_app() -> Flask:
         if history and any(item["league_id"] == str(league_id) for item in history):
             return str(history[0]["league_id"])
         return str(league_id)
+
+    #: Which limit a request is counted in, by the endpoint that answers it. Anything not named
+    #: here is a page render, which is the costly thing to guess your way through. Static files
+    #: and the health check are counted in none: one is a file off the disk, and the other has to
+    #: answer while a visitor is being throttled, or the platform would replace an instance that
+    #: is doing exactly what it should.
+    limited = {
+        "ask_question": "ask",
+        "preload": "preload",
+        "media": "media",
+        "week_status": "data",
+        "player_card": "data",
+        "pick_detail": "data",
+    }
+
+    @app.before_request
+    def limit_requests():
+        """Count this request before any work is done for it, and refuse it if there is no room.
+
+        A served copy answers strangers, so this is where being one of them stops: a crawler
+        walking the app, a script looping on a page and a visitor asking a hundred questions are
+        the same thing to this hook, and all of them are answered with 429 and how long to wait.
+        """
+        endpoint = request.endpoint or ""
+        if endpoint in ("static", "healthz", "robots"):
+            return None
+        bucket = limited.get(endpoint, "page")
+        # The Preload button starts a load with a POST and watches it with a GET. Only the start
+        # is costly -- watching is what the button does while it works -- so the POST is held to
+        # the tighter limit and the watching falls in with every other JSON read.
+        if endpoint == "preload" and request.method != "POST":
+            bucket = "data"
+        who = rate_limit.visitor(request.headers, request.remote_addr or "")
+        allowed, retry_after = rate_limit.check(bucket, who)
+        if allowed:
+            return None
+        if rate_limit.first_block(bucket, who):
+            app.logger.info("Refused a %s request from %s for %ss", bucket, who, retry_after)
+        wait = rate_limit.describe_wait(retry_after)
+        if bucket == "page":
+            response = make_response(render_template("too_many.html", wait=wait))
+        elif bucket == "ask":
+            # The Ask page shows this the way it shows a question it could not answer, so a
+            # refusal reads as an answer rather than as a page that broke.
+            response = jsonify(
+                ok=False, steps=[], seconds=0.0,
+                error="This copy of DeepThreat answers only so many questions at a time, and "
+                      f"that many have just been asked. Try again in {wait}.",
+            )
+        else:
+            response = jsonify(
+                ok=False,
+                error="This copy of DeepThreat answers one thing at a time and is busy. Try "
+                      f"again in {wait}.",
+            )
+        response.status_code = 429
+        response.headers["Retry-After"] = str(retry_after)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.after_request
+    def keep_out_of_search(response):
+        """Tell every crawler not to index this, on the responses a page's own tag cannot reach.
+
+        The header and the meta tag say the same thing and neither is load-bearing alone: a
+        crawler that never parses the HTML never sees the tag, and one that does not read headers
+        still stops at the tag. The JSON, the relayed images and the redirects only have this.
+        """
+        response.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
+        return response
+
+    @app.get("/robots.txt")
+    def robots():
+        """Ask crawlers to stay out.
+
+        Written down rather than left to the header, because this is the first thing a well
+        behaved crawler asks for and answering it plainly costs both sides less than being
+        ignored does. It is a request, not a defence -- the limits are the defence.
+        """
+        response = Response("User-agent: *\nDisallow: /\n", mimetype="text/plain")
+        response.headers["Cache-Control"] = "public, max-age=86400"
+        return response
 
     @app.get("/")
     def index():

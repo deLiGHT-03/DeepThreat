@@ -45,6 +45,58 @@ Nothing else is configurable, and no secret belongs in this repository: `.gitign
   page's worth of upstream requests.
 - **The preload button stays a local convenience.** It warms this process's in-memory cache; on
   a hosted copy with a cold-started instance it warms that instance only. It is harmless.
+- **It treats its address as public.** Crawlers are asked to stay out and every request is
+  counted, against the visitor and against the instance as a whole; see *Keeping crawlers and
+  loops out* below for the counts and how to change them.
+
+## Keeping crawlers and loops out
+
+The address is public, so the app answers whoever finds it. Two things stop that being a
+problem: crawlers are asked to stay away, and anyone is throttled once they have had more than
+their share.
+
+- `robots.txt` asks every crawler not to index anything, and every response carries
+  `X-Robots-Tag: noindex, nofollow` as well, because the tag in the HTML cannot reach the JSON,
+  the relayed images or the redirects, and a crawler that never parses the HTML never reads the
+  tag. Neither is a defence — they are a request, and the limits are the defence.
+- Requests are counted in `services/rate_limit.py`, in this process. Every limit is kept twice:
+  a *visitor* limit, so one noisy address is slowed without anyone else noticing, and a *total*
+  limit for the whole instance, which is the one that still holds when the visitor cannot be
+  identified at all.
+- A refused request answers `429` with `Retry-After`: an ordinary page saying how long the wait
+  is, or — for Ask AI and the JSON reads — the same answer-shaped JSON the app already returns,
+  so a refusal reads as an answer rather than as a page that broke.
+- `/healthz` and the static files are never counted. The health check has to answer while a
+  visitor is being throttled, or the platform would replace an instance for doing its job.
+
+The visitor is taken from `CF-Connecting-IP`, which the Cloudflare edge in front of the platform
+sets to the address it saw and replaces if the visitor sent one under that name. `X-Forwarded-For`
+is deliberately *not* read: a proxy that appends rather than replaces leaves an invented value in
+front of the real one, and an identity that can be made up would turn every visitor limit into a
+limit on honest visitors. With no trustworthy header the address the socket came from is used,
+so everybody shares the one total — the safe way round to be wrong. Hosting somewhere that
+replaces `X-Forwarded-For` with the address it saw the request come from? Set
+`DEEPTHREAT_TRUST_FORWARDED_FOR=1`.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `DEEPTHREAT_PAGE_PER_MINUTE` | `120` | Page renders one visitor may ask for in a minute. |
+| `DEEPTHREAT_PAGE_TOTAL_PER_MINUTE` | `400` | Page renders everybody together may ask for in a minute. |
+| `DEEPTHREAT_DATA_PER_MINUTE` | `180` | JSON reads one visitor may ask for in a minute — set by the Preload button, which watches its own load every 600ms. |
+| `DEEPTHREAT_MEDIA_PER_MINUTE` | `300` | Relayed CDN images one visitor may ask for in a minute. |
+| `DEEPTHREAT_PRELOAD_PER_MINUTE` | `12` | Preloads one visitor may start in a minute; each one reads a whole league. |
+| `DEEPTHREAT_ASK_PER_HOUR` | `6` | Ask AI questions one visitor may ask in an hour. |
+| `DEEPTHREAT_ASK_PER_DAY` | `20` | ... and in a day. |
+| `DEEPTHREAT_ASK_TOTAL_PER_HOUR` | `15` | Ask AI questions everybody together may ask in an hour. |
+| `DEEPTHREAT_ASK_TOTAL_PER_DAY` | `100` | ... and in a day. This is the one that keeps a free Gemini key's quota whole, because a question the key cannot answer spends it anyway. |
+| `DEEPTHREAT_TRUST_FORWARDED_FOR` | *(unset)* | Read the visitor from `X-Forwarded-For` (see above). |
+
+A count of `0` allows nothing at all, and a negative count removes that limit — which is how the
+whole thing is switched off if you would rather it were not there. The counts live in the
+process, so they start over when the instance does, and the only thing kept is an address and
+the times it asked: in memory, for as long as its longest window (a day, for Ask AI), never on
+disk. A refusal is logged once a minute per visitor, so the log shows the app is being walked
+without becoming a flood of its own.
 
 ## Two things worth knowing about a free instance
 
@@ -71,6 +123,17 @@ locally is what runs there.
 ## Verified locally, not on the host
 
 The setup here was checked by running the exact start command against this checkout and reading
-the pages back over HTTP, including with a filesystem that cannot be written to. What has *not*
-been checked is the platform's own build (its Python patch version, its free-tier limits, its
-cold start), because that only exists once an account is connected to it.
+the pages back over HTTP, including with a filesystem that cannot be written to. The limits were
+checked the same way with the counts turned down (a page limit of three, a data limit of two, Ask
+AI at zero), which showed each refusal, its `Retry-After`, the page a throttled visitor is shown,
+the Ask AI refusal arriving in the page as an answer, `robots.txt`, the header on every response,
+and the health check still answering while everything else was being refused. The layout checker
+(`python tools/check_layout.py`, 99 measurements across every page mode) also runs clean at the
+defaults, which is the check that says a person using the app will never meet a limit.
+
+What has *not* been checked is the platform's own build (its Python patch version, its free-tier
+limits, its cold start), and one header: that Render really does deliver `CF-Connecting-IP` is
+read from Cloudflare's documentation and a captured request, not from Render's own, because that
+request only exists once the service is live. If it turns out to be absent, the app falls back to
+the socket address — every visitor shares one bucket and the total limits do the work, which is
+the safe way round for it to be wrong, and the first `429` in the log would say so.

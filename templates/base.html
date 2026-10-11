@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {# No page here is meant to be found by a search engine -- every one of them is somebody's
+     league -- so the tag and the X-Robots-Tag header say the same thing to different crawlers. #}
+  <meta name="robots" content="noindex, nofollow">
   <title>{% block title %}DeepThreat{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='player_hub.css') }}">

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Busy · DeepThreat{% endblock %}
+
+{# What one visitor is shown when the app has answered as many of their requests as it means to
+   for now. It is the only page here that is about the copy rather than about a league, so it
+   says plainly what happened and how long it lasts instead of dressing it up as an error. #}
+{% block content %}
+<div class="seasonal-page">
+  <div class="empty-state">
+    <strong>Too many requests.</strong>
+    <p>This copy of DeepThreat is shared, and it has answered as much as it means to for now. Try again in {{ wait }}.</p>
+  </div>
+</div>
+{% endblock %}

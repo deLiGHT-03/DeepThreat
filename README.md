@@ -23,6 +23,11 @@ The same app runs on a Python host. `wsgi.py` is the application object a platfo
 
 Nothing has to be provisioned alongside it: every page reads Sleeper over HTTPS at request time, so a hosted copy needs no database, no volume and no inbound access. The connection you last opened lives in the browser's session; the settings file is only a remembered default, and a server that cannot write one still serves every page.
 
+Because the address is public, the app also keeps its own time: `robots.txt` and an `X-Robots-Tag`
+header ask crawlers to stay out, and `services/rate_limit.py` counts every request, per visitor
+and across the whole instance, so a walker or a loop is refused with a `429` instead of spending
+the instance and the Gemini quota. DEPLOY.md has the counts and how to change them.
+
 ## Check the page layout
 
 The brand logo in the toolbar is positioned absolutely, floating above the heading band, so heading text has to keep out of its lane. `python tools/check_layout.py` drives a real browser over every page mode the app links to, at widths on both sides of the 981px breakpoint, and fails if the two ever overlap. It starts its own server and checks the league already saved in your settings; install the extra tooling first with `python -m pip install -r requirements-dev.txt`.
@@ -37,6 +42,7 @@ Run `packaging\build_windows.ps1` in PowerShell on Windows. Install Inno Setup 6
 
 - `run.py` starts the local server and opens Firefox; `wsgi.py` is what a hosting platform serves instead.
 - `services/local_settings.py` stores the per-user connection settings outside the install folder.
+- `services/rate_limit.py` counts requests per visitor and in total, so a public copy cannot be walked or looped.
 - `app.py` defines the page routes.
 - `services/sleeper.py` handles Sleeper data.
 - `services/matchups.py` builds weekly position-group score comparisons.
