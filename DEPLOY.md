@@ -48,12 +48,16 @@ Nothing else is configurable, and no secret belongs in this repository: `.gitign
   page's worth of upstream requests.
 - **The preload button stays a local convenience.** It warms this process's in-memory cache; on
   a hosted copy with a cold-started instance it warms that instance only. It is harmless.
-- **Its stylesheets and scripts are cached rather than re-asked for.** Every static URL carries a
-  digest of the file's own bytes, so the files can be served with a year of caching without a
-  stale copy ever reaching anybody -- and because the URL is stable between deploys, both the
-  browser and whatever sits in front of the instance can keep them. That matters more here than
-  on the desktop: in front of a free instance that sleeps, nine cached files are nine requests
-  that do not wake it.
+- **Its stylesheets and scripts are cached rather than re-asked for, by the browser.** Every
+  static URL carries a digest of the file's own bytes and is served with a year of caching, so a
+  returning visitor re-downloads nothing and revalidates nothing: a reload of the Matchups page
+  on the deployed copy answered all thirteen files from the browser's own cache and asked the
+  server for none. What this does **not** buy on a free instance is the edge keeping them --
+  Cloudflare answers `cf-cache-status: DYNAMIC` for these URLs, which is its way of saying it
+  decided not to store them at all, and Render's own edge caching is documented as being for
+  paid web services. So the first visit to a URL still reaches the instance; the header is what
+  a paid service, or a Cloudflare zone of your own in front of a custom domain, would need to
+  make the second visit free as well.
 - **It treats its address as public.** Crawlers are asked to stay out and every request is
   counted, against the visitor and against the instance as a whole; see *Keeping crawlers and
   loops out* below for the counts and how to change them.
@@ -177,6 +181,11 @@ Then the same checks on the deployed copy, which answer the questions a local ru
   through, and are not read, which is why rotating them buys a caller nothing.
 - A visitor with no cookie gets the connect page rather than somebody else's league, and the
   league that is open on the copy comes from that browser's own session.
+- The pages load a 284 KB lossless `.webp` logo rather than the 840 KB PNG (the PNG stays as the
+  icon master, and `packaging/make_web_logo.py` regenerates the web one), it is served as
+  `image/webp` and is byte-identical to the file in this repository, all thirteen stylesheets
+  and scripts on a page carry a digest and answer `public, max-age=31536000, immutable`, and the
+  same file asked for without one still answers `no-cache`.
 
 What is still unmeasured on the host itself: its Python patch version and its cold start after
 the free instance sleeps.
