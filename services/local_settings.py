@@ -1,4 +1,14 @@
-"""Small per-user settings store for the local desktop app."""
+"""Small per-user settings store for the local desktop app.
+
+The file belongs to an app running on somebody's own machine, where "remembered" and "this
+one person" are the same thing. A served copy is one process answering whoever finds it, so
+that same file is not one person's memory but everybody's: reading it sends a stranger into
+the last visitor's league, and writing it lets a stranger change what every later visitor
+gets. Served, this keeps nothing -- the session cookie is already per browser and already
+signed with the platform's own key, so it is the memory -- and nothing here is read or
+written. A hosted copy that really does have one user can say so with
+``DEEPTHREAT_REMEMBER_FILE=1``.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +25,25 @@ _write_lock = threading.Lock()
 _REPLACE_ATTEMPTS = 5
 _REPLACE_PAUSE = 0.02
 
+#: Whether this process was started to be served rather than run on the machine it is read on.
+#: A platform assigns a port and hands over a session key; the launcher a person runs picks its
+#: own port and generates its own key, so what the environment provides is what tells them apart.
+_SERVED = bool((os.environ.get("SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY")
+                or os.environ.get("PORT") or "").strip())
+
+#: Set on a hosted copy that has one user, to keep remembering the connection in the file.
+_REMEMBER_FILE = bool((os.environ.get("DEEPTHREAT_REMEMBER_FILE") or "").strip())
+
+
+def keeps_a_file() -> bool:
+    """Whether remembering a connection here means writing it beside the other settings.
+
+    False when the app is served, because one file there would be every visitor's memory
+    rather than one person's. The connection is still remembered -- in the session, which is
+    that browser's alone -- so every page behaves the same; only where it is kept changes.
+    """
+    return _REMEMBER_FILE or not _SERVED
+
 
 def _settings_path() -> Path:
     app_data = os.environ.get("APPDATA") or os.environ.get("LOCALAPPDATA")
@@ -23,6 +52,8 @@ def _settings_path() -> Path:
 
 
 def load_connection() -> dict:
+    if not keeps_a_file():
+        return {}
     try:
         data = json.loads(_settings_path().read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -44,6 +75,8 @@ def _replace(temporary_path: Path, settings_path: Path) -> None:
 
 def save_connection(username: str, manager_id: str = "", league_id: str = "",
                     history_league_id: str = "") -> None:
+    if not keeps_a_file():
+        return
     settings_path = _settings_path()
     with _write_lock:
         data = load_connection()
@@ -68,8 +101,8 @@ def save_connection(username: str, manager_id: str = "", league_id: str = "",
             # Two ways this is not an error. Another process may be swapping the same file in --
             # the settings are only a remembered default and every writer saves the same values,
             # so a lost race must never turn into a failed page; the next request writes again.
-            # Or there is nowhere to write at all: a hosted copy runs where the filesystem can
-            # be read-only, and remembering the connection is a convenience, not the answer.
+            # Or there is nowhere to write at all, which is a filesystem issue rather than a
+            # broken page: the session still remembers the connection either way.
             pass
         finally:
             try:
@@ -79,6 +112,8 @@ def save_connection(username: str, manager_id: str = "", league_id: str = "",
 
 
 def clear_connection() -> None:
+    if not keeps_a_file():
+        return
     try:
         _settings_path().unlink()
     except OSError:

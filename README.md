@@ -21,7 +21,7 @@ The launcher starts a local-only server on an available port and opens it in Fir
 
 The same app runs on a Python host. `wsgi.py` is the application object a platform's WSGI server imports, and `waitress` is the server it is served with. `DEPLOY.md` has the whole of it — the two variables that matter (`SECRET_KEY` signs the session cookie; `GEMINI_API_KEY` is only for Ask AI), the start command, the health check, and what a free instance does differently — and `render.yaml` and the `Dockerfile` are that same setup expressed for a platform.
 
-Nothing has to be provisioned alongside it: every page reads Sleeper over HTTPS at request time, so a hosted copy needs no database, no volume and no inbound access. The connection you last opened lives in the browser's session; the settings file is only a remembered default, and a server that cannot write one still serves every page.
+Nothing has to be provisioned alongside it: every page reads Sleeper over HTTPS at request time, so a hosted copy needs no database, no volume and no inbound access. The connection you last opened lives in the browser's session, and served, that is the only place it lives: the settings file beside the app is not read or written there, because one file on an instance everybody can reach is every visitor's memory rather than yours, and it would open your league to whoever found the URL. Connecting is then a one-time step per browser — and `DEEPTHREAT_REMEMBER_FILE=1` puts the file back for a copy that really does have just one user.
 
 Because the address is public, the app also keeps its own time: `robots.txt` and an `X-Robots-Tag`
 header ask crawlers to stay out, and `services/rate_limit.py` counts every request, per visitor
@@ -41,7 +41,7 @@ Run `packaging\build_windows.ps1` in PowerShell on Windows. Install Inno Setup 6
 ## Modules
 
 - `run.py` starts the local server and opens Firefox; `wsgi.py` is what a hosting platform serves instead.
-- `services/local_settings.py` stores the per-user connection settings outside the install folder.
+- `services/local_settings.py` stores the per-user connection settings outside the install folder — and keeps nothing at all when the app is served, where the session is the memory.
 - `services/rate_limit.py` counts requests per visitor and in total, so a public copy cannot be walked or looped.
 - `app.py` defines the page routes.
 - `services/sleeper.py` handles Sleeper data.

@@ -30,6 +30,7 @@ season the league has played and can take a while on the first request. Waitress
 | `SECRET_KEY` | **Yes** | Signs the session cookie. Generate one per environment (`python -c "import secrets;print(secrets.token_hex(32))"`); `render.yaml` has the platform generate it. Without it the app still runs — it generates one per process — but then every restart forgets every session, so set it. |
 | `GEMINI_API_KEY` | No | Ask AI only. Without it the tab is hidden and the rest of the app is unaffected. |
 | `PORT` | Set by the platform | The port the server binds. |
+| `DEEPTHREAT_REMEMBER_FILE` | *(unset)* | Remember the connection in the settings file on a served copy as well, which is only right when that copy has exactly one user — see *Remembering the connection* below. |
 
 Nothing else is configurable, and no secret belongs in this repository: `.gitignore` keeps
 `api-key.txt` and `*-token.txt` out, and `.dockerignore` keeps them out of an image too.
@@ -38,9 +39,31 @@ Nothing else is configurable, and no secret belongs in this repository: `.gitign
 
 - **The session key is a secret.** Run from source it is generated per start; served, it is
   read from `SECRET_KEY`, because a constant in the source is a cookie anyone could forge.
-- **It can start with nothing remembered.** A server has no `%APPDATA%` and its filesystem may
-  be read-only, so the remembered connection is treated as the convenience it is: failing to
-  save it never fails a page. The connection is still remembered per browser in the session.
+- **It remembers the connection per browser, not per instance.** The settings file belongs to
+  the desktop app, where "remembered" and "this one person" are the same thing. On a served copy
+  one file is everybody's memory instead of one person's: `/` would send a stranger into the last
+  visitor's league, with that league's name and its owner's username in the URL, and whoever
+  opened it next could replace the remembered league for everyone who came after. Served, then,
+  `services/local_settings.py` reads and writes nothing there, and the signed session cookie —
+  which is that browser's alone already — is the memory. Every page behaves the same, connecting
+  is a one-time step per browser, and it survives a restart because the session key is the same
+  one each time.
+
+### Remembering the connection
+
+Where the connection is remembered is the one thing that differs between the desktop app and a
+served copy, and it is deliberate rather than incidental.
+
+| Where it runs | What remembers the connection |
+| --- | --- |
+| Your machine (`python run.py`, the installed app) | The settings file under `%APPDATA%\DeepThreat`, and the session beside it. |
+| Served (`wsgi.py` on a platform) | The session only. A file on a shared instance is not one person's memory, so it is not read or written. |
+| Served, with `DEEPTHREAT_REMEMBER_FILE=1` | The settings file as well — for a copy with one user, where everyone arriving *is* that user. |
+
+The two are told apart by what the platform provides: it assigns `PORT` and supplies
+`SECRET_KEY`, and the launcher a person runs picks its own port and generates its own key. So a
+served copy needs no variable set for this — the safe behaviour is the one that needs no
+configuration.
 - **`/healthz`** answers without reading Sleeper, so a platform's health check never waits on a
   page's worth of upstream requests.
 - **The preload button stays a local convenience.** It warms this process's in-memory cache; on
@@ -120,9 +143,9 @@ Any other container platform works the same way with the `Dockerfile` (Fly, Koye
 DigitalOcean App Platform) — the `Dockerfile` runs the same two commands, so what was verified
 locally is what runs there.
 
-## Verified locally, not on the host
+## Verified here, and on the host
 
-The setup here was checked by running the exact start command against this checkout and reading
+The setup was checked by running the exact start command against this checkout and reading
 the pages back over HTTP, including with a filesystem that cannot be written to. The limits were
 checked the same way with the counts turned down (a page limit of three, a data limit of two, Ask
 AI at zero), which showed each refusal, its `Retry-After`, the page a throttled visitor is shown,
@@ -131,9 +154,25 @@ and the health check still answering while everything else was being refused. Th
 (`python tools/check_layout.py`, 99 measurements across every page mode) also runs clean at the
 defaults, which is the check that says a person using the app will never meet a limit.
 
-What has *not* been checked is the platform's own build (its Python patch version, its free-tier
-limits, its cold start), and one header: that Render really does deliver `CF-Connecting-IP` is
-read from Cloudflare's documentation and a captured request, not from Render's own, because that
-request only exists once the service is live. If it turns out to be absent, the app falls back to
-the socket address — every visitor shares one bucket and the total limits do the work, which is
-the safe way round for it to be wrong, and the first `429` in the log would say so.
+Then the same checks on the deployed copy, which answer the questions a local run cannot:
+
+- `/healthz` answers `{"ok": true, "service": "deepthreat"}` from `waitress`, and the Matchups,
+  Season, Trades, History, Player Data and Ask AI pages each answer `200` with their stylesheets
+  and their titles — the heavy ones read every season the league has played and still come back
+  inside the channel timeout.
+- The Ask AI page names `gemini-3.5-flash-lite`, which is how the page reads that the platform's
+  `GEMINI_API_KEY` was found — not just that the variable is set.
+- `robots.txt` and `X-Robots-Tag` are on everything the header has to reach: the HTML, the JSON,
+  the CSS, the redirect, a `404`, and a refusal.
+- The limits refuse in production, not only here: the thirteenth preload in a minute was answered
+  `429` with `Retry-After: 49` and the same answer-shaped JSON, and was allowed again once the
+  window rolled.
+- `CF-Connecting-IP` is not a claim the app has to take on trust. A request carrying one of its
+  own is stopped at the edge with `403` before the app sees it, so the address the limiter counts
+  is the edge's and not the caller's. `X-Forwarded-For`, `True-Client-IP` and `X-Real-IP` do pass
+  through, and are not read, which is why rotating them buys a caller nothing.
+- A visitor with no cookie gets the connect page rather than somebody else's league, and the
+  league that is open on the copy comes from that browser's own session.
+
+What is still unmeasured on the host itself: its Python patch version and its cold start after
+the free instance sleeps.
