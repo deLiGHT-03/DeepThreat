@@ -1,0 +1,105 @@
+/* Ask AI: the question box, the answer, and the lookups behind it.
+
+   The page is one column of one thing at a time -- a box, then an answer -- so the styling stays
+   out of the way: the same panel, border and type the rest of the app uses, with the answer
+   given the most room and everything about how it was produced folded behind a click. */
+
+.ask-page .ask-form{display:flex;gap:8px;max-width:820px;margin:18px 0 0}
+.ask-page .ask-form input[type="search"]{
+  flex:1;min-width:0;height:46px;padding:0 14px;border:1px solid #344038;border-radius:10px;
+  background:#141a16;color:#eaf0ee;font:500 13px 'DM Sans',sans-serif;
+}
+.ask-page .ask-form input[type="search"]::placeholder{color:#6f7d74}
+.ask-page .ask-form input[type="search"]:focus{border-color:#b7f56d;outline:none}
+.ask-page .ask-form button{
+  flex:none;height:46px;padding:0 22px;border:1px solid #b7f56d;border-radius:10px;
+  background:#b7f56d;color:#11180b;font:700 12px Manrope,sans-serif;letter-spacing:.06em;
+  text-transform:uppercase;cursor:pointer;
+}
+.ask-page .ask-form button:hover:not([disabled]){background:#c8ff86;border-color:#c8ff86}
+.ask-page .ask-form button[disabled]{opacity:.55;cursor:progress}
+
+.ask-page .ask-scope{max-width:820px;margin:10px 0 0;color:#91a096;font-size:11px;line-height:1.55}
+.ask-page .ask-scope strong{color:#c4d0c7}
+.ask-page .ask-samples{display:flex;flex-wrap:wrap;gap:7px;list-style:none;margin:13px 0 0;padding:0;max-width:820px}
+.ask-page .ask-sample{
+  padding:7px 12px;border:1px dashed #3b4a3f;border-radius:20px;background:transparent;
+  color:#a6b3ab;font:600 11px 'DM Sans',sans-serif;cursor:pointer;text-align:left;
+}
+.ask-page .ask-sample:hover{border-style:solid;border-color:#b7f56d;color:#dbe6dd}
+
+.ask-page .ask-answer{
+  max-width:820px;margin:22px 0 0;padding:16px 18px;border:1px solid #303b33;
+  border-radius:12px;background:#1b221e;
+}
+.ask-page .ask-answer.is-error{border-color:#5c3a34;background:#241a18}
+.ask-page .ask-answer-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px}
+.ask-page .ask-answer-label{color:#89978f;font:700 9px Manrope,sans-serif;letter-spacing:.14em;text-transform:uppercase}
+.ask-page .ask-answer-meta{color:#748178;font-size:10px;font-variant-numeric:tabular-nums}
+.ask-page .ask-answer-body{color:#e6ece8;font-size:13px;line-height:1.62}
+.ask-page .ask-answer-body p{margin:0 0 10px}
+.ask-page .ask-answer-body p:last-child{margin-bottom:0}
+.ask-page .ask-answer-body ul,.ask-page .ask-answer-body ol{margin:0 0 10px;padding-left:20px}
+.ask-page .ask-answer-body li{margin:3px 0}
+/* A set of things the model laid out as a table is drawn as one: the cells are its text, and a
+   column of figures is lined up so it can be read down rather than across. A wide one scrolls
+   inside the answer rather than pushing the page sideways. */
+.ask-page .ask-table-wrap{margin:0 0 10px;overflow-x:auto}
+.ask-page .ask-answer-body table.ask-table{width:100%;border-collapse:collapse;font-size:12px}
+.ask-page .ask-table th,.ask-page .ask-table td{
+  padding:5px 9px;border-bottom:1px solid #303b33;text-align:left;vertical-align:top;
+  white-space:nowrap;
+}
+.ask-page .ask-table th:last-child,.ask-page .ask-table td:last-child{padding-right:0}
+.ask-page .ask-table thead th{
+  border-bottom-color:#3b4a3f;color:#89978f;font:700 9px Manrope,sans-serif;
+  letter-spacing:.12em;text-transform:uppercase;
+}
+.ask-page .ask-table tbody tr:last-child td{border-bottom:none}
+.ask-page .ask-table .ask-cell-number{text-align:right;font-variant-numeric:tabular-nums}
+.ask-page .ask-answer-body strong{color:#dff3c8;font-weight:700}
+/* A position in an answer wears the same badge a roster row wears, and a draft pick the same
+   gold the Trades page gives one -- both drawn around the answer's own text, never as markup.
+   The badge keeps its shape in a table cell as well as in a sentence, and the chip wraps at a
+   space rather than mid-word if the answer gets narrow. */
+.ask-page .ask-answer-body .position{display:inline-block;width:auto;min-width:30px;padding:2px 6px;vertical-align:baseline}
+.ask-page .ask-pick{
+  display:inline-block;padding:1px 5px;border-radius:4px;background:#3a3021;color:#f1d392;
+  font:700 11px 'DM Sans',sans-serif;white-space:nowrap;
+}
+.ask-page .ask-answer-body .ask-pick+.ask-pick{margin-left:3px}
+/* A wide answer's chips sit on the row's baseline instead of stretching the row, so a table of
+   picks stays the same height as one without them. */
+.ask-page .ask-table td .position,.ask-page .ask-table td .ask-pick{line-height:1.5}
+/* While the answer is being written the panel holds its shape, so the page does not jump. */
+.ask-page .ask-answer.is-pending .ask-answer-body{color:#9aa6a0}
+.ask-page .ask-answer.is-error .ask-answer-body{color:#ffbcab}
+
+.ask-page .ask-trace{margin-top:14px;padding-top:12px;border-top:1px dotted #3b4a3f}
+.ask-page .ask-trace summary{
+  cursor:pointer;color:#84938a;font:700 10px Manrope,sans-serif;letter-spacing:.08em;
+  text-transform:uppercase;list-style:none;
+}
+.ask-page .ask-trace summary::-webkit-details-marker{display:none}
+.ask-page .ask-trace summary:after{content:' +';color:#b7f56d}
+.ask-page .ask-trace[open] summary:after{content:' −'}
+.ask-page .ask-steps{margin:10px 0 0;padding-left:18px;color:#a6b3ab;font-size:11px;line-height:1.5}
+.ask-page .ask-steps li{margin:7px 0}
+.ask-page .ask-steps b{color:#dbe6dd;font-weight:700}
+/* The summary is the tool's own sentence about what it found, so it gets its own line rather
+   than running on from the tool's name -- a lookup with no arguments has nothing between them. */
+.ask-page .ask-steps span{display:block;margin-top:2px}
+.ask-page .ask-steps code{display:block;margin:2px 0;color:#84938a;font:600 10px ui-monospace,SFMono-Regular,monospace;word-break:break-word}
+.ask-page .ask-step-failed b{color:#ff9d88}
+
+.ask-page .ask-footnote{max-width:820px;margin:20px 0 0;color:#748178;font-size:10px;line-height:1.6}
+.ask-page .ask-setup{max-width:820px}
+.ask-page .ask-setup strong{color:#e6ece8}
+.ask-page .ask-setup p{margin:9px 0 0;font-size:12px;line-height:1.6}
+.ask-page .ask-setup code{padding:1px 5px;border-radius:4px;background:#232c26;color:#dbe6dd;font:600 11px ui-monospace,SFMono-Regular,monospace}
+.ask-page .ask-setup-note{color:#748178;font-size:10px}
+
+@media(max-width:650px){
+  .ask-page .ask-form{flex-direction:column}
+  .ask-page .ask-form button{width:100%}
+}

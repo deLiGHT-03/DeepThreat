@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Trades · {{ summary.league.name }}{% endblock %}
+
+{# A manager reads a name next to its position, so every player is built the same way. #}
+{% macro player_row(player) %}
+<li class="trade-item trade-player">
+  <span class="position pos-{{ player.position|lower }}">{{ player.position }}</span>
+  <span class="player-card-target trade-player-name" data-player-id="{{ player.id }}">{{ player.name }}</span>
+</li>
+{% endmacro %}
+
+{# A traded pick is a button, because what a manager wants from one is what it became -- the
+   player, the place in the draft, and who spent it. That is a lookup (the year, the round and
+   the roster the pick started with), not something the page can be rendered with, so the panel
+   under it is filled in on a click. A pick the current search matched is marked, so a page of
+   pick results says which pick of the several that moved is the one being asked about. #}
+{% macro pick_open(pick, pick_url, compact=false) %}
+<li class="trade-item trade-pick{% if pick.matched %} pick-matched{% endif %}">
+  <span class="position pos-pick">PK</span>
+  <button class="pick-open" type="button"
+          data-pick-season="{{ pick.season }}" data-pick-round="{{ pick.round }}"
+          data-pick-origin="{{ pick.origin_id }}" data-pick-url="{{ pick_url }}"
+          aria-expanded="false" title="See the player this pick became">
+    <span class="trade-pick-label">{{ pick.full }}</span>
+    {% if pick.has_via %}<small class="pick-detail">{% if compact %}· {% endif %}via {{ pick.via }}</small>{% endif %}
+  </button>
+  <div class="pick-trace" hidden></div>
+</li>
+{% endmacro %}
+
+{# Your own picks read in full -- the round, then where it came from. #}
+{% macro pick_row(pick, pick_url) %}{{ pick_open(pick, pick_url) }}{% endmacro %}
+
+{# The rail carries the whole league, so its picks are spelled out rather than folded away. #}
+{% macro rail_items(side, pick_url) %}
+<ul class="rail-side-list">
+  {% for player in side.players %}{{ player_row(player) }}{% endfor %}
+  {% for pick in side.picks %}{{ pick_open(pick, pick_url, compact=true) }}{% endfor %}
+  {% if not side.players and not side.picks %}<li class="trade-item trade-empty">Nothing moved.</li>{% endif %}
+</ul>
+{% endmacro %}
+
+{% macro side_column(side, label, pick_url) %}
+<div class="trade-side{% if side.is_focus %} trade-side-focus{% endif %}">
+  <div class="trade-side-label">{{ label }}</div>
+  <ul class="trade-side-list">
+    {% for player in side.players %}{{ player_row(player) }}{% endfor %}
+    {% for pick in side.picks %}{{ pick_row(pick, pick_url) }}{% endfor %}
+    {% if not side.players and not side.picks %}<li class="trade-item trade-empty">Nothing moved.</li>{% endif %}
+  </ul>
+</div>
+{% endmacro %}
+
+{% block content %}
+{# One URL for every pick on the page: a pick is looked up by what Sleeper records about it, so
+   the button only has to carry the year, the round and the roster it started with. #}
+{% set pick_url = url_for('pick_detail', league_id=summary.league.league_id) %}
+{# The left column is one manager's trades, and which manager is a choice. Every label and
+   sentence inside it is therefore written from whoever is being shown rather than from the
+   connection, so the same page reads as your own dealings or as anybody else's. #}
+{% set focus_who = 'You' if summary.focus_is_me else (summary.focus_label or 'That manager') %}
+{% set sent_label = focus_who ~ ' sent' %}
+{% set received_label = focus_who ~ ' received' %}
+<div class="seasonal-page trades-page">
+
+<div class="matchups-heading"><div>{% include "_season_switcher.html" %}<h1 class="section-title">Trades</h1></div></div>
+<div class="feature-toolbar"><div class="mode-switch"><a class="mode-button" href="{{ url_for('seasonal', league_id=summary.league.league_id, username=summary.username, manager_id=summary.manager_id) }}">Matchups</a>{% if show_impact_players %}<a class="mode-button" href="{{ url_for('seasonal', league_id=summary.league.league_id, impact='1', username=summary.username, manager_id=summary.manager_id) }}">Impact Players</a>{% endif %}<a class="mode-button" href="{{ url_for('player_data', league_id=summary.league.league_id, seasonal='1', username=summary.username, manager_id=summary.manager_id) }}">Player Data</a><span class="mode-button active" aria-current="page">Trades</span>{% if show_history %}<a class="mode-button" href="{{ url_for('history', league_id=summary.league.league_id, username=summary.username, manager_id=summary.manager_id) }}">History</a>{% endif %}{% if show_ask_ai %}<a class="mode-button" href="{{ url_for('ask', league_id=summary.league.league_id, username=summary.username, manager_id=summary.manager_id) }}">Ask AI</a>{% endif %}</div>{% include "_league_switcher.html" %}</div>
+{# A week tab stays on this page and narrows it. Weeks that filed trades are marked, so
+   the tabs say where the season's dealings are before they are opened. While a player search
+   is showing, the same strip narrows the search instead -- and carries it along, so a week
+   selected from a search is that week of the search rather than of the season. #}
+{# A week tab keeps the search and the manager being viewed: opening a week of somebody's
+trades means that week of that manager, not that week of your own. #}
+{% set carried = ('&player=' ~ (summary.query|urlencode)) if summary.query else '' %}
+{% if summary.owner %}{% set carried = carried ~ '&owner=' ~ (summary.owner|urlencode) %}{% endif %}
+<nav class="week-tabs" aria-label="Choose week"><a class="week-tab seasonal-tab{% if not summary.week %} active{% endif %}" href="{{ url_for('trades', league_id=summary.league.league_id, username=summary.username, manager_id=summary.manager_id) }}{{ carried }}">Season</a>{% for tab in summary.week_tabs %}<a class="week-tab{% if tab.playoff %} playoff-tab{% endif %}{% if tab.week in summary.week_counts %} trades-week{% endif %}{% if tab.week in summary.focus_week_counts %} my-trades-week{% endif %}{% if tab.week == summary.week %} active{% endif %}"{% if tab.week in summary.week_notes %} title="{{ summary.week_notes[tab.week] }}"{% endif %} href="{{ url_for('trades', league_id=summary.league.league_id, week=tab.week, username=summary.username, manager_id=summary.manager_id) }}{{ carried }}">{{ tab.label }}</a>{% endfor %}</nav>
+
+{% if summary.team %}
+{# A name search reads every season the league has played, so it sits above both columns
+   rather than inside either one: it answers for a career, not for this season's weeks. The box
+   takes a player's name, a team's name, a manager's username, or a pick; the field is still
+   called player because the URL is an address people keep. #}
+<form class="trade-search" method="get" action="{{ url_for('trades', league_id=summary.league.league_id) }}">
+  <input type="hidden" name="username" value="{{ summary.username }}">
+  <input type="hidden" name="manager_id" value="{{ summary.manager_id }}">
+  {% if summary.owner %}<input type="hidden" name="owner" value="{{ summary.owner }}">{% endif %}
+  <input type="search" name="player" value="{{ summary.query }}" placeholder="Search by player, team, owner or draft pick — 2025 1st, 2.02, 2024" aria-label="Search trades by player name, team name, owner username, draft pick or draft year" autocomplete="off" spellcheck="false">
+  <button type="submit">Search</button>
+  {% if summary.query %}<a class="trade-search-clear" href="{{ url_for('trades', league_id=summary.league.league_id, owner=summary.owner or None, username=summary.username, manager_id=summary.manager_id) }}">Clear</a>{% endif %}
+</form>
+{% if summary.query_kind == 'pick' and summary.total %}<p class="season-games">Trades that moved a {{ summary.pick_label }}{% if summary.week %}, filed in {{ summary.week_name }} of any season{% endif %} — {{ summary.total }} of them, read from every season this league has played ({{ summary.searched_label }}).{% if summary.pick.slot %} {{ summary.pick_describe|capitalize }}.{% endif %} Click any pick to see the player it became.</p>{% elif summary.query_kind == 'player' and summary.matched %}<p class="season-games">Trades involving {{ summary.matched_label }}{% if summary.week %}, filed in {{ summary.week_name }} of any season{% endif %} — {{ summary.total }} of them, read from every season this league has played ({{ summary.searched_label }}). {{ summary.focus_capital }} sit on the left, in full; the league’s scroll at the right.</p>{% elif summary.query_kind == 'team' %}<p class="season-games">Trades involving {{ summary.matched_team_label }}{% if summary.week %}, filed in {{ summary.week_name }} of any season{% endif %} — {{ summary.total }} of them, read from every season this league has played ({{ summary.searched_label }}).{% if summary.matched_team_aliases %} A team is followed by its manager, so a rename does not hide its trades: this one has also traded as {{ summary.matched_team_aliases }}.{% endif %} {{ summary.focus_capital }} sit on the left, in full; the league’s scroll at the right.</p>{% elif summary.query %}<p class="season-games">No trade in this league’s history moved a player named like “{{ summary.query }}”, and no team here goes by that name{% if summary.nearest %} — the nearest names it found are {{ summary.nearest|join(', ') }}{% endif %}.</p>{% else %}<p class="season-games">{% if summary.week %}Trades filed in {{ summary.week_name }}.{% else %}Every trade filed this season.{% endif %} {{ summary.focus_capital }} sit on the left, in full; the whole league scrolls at the right, where each box opens on a click.</p>{% endif %}
+{% if summary.failed_weeks %}<p class="season-warning">Couldn’t load Sleeper data for {{ summary.failed_weeks|join(', ') }}. Those weeks may be missing from the results; try refreshing the page.</p>{% endif %}
+
+{% if summary.query_kind == 'pick' and not summary.total %}
+<div class="empty-state">Nothing moved a {{ summary.pick_label }} in this league’s history{% if summary.week %} in {{ summary.week_name }} of any season{% endif %}. Only picks that were actually traded can be found, and every season the league has played is read.{% if summary.pick.slot %} {{ summary.pick_describe|capitalize }}.{% endif %}</div>
+{% elif summary.query_kind == 'player' and not summary.matched %}
+<div class="empty-state">Nothing to show for “{{ summary.query }}”.{% if summary.nearest %} The closest names it found are {{ summary.nearest|join(', ') }}.{% endif %} The search covers every season this league has played and matches loosely — part of a surname, a missing letter or a swapped pair all count — but only the players and teams it has actually traded can be found.</div>
+{% else %}
+<div class="trades-layout">
+
+  <section class="trades-main">
+    {# One manager's trades, and which manager is a choice: the box names the one being shown
+       and every manager the page can open is in the list under it. A manager is followed by his
+       user id, so a rename does not split him in two, and a season's page reads the same as the
+       chain's. #}
+    <header class="trades-rail-title">
+      <label class="trades-owner">
+        <span class="visually-hidden">Choose whose trades to show</span>
+        <select aria-label="Choose whose trades to show" onchange="if (this.value) window.location.assign(this.value)">
+          <option value="" selected disabled>{{ summary.focus_heading }}</option>
+          {% for option in summary.owner_options %}
+          {% set owner_link = url_for('trades', league_id=summary.league.league_id, week=summary.week or None, owner=option.owner_id, username=summary.username, manager_id=summary.manager_id) %}{% if summary.query %}{% set owner_link = owner_link ~ '&player=' ~ (summary.query|urlencode) %}{% endif %}
+          <option value="{{ owner_link }}">{{ 'You · ' if option.is_me else '' }}{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <b>{{ summary.focus_total }}</b>
+    </header>
+    {% if summary.focus_trades %}
+      {% for trade in summary.focus_trades %}
+      <article class="trade-card{% if trade.focus_partners|length == 1 %} trade-card-duo{% endif %}" id="trade-{{ trade.transaction_id }}">
+        <header class="trade-card-head">
+          {# A searched trade is dated: the season it was filed in, since the results can
+             come from any season the league has played. #}
+          {% if summary.query %}<span class="trade-season">{{ trade.season }}</span>{% endif %}
+          <span class="trade-week">Week {{ trade.week }}</span>
+          <span class="trade-partners">with {% for side in trade.focus_partners %}{{ side.team.name }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+        </header>
+        {# A partner's own list is what it took off the viewed manager's roster, so it reads as
+           what he sent; his side holds what the trade put on it, so it reads as what he
+           received. #}
+        <div class="trade-columns">
+          {% for side in trade.focus_partners %}{{ side_column(side, sent_label ~ (' to ' ~ side.team.name if trade.focus_partners|length > 1 else ''), pick_url) }}{% endfor %}
+          {% if trade.focus_side %}{{ side_column(trade.focus_side, received_label, pick_url) }}{% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">{% if summary.query_kind == 'pick' and summary.week %}{{ summary.focus_subject }} moved no {{ summary.pick_label }} in {{ summary.week_name }}.{% elif summary.query_kind == 'pick' %}None of {{ summary.focus_possessive }} trades moved a {{ summary.pick_label }}.{% elif summary.query and summary.week %}{{ summary.focus_subject }} made no trade involving {{ summary.matched_label }} in {{ summary.week_name }}.{% elif summary.query %}None of {{ summary.focus_possessive }} trades involved {{ summary.matched_label }}.{% elif summary.week %}{{ summary.focus_subject }} didn’t trade in {{ summary.week_name }}.{% else %}{{ summary.focus_subject }} {{ summary.focus_have }}n’t traded this season.{% endif %} {% if not summary.week and not summary.query %}The league’s trades are still listed at the right.{% endif %}</div>
+    {% endif %}
+  </section>
+
+  <aside class="trades-rail">
+    <header class="trades-rail-title"><span>All Trades</span>{% if summary.all_trades %}<label class="trades-expand" title="Open every trade box at once"><input type="checkbox" data-expand-target="#trades-rail-list">Expand</label>{% endif %}<b>{{ summary.total }}</b></header>
+    {% if summary.all_trades %}
+    <div class="trades-rail-scroll" id="trades-rail-list">
+      {% for trade in summary.all_trades %}
+      {# Every box in the rail is drawn the same; a trade of yours is marked by its YOU badge. #}
+      <details class="rail-trade" id="trade-rail-{{ trade.transaction_id }}">
+        <summary>
+          <span class="rail-week">{% if summary.query %}{{ trade.season }} {% endif %}Wk{{ trade.week }}</span>
+          <span class="rail-teams">
+            {%- for side in trade.sides %}{{ side.team.name }}{% if not loop.last %} ↔ {% endif %}{% endfor -%}
+          </span>
+          {% if trade.is_mine %}<span class="me-dot">YOU</span>{% endif %}
+        </summary>
+        <div class="rail-trade-body">
+          {% for side in trade.sides %}
+          <div class="rail-side">
+            <div class="rail-side-name{% if side.is_focus %} rail-side-focus{% endif %}">{{ side.team.name }}{% if side.is_mine %} <span class="rail-you">you</span>{% endif %}</div>
+            {{ rail_items(side, pick_url) }}
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">{% if summary.query_kind == 'pick' and summary.week %}No {{ summary.pick_label }} was traded in {{ summary.week_name }} of any season.{% if summary.week_counts %} The weeks that traded one are marked above.{% endif %}{% elif summary.query_kind == 'pick' %}No trade in this league’s history moved a {{ summary.pick_label }}.{% elif summary.query and summary.week %}No trade involving {{ summary.matched_label }} was filed in {{ summary.week_name }} of any season.{% if summary.week_counts %} The weeks that had one are marked above.{% endif %}{% elif summary.query %}No trade in this league’s history involved {{ summary.matched_label }}.{% elif summary.week %}No trades were filed in {{ summary.week_name }}.{% if summary.week_counts %} The weeks that had them are marked above.{% endif %}{% else %}No trades have been made this season.{% endif %}</div>
+    {% endif %}
+  </aside>
+
+</div>
+{% endif %}
+
+{% else %}<div class="empty-state">I couldn’t match this Sleeper username to a team. Return to league selection and reconnect using your Sleeper username.</div>{% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}<script src="{{ url_for('static', filename='avatar-fallback.js') }}" defer></script><script src="{{ url_for('static', filename='player-card.js') }}" defer></script><script src="{{ url_for('static', filename='trades.js') }}" defer></script><script src="{{ url_for('static', filename='pick-trace.js') }}" defer></script>{% endblock %}

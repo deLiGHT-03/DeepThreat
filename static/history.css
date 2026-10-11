@@ -1,0 +1,88 @@
+/* History — the record book first, then the leaderboards the records were picked from.
+   The page reuses the season tables, chips and position badges the rest of the app draws,
+   so only what is new to this page lives here. */
+
+.history-page .matchups-heading{margin-bottom:18px}
+/* The heading is a title and a line of copy, and the copy keeps out of the logo's lane the way
+   every other page's heading does. Below 981px the logo is in normal flow and the copy may use the
+   full width; at and above it the same 374px lane is reserved, with the copy capped a little
+   shorter than the lane it is given. Nothing else belongs up there: the brand logo is painted over
+   the heading band, so a control placed in the heading would sit behind it. */
+@media(max-width:980px){.history-page .matchups-heading>div{max-width:none}}
+@media(min-width:981px){.history-page .matchups-heading>div{max-width:min(620px,calc(100% - 374px))}}
+.history-page .matchups-heading .section-title{margin-bottom:2px}
+.history-page .matchups-heading .muted{font-size:11px;margin:0}
+
+.history-page .season-summary{max-width:none;margin:14px 0 16px;grid-template-columns:repeat(auto-fit,minmax(132px,1fr))}
+.history-page .season-summary strong{font-size:19px;font-variant-numeric:tabular-nums}
+.history-page .season-table-wrap{max-width:none;margin:0}
+.history-page .season-table-actions{max-width:none;margin:0 0 6px}
+.history-page .season-games{margin:0 0 10px}
+
+/* ---- champions ---- */
+
+.history-page .history-champions{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:0 0 18px}
+.history-page .history-champions-label{color:#89978f;font:700 9px Manrope,sans-serif;letter-spacing:.12em;text-transform:uppercase}
+.history-page .history-champion{padding:4px 9px;border-radius:6px;background:#1b221e;border:1px solid #303b33;color:#cfd9d1;font-size:11px}
+.history-page .history-champion b{color:#b7f56d;margin-right:5px;font-variant-numeric:tabular-nums}
+.history-page .history-champion-mine{border-color:#54743f;background:#1f2a1f}
+
+/* ---- the record book ---- */
+
+.history-page .history-records{display:grid;gap:20px;margin:0 0 40px}
+.history-page .history-group-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:0 0 7px;margin:0 0 10px;border-bottom:1px solid #29322d}
+.history-page .history-group-head h2{margin:0;font:700 15px Manrope,sans-serif;letter-spacing:-.01em;color:#eaf0ee}
+.history-page .history-group-head p{margin:0;color:#8b9990;font-size:10px}
+/* The record book's camera rides on the first group's header line, at its right end. */
+.history-page .history-group-head .screenshot-button{margin-left:auto;align-self:center}
+.history-page .history-record-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.history-page .history-record{
+  display:grid;gap:3px;min-width:0;padding:11px 12px;
+  background:#1b221e;border:1px solid #303b33;border-radius:11px;
+}
+.history-page .history-record-label{color:#89978f;font:700 9px Manrope,sans-serif;letter-spacing:.11em;text-transform:uppercase}
+.history-page .history-record-value{
+  font:800 21px Manrope,sans-serif;letter-spacing:-.02em;color:#b7f56d;font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.history-page .history-record-holder{color:#e4ece6;font:600 12.5px 'DM Sans',sans-serif;overflow:hidden;text-overflow:ellipsis}
+.history-page .history-record-meta{color:#8b9990;font-size:10px;line-height:1.45}
+/* A record this reader holds reads first from across the room. */
+.history-page .history-record-mine{border-color:#54743f;background:#1d261d;box-shadow:inset 3px 0 #b7f56d}
+
+/* ---- leaderboards ---- */
+
+.history-page .history-section-title{margin:22px 0 6px;font:700 17px Manrope,sans-serif;letter-spacing:-.02em;color:#eaf0ee}
+/* A heading printed at the top of a column already has the block's own top edge above it. */
+.history-page .history-table-block .history-section-title{margin-top:0}
+.history-page .history-table-block .season-table-wrap{border-radius:10px}
+/* The blocks sit in two columns, so a row's two tables have to start on the same line: the
+   description above each one is a fixed band (the two lines every description on this page runs
+   to) rather than however many lines it happens to need, and the rows are spaced well clear of
+   the table above them. A description long enough to need a third line would push its own table
+   down past its neighbour's -- keep the copy to two lines, and the band holds the tie. */
+.history-page .history-tables{display:grid;grid-template-columns:1fr 1fr;gap:40px 22px;align-items:start;margin-top:40px}
+.history-page .history-table-block{display:grid;grid-template-rows:auto auto 1fr;min-width:0}
+.history-page .history-table-block .season-games{min-height:32px;margin-bottom:10px}
+.history-page .history-tables .season-table th,
+.history-page .history-tables .season-table td{padding:9px 8px;font-size:10px}
+.history-page .history-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px}
+
+.history-page .history-player-cell{text-align:left;font-weight:600;color:#e4ece6;white-space:nowrap}
+.history-page .history-player-cell .position{display:inline-block;margin-right:6px;vertical-align:middle}
+.history-page .history-player{color:#e4ece6}
+.history-page .history-undrafted{margin-left:6px;padding:2px 5px;border-radius:4px;background:#3a3021;color:#f1d392;font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;vertical-align:middle}
+.history-page .history-result{display:inline-block;padding:3px 7px;border-radius:5px;background:#222c25;color:#a6b3ab;font:700 9px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase}
+.history-page .history-result.result-champion{background:#b7f56d;color:#14200f}
+.history-page .history-result.result-runnerup{background:#2f3a32;color:#dbe4dd}
+.history-page .history-none{color:#5f6a62}
+.history-page .history-note{margin:26px 0 0;color:#7b8a81}
+
+@media(max-width:900px){
+  .history-page .history-tables{grid-template-columns:1fr}
+}
+@media(max-width:650px){
+  .history-page .matchups-heading{align-items:flex-start;gap:10px}
+  .history-page .history-record-grid{grid-template-columns:1fr 1fr}
+  .history-page .history-record-value{font-size:18px}
+}

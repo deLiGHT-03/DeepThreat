@@ -24,6 +24,14 @@
     {% set destination = url_for('player_data', league_id=option.league_id, week=switch_week, seasonal='1' if switch_player_seasonal else None, team='1' if switch_player_team else None, drop_lowest='1' if switch_drop_lowest else None, drop_highest='1' if switch_drop_highest else None, username=username, manager_id=manager_id, history_id=option.league_id) %}
     {% elif switch_page == 'seasonal' %}
     {% set destination = url_for('seasonal', league_id=option.league_id, username=username, manager_id=manager_id, broad='1' if switch_broad else None, defense='1' if switch_defense else None, true_record='1' if switch_true_record else None, impact='1' if switch_impact else None, history_id=option.league_id) %}
+    {% elif switch_page == 'history' %}
+    {# History reads a whole chain of seasons, so switching leagues lands on the new league's history. #}
+    {% set destination = url_for('history', league_id=option.league_id, username=username, manager_id=manager_id, history_id=option.league_id) %}
+    {% elif switch_page == 'trades' %}
+    {% set destination = url_for('trades', league_id=option.league_id, username=username, manager_id=manager_id, history_id=option.league_id) %}
+    {% elif switch_page == 'ask' %}
+    {# Ask AI reads whichever season is in view, so switching leagues lands on the new one's questions. #}
+    {% set destination = url_for('ask', league_id=option.league_id, username=username, manager_id=manager_id, history_id=option.league_id) %}
     {% else %}
     {% set destination = url_for('league', league_id=option.league_id, username=username, manager_id=manager_id, season=season, history_id=option.league_id) %}
     {% endif %}

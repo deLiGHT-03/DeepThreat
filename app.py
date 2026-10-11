@@ -7,16 +7,23 @@ import sys
 from flask import (Flask, Response, flash, jsonify, redirect, render_template, request,
                    session, url_for)
 
-from services.sleeper import (CDN_SECONDS, MAX_NFL_WEEK, SleeperError, get_cdn_file,
-                              get_league_dashboard, get_json, get_league_season_history,
-                              get_user, get_user_account_leagues)
+from services.sleeper import (CDN_SECONDS, MAX_NFL_WEEK, SleeperError, display_handle,
+                              get_cdn_file, get_league_dashboard, get_json,
+                              get_league_season_history, get_user, get_user_account_leagues)
 from services.matchups import (get_default_week,
                                get_week_matchups, is_week_started)
 from services.seasonal import get_seasonal_impact_summary, get_seasonal_summary
 from services.player_data import get_player_data
 from services.player_card import get_player_card
+from services.trades import get_trades_summary
+from services import draft_picks
+from services import pick_query
+from services.history import get_history_summary
 from services.preload import preload_status, start_preload
 from services.local_settings import clear_connection, load_connection, save_connection
+from services import ask_ai
+from services.ask_model import MODEL as AI_MODEL, AiUnavailable, available as ai_available
+from services.ask_model import key_paths as ai_key_paths
 
 
 def create_app() -> Flask:
@@ -28,6 +35,16 @@ def create_app() -> Flask:
     # The Impact Players page is hidden until its shape is settled. Its routes and data
     # stay live, so this one flag brings the tab back on every page that links to it.
     app.jinja_env.globals["show_impact_players"] = False
+    # Trades is built but not shipped. The routes and data stay live, so opening a trades
+    # page works either way; this flag is what puts the button on every page that links to
+    # it. Set it to False to take the button back off before the page goes live.
+    app.jinja_env.globals["show_trades"] = True
+    # History reads every season of the league, which is a lot of Sleeper data for one page.
+    # The route stays live either way, so this flag only decides whether the button is there.
+    app.jinja_env.globals["show_history"] = True
+    # Ask AI is off until a Gemini key is on the machine. The route stays live either way, so
+    # this flag only decides whether the tab is offered; the page itself says where a key goes.
+    app.jinja_env.globals["show_ask_ai"] = ai_available()
 
     def league_switcher_data(username: str, manager_id: str, season: str,
                              current_league_id: str = ""):
@@ -147,7 +164,12 @@ def create_app() -> Flask:
                                    hide_brand_logo=True), 400
         username = manager.get("username") or username
         save_connection(username, manager.get("user_id", ""))
-        return render_template("leagues.html", username=manager.get("username") or username,
+        # The page says the account's name back to its owner, capitalised the way he writes it,
+        # while the handle itself is what is saved and carried -- Sleeper's API answers to the
+        # handle, and a display name is not always a name it would recognise.
+        return render_template("leagues.html", username=username,
+                               account_name=display_handle(manager.get("display_name"),
+                                                           username) or username,
                                manager_id=manager["user_id"], season=season, leagues=leagues)
 
     @app.route("/league/<league_id>", methods=["GET", "POST"])
@@ -292,6 +314,181 @@ def create_app() -> Flask:
                                    username, manager_id,
                                    history[0]["season"] if history else str(summary["league"].get("season", "")),
                                    summary["league"]["league_id"]))
+
+    @app.get("/league/<league_id>/trades")
+    def trades(league_id: str):
+        """This season's trades: the connected manager's own, with the league at their side.
+
+        A week tab narrows both columns to the trades filed against that week, so the page
+        answers "what happened in week 5" as readily as "what happened all season", and a name
+        searches every season the league has played for the trades it was in -- a player's, or
+        a team's.
+        """
+        raw_week = request.args.get("week", "").strip()
+        week = int(raw_week) if raw_week.isdigit() else 0
+        # One box searches for everything a manager looks for: a pick ("2025 1st", "2.02", or a
+        # year on its own like "2024") is read as a pick, and anything that is not a pick is read
+        # as a name -- a player's first, then a team's or its owner's. The reading is what
+        # decides, so a name is never mistaken for a pick.
+        typed = request.args.get("player", "").strip()
+        pick = typed if pick_query.read(typed) else ""
+        player = "" if pick else typed
+        # Whose trades the left column shows. It is a manager's user id, so the column follows
+        # one person across the seasons of a chain rather than one seat of one season; absent,
+        # the page shows the connected manager, which is what it opens on.
+        owner = request.args.get("owner", "").strip()
+        username = request.args.get("username", "").strip() or session.get("username", "")
+        manager_id = request.args.get("manager_id", "").strip() or session.get("manager_id", "")
+        history_id, history = season_history_for(league_id, username, manager_id)
+        session["season_history_league_id"] = history_id
+        session.update(league_id=league_id, username=username, manager_id=manager_id)
+        try:
+            # The search reads every season the league has played, so it is anchored on the
+            # newest season rather than on the one this page is showing: a search made from an
+            # older season would otherwise stop at it and miss every trade since.
+            summary = get_trades_summary(league_id, username, manager_id=manager_id, week=week,
+                                         player=player, pick=pick, chain_league_id=history_id,
+                                         owner=owner)
+        except SleeperError as exc:
+            return render_template("index.html", error=str(exc)), 400
+        save_connection(username, manager_id, league_id, history_id)
+        return render_template("trades.html", summary=summary, username=username,
+                               manager_id=manager_id,
+                               season=str(summary["league"].get("season", "")),
+                               current_league_id=summary["league"]["league_id"],
+                               switch_page="trades",
+                               season_options=history, history_league_id=history_id,
+                               current_league_name=str(summary["league"].get("name", "")),
+                               league_options=league_switcher_data(
+                                   username, manager_id,
+                                   history[0]["season"] if history else str(summary["league"].get("season", "")),
+                                   summary["league"]["league_id"]))
+
+    @app.get("/league/<league_id>/history")
+    def history(league_id: str):
+        """Every season this league has played: its record book and its leaderboards.
+
+        With no season asked for, the page answers for the whole chain. A season asks for that
+        year on its own -- the same book, its leaders drawn from that season -- and is read from
+        the chain's newest season either way, because that is what describes the whole history.
+        """
+        username = request.args.get("username", "").strip() or session.get("username", "")
+        manager_id = request.args.get("manager_id", "").strip() or session.get("manager_id", "")
+        season = request.args.get("season", "").strip()
+        history_id, history = season_history_for(league_id, username, manager_id)
+        session["season_history_league_id"] = history_id
+        session.update(league_id=league_id, username=username, manager_id=manager_id)
+        try:
+            summary = get_history_summary(history[0]["league_id"] if history else league_id,
+                                          username, manager_id=manager_id, season=season)
+        except SleeperError as exc:
+            return render_template("index.html", error=str(exc)), 400
+        save_connection(username, manager_id, league_id, history_id)
+        return render_template("history.html", summary=summary, username=username,
+                               manager_id=manager_id, season=summary["season"],
+                               current_league_id=summary["league"]["league_id"],
+                               switch_page="history",
+                               season_options=history, history_league_id=history_id,
+                               current_league_name=str(summary["league"].get("name", "")),
+                               league_options=league_switcher_data(
+                                   username, manager_id,
+                                   str(summary["league"].get("season", "")),
+                                   summary["league"]["league_id"]))
+
+    @app.get("/league/<league_id>/pick")
+    def pick_detail(league_id: str):
+        """What became of one traded draft pick, for the Trades page to open on a click.
+
+        A pick is named by its draft year, its round and the roster it started with, which is
+        what Sleeper keeps and what survives every hand-off; the answer says where it went, who
+        held it at the draft, and what was taken with it -- or that the records cannot separate
+        it from a team's other picks in that round.
+
+        The page a pick is clicked on can be an older season -- a 2021 trade can move a 2023
+        pick -- so the trace is anchored on the newest season of the chain, not on the season in
+        the address. Read from an older season Sleeper's own chain stops there, and a draft held
+        since would look like one that has not happened.
+        """
+        season = request.args.get("season", "").strip()
+        raw_round = request.args.get("round", "").strip()
+        raw_origin = request.args.get("origin", "").strip()
+        if not season.isdigit() or not raw_round.isdigit():
+            return jsonify(error="A pick needs a season and a round."), 400
+        try:
+            origin = int(raw_origin)
+        except (TypeError, ValueError):
+            origin = None
+        username = request.args.get("username", "").strip() or session.get("username", "")
+        manager_id = request.args.get("manager_id", "").strip() or session.get("manager_id", "")
+        _, history = season_history_for(league_id, username, manager_id)
+        root = str(history[0]["league_id"]) if history else league_id
+        try:
+            detail = draft_picks.trace(root, season, int(raw_round), origin)
+        except SleeperError as exc:
+            return jsonify(error=str(exc)), 503
+        response = jsonify(detail)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.get("/league/<league_id>/ask")
+    def ask(league_id: str):
+        """Ask AI: a question about this league, answered from this league's own records.
+
+        The page carries no data of its own -- it asks the route below, which reads the league
+        and hands back an answer -- so opening it is as cheap as opening any other page and it
+        can be linked to from all of them.
+        """
+        username = request.args.get("username", "").strip() or session.get("username", "")
+        manager_id = request.args.get("manager_id", "").strip() or session.get("manager_id", "")
+        history_id, history = season_history_for(league_id, username, manager_id)
+        session["season_history_league_id"] = history_id
+        session.update(league_id=league_id, username=username, manager_id=manager_id)
+        try:
+            dashboard = get_league_dashboard(league_id)
+        except SleeperError as exc:
+            return render_template("index.html", error=str(exc)), 400
+        league = dashboard["league"]
+        save_connection(username, manager_id, league_id, history_id)
+        seasons = sorted(str(item["season"]) for item in history) or [str(league.get("season") or "")]
+        return render_template(
+            "ask.html", username=username, manager_id=manager_id,
+            league_name=str(league.get("name") or ""),
+            current_league_id=league["league_id"],
+            season=str(league.get("season") or ""),
+            seasons_label=(seasons[0] if len(seasons) == 1 else f"{seasons[0]}\u2013{seasons[-1]}"),
+            switch_page="ask",
+            season_options=history, history_league_id=history_id,
+            current_league_name=str(league.get("name") or ""),
+            league_options=league_switcher_data(
+                username, manager_id,
+                history[0]["season"] if history else str(league.get("season") or ""),
+                league["league_id"]),
+            ai_ready=ai_available(), ai_model=AI_MODEL,
+            key_paths=[str(path) for path in ai_key_paths()],
+        )
+
+    @app.post("/league/<league_id>/ask")
+    def ask_question(league_id: str):
+        """Answer one question about one league, as JSON.
+
+        A missing key comes back as an ordinary answer that cannot be written rather than as a
+        server error, because it is something the page can explain to whoever asked.
+        """
+        username = request.values.get("username", "").strip() or session.get("username", "")
+        manager_id = request.values.get("manager_id", "").strip() or session.get("manager_id", "")
+        question = request.values.get("question", "")
+        # A question about a league is answered from every season it has played, and the tab can
+        # be open on an older one, so the tools are anchored on the newest season of the chain.
+        _, history = season_history_for(league_id, username, manager_id)
+        root = str(history[0]["league_id"]) if history else league_id
+        try:
+            result = ask_ai.answer(root, question,
+                                   reader={"username": username, "manager_id": manager_id})
+        except AiUnavailable as exc:
+            result = {"ok": False, "error": str(exc), "steps": [], "seconds": 0.0}
+        response = jsonify(result)
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.get("/league/<league_id>/player-data")
     def player_data(league_id: str):

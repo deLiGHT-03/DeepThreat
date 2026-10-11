@@ -8,8 +8,10 @@ official weekly stats behind GP — leaving the pages to read from the cache ins
 A preload runs on its own thread so the page that started it still renders immediately,
 and its progress is readable through :func:`preload_status` for the toolbar indicator.
 
-Only the season being viewed is loaded. Other seasons are left untouched until one of
-them is chosen, which selects a league from that season and preloads it in turn.
+Only the season being viewed is loaded week by week. Other seasons are left untouched until
+one of them is chosen, which selects a league from that season and preloads it in turn —
+except for the History page, which reads a league's whole chain of seasons, so a preload ends
+by warming every season in that chain.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from services.history import season_plan, warm_history
 from services.sleeper import (SleeperError, cached_response_count, get_json,
                               get_league_dashboard, get_nfl_schedule,
                               get_nfl_week_stats, get_user,
@@ -148,8 +151,19 @@ def _load(league_id: str, username: str, manager_id: str, force: bool) -> None:
                 except SleeperError:
                     pass  # The pages report their own failed weeks; keep loading the rest.
                 done += 1
-                _update(league_id, progress=0.15 + 0.85 * done / total,
+                _update(league_id, progress=0.15 + 0.7 * done / total,
                         detail=f"{done} of {total}")
+
+        # The History page reads every season of this league, so the rest of the load is those
+        # seasons: the button promises all the league data, and this is the last of it.
+        _update(league_id, progress=0.85, detail="League history")
+        try:
+            history = season_plan(league_id, state)
+            warm_history(history, progress=lambda done, total, season: _update(
+                league_id, progress=0.85 + 0.15 * done / max(total, 1),
+                detail=f"History · {season}"))
+        except SleeperError:
+            pass  # A history one season short is still worth the rest of the load.
 
         _update(league_id, status=READY, progress=1.0,
                 detail=f"{total} loads", seconds=round(time.monotonic() - started, 2),

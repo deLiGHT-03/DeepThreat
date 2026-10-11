@@ -4,7 +4,7 @@ Run `packaging\build_windows.ps1` in PowerShell on Windows. It creates a one-fol
 
 The installer uses a stable application ID and per-user install directory. Re-running it upgrades the existing installation and removes stale app files first; saved usernames and league selections remain in `%APPDATA%\DeepThreat`, outside the install directory.
 
-The build includes only `templates` and `static` as data files. `api-key.txt` is not used by the app and is not included in the executable or installer.
+The build includes only `templates` and `static` as app assets, plus the data files the optional `google-genai` package needs for Ask AI (see `DeepThreat.spec`). `api-key.txt` is deliberately not included in the executable or installer: an installed copy reads its key from `%APPDATA%\DeepThreat\api-key.txt`, which keeps one person's key out of a build that could be copied to another machine.
 
 The build also embeds `DeepThreat.ico` in the executable, so Windows shows the app's own icon on
 the executable, its shortcuts and the taskbar. That file is generated - after changing

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Ask AI · {{ league_name }}{% endblock %}
+
+{# Ask AI answers from this league's own records, so the page says which league it is reading
+   and never pretends to know anything beyond it. The question box, the answer and the list of
+   what was looked up are the whole page: nothing here is a form to fill in twice. #}
+{% block content %}
+<div class="seasonal-page ask-page">
+
+<div class="matchups-heading"><div>{% include "_season_switcher.html" %}<h1 class="section-title">Ask AI</h1></div></div>
+<div class="feature-toolbar"><div class="mode-switch"><a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, username=username, manager_id=manager_id) }}">Matchups</a>{% if show_impact_players %}<a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, impact='1', username=username, manager_id=manager_id) }}">Impact Players</a>{% endif %}<a class="mode-button" href="{{ url_for('player_data', league_id=current_league_id, seasonal='1', username=username, manager_id=manager_id) }}">Player Data</a>{% if show_trades %}<a class="mode-button" href="{{ url_for('trades', league_id=current_league_id, username=username, manager_id=manager_id) }}">Trades</a>{% endif %}{% if show_history %}<a class="mode-button" href="{{ url_for('history', league_id=current_league_id, username=username, manager_id=manager_id) }}">History</a>{% endif %}<span class="mode-button active" aria-current="page">Ask AI</span></div>{% include "_league_switcher.html" %}</div>
+
+{% if not ai_ready %}
+{# Without a key there is nothing to ask, so the page says where the key goes rather than
+   showing a box that would only fail. #}
+<div class="empty-state ask-setup">
+  <strong>Ask AI needs a Gemini API key.</strong>
+  <p>Save your key in <code>api-key.txt</code> beside the app — or in <code>%APPDATA%\DeepThreat\api-key.txt</code> — and reload this page. A key is free from Google AI Studio.</p>
+  <p class="ask-setup-note">Looking for it in: {{ key_paths|join(' · ') }}</p>
+</div>
+{% else %}
+
+<form class="ask-form" id="ask-form" method="post" action="{{ url_for('ask', league_id=current_league_id, username=username, manager_id=manager_id) }}">
+  <label class="visually-hidden" for="ask-question">Your question about this league</label>
+  <input id="ask-question" name="question" type="search" autocomplete="off" maxlength="500" required
+         placeholder="Ask about this league — a player's games, a trade, a draft pick, a record">
+  <button type="submit" id="ask-submit">Ask</button>
+</form>
+
+<p class="ask-scope">Answered only from <strong>{{ league_name }}</strong> — seasons {{ seasons_label }}. Every figure comes from this league's own Sleeper records, so if a thing is not in them, the answer says so.</p>
+
+{# One click asks the question, so every sample has to be one this league can actually answer:
+   a question with a missing name in it would only come back asking for the name. #}
+<ul class="ask-samples" id="ask-samples">
+  <li><button type="button" class="ask-sample">Who was drafted in the 3rd round of the 2025 rookie draft?</button></li>
+  <li><button type="button" class="ask-sample">What happened to my 2026 2nd round pick?</button></li>
+  <li><button type="button" class="ask-sample">What is the highest score in this league's history?</button></li>
+  <li><button type="button" class="ask-sample">Who won this league in 2025, and how did my team finish?</button></li>
+</ul>
+
+<section class="ask-answer" id="ask-answer" hidden>
+  <div class="ask-answer-head">
+    <span class="ask-answer-label">Answer</span>
+    <span class="ask-answer-meta" id="ask-meta"></span>
+  </div>
+  <div class="ask-answer-body" id="ask-answer-body"></div>
+  <details class="ask-trace" id="ask-trace" hidden>
+    <summary>What it looked up</summary>
+    <ol class="ask-steps" id="ask-steps"></ol>
+  </details>
+</section>
+
+<p class="ask-footnote">Answers are written by {{ ai_model }}, which explores {{ league_name }} through its own lookups — a player's games, trades, draft picks and where they ended up, draft boards, a week's scores, rosters, standings, a whole set of players ranked by their best season, and the league's record book. A question that names several things comes back as a list or a table rather than a paragraph, and every figure in it is the one the tools read. A position in an answer wears the same badge the rest of the app uses and a draft pick a chip of its own, so both can be picked out at a glance. It cannot change anything, and it is never shown another league.</p>
+{% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}{% if ai_ready %}<script src="{{ url_for('static', filename='ask.js') }}" defer></script>{% endif %}{% endblock %}

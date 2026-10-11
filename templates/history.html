@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}History{% if summary.scope_season %} · {{ summary.scope_season }}{% endif %} · {{ summary.league.name }}{% endblock %}
+
+{# A player is read next to his position, the way the rest of the app shows him. His name is
+   left as plain text here: the player card is built from the season in the page's URL, and a
+   card about this season underneath a row about 2022 would read as those 2022 numbers. #}
+{% macro player_cell(player) %}
+<span class="position pos-{{ player.position|lower }}">{{ player.position }}</span>
+<span class="history-player">{{ player.name }}</span>
+{% endmacro %}
+
+{# The camera saves a section as a PNG, straight out of the page it is printed on. #}
+{% macro camera(target, label) %}
+<button class="screenshot-button" type="button" aria-label="Save {{ label }} screenshot" title="Save {{ label }} screenshot" data-screenshot-target="{{ target }}" data-screenshot-ignore><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.2 5.5 9.5 4h5l1.3 1.5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2h3.2ZM12 8a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0 2a3 3 0 1 1 0 6 3 3 0 0 1-3-3Z"/></svg></button>
+{% endmacro %}
+
+{# A sortable column head: the button re-orders this table's own rows in the browser, and the
+   arrow beside the label says which way the column is read. `type` picks how two cells are
+   compared -- text, a number, or a record like 12-3-1, which is read win by win. #}
+{% macro sort_head(label, type, direction='desc', title='') %}
+<th scope="col" aria-sort="none"><button class="sort-button" type="button" data-sort-type="{{ type }}" data-sort-direction="{{ direction }}"{% if title %} title="{{ title }}"{% endif %}>{{ label }} <span>↕</span></button></th>
+{% endmacro %}
+
+{# One team, with the avatar the rest of the app falls back to a letter for. #}
+{% macro team_identity(name, logo_url, fallbacks, is_mine) %}
+<span class="season-team-identity">{% if logo_url %}<img class="season-team-avatar" src="{{ logo_url }}" data-avatar-fallbacks="{{ fallbacks|join('|') }}" alt=""><span class="team-logo-placeholder" hidden>{{ name[0]|upper }}</span>{% else %}<span class="team-logo-placeholder season-team-avatar">{{ name[0]|upper }}</span>{% endif %}{% if is_mine %}<span class="me-dot">YOU</span>{% endif %}<span>{{ name }}</span></span>
+{% endmacro %}
+
+{% block content %}
+<div class="seasonal-page history-page">
+
+<div class="matchups-heading"><div><h1 class="section-title">History</h1><p class="muted">{% if summary.scope_season %}{{ summary.scope_season }} on its own — {% if summary.scope.in_progress %}the season so far, {{ summary.scope.weeks_played }} of {{ summary.scope.weeks_total }} weeks scored.{% else %}{{ summary.scope.regular }} regular-season weeks and the playoffs behind them.{% endif %} <b>All-Time</b> puts every season back together.{% else %}Every season this league has played, newest first — {{ summary.season_label }}{% if summary.has_live_season %}, including the season in progress{% endif %}.{% endif %}</p></div></div>
+<div class="feature-toolbar"><div class="mode-switch"><a class="mode-button" href="{{ url_for('seasonal', league_id=summary.league.league_id, username=summary.username, manager_id=summary.manager_id) }}">Matchups</a>{% if show_impact_players %}<a class="mode-button" href="{{ url_for('seasonal', league_id=summary.league.league_id, impact='1', username=summary.username, manager_id=summary.manager_id) }}">Impact Players</a>{% endif %}<a class="mode-button" href="{{ url_for('player_data', league_id=summary.league.league_id, seasonal='1', username=summary.username, manager_id=summary.manager_id) }}">Player Data</a>{% if show_trades %}<a class="mode-button" href="{{ url_for('trades', league_id=summary.league.league_id, username=summary.username, manager_id=summary.manager_id) }}">Trades</a>{% endif %}<span class="mode-button active" aria-current="page">History</span>{% if show_ask_ai %}<a class="mode-button" href="{{ url_for('ask', league_id=summary.league.league_id, username=summary.username, manager_id=summary.manager_id) }}">Ask AI</a>{% endif %}</div>{% include "_league_switcher.html" %}</div>
+
+{# The year chips read this page for that year, rather than leaving it for the week view. #}
+<nav class="week-tabs history-seasons" aria-label="Choose the history to read">
+  <a class="week-tab{% if not summary.scope_season %} active{% endif %}" href="{{ url_for('history', league_id=summary.league.league_id, username=summary.username, manager_id=summary.manager_id) }}" title="Every season this league has played">All-Time</a>
+  {% for season in summary.seasons %}
+  <a class="week-tab{% if season.in_progress %} playoff-tab{% endif %}{% if summary.scope_season == season.season %} active{% endif %}" href="{{ url_for('history', league_id=season.league_id, season=season.season, username=summary.username, manager_id=summary.manager_id) }}" title="{% if season.champion %}{{ season.champion.handle }} won {{ season.season }}{% else %}Season in progress — {{ season.weeks_played }} weeks scored{% endif %}">{{ season.season }}{% if season.in_progress %} · Wk{{ season.weeks_played }}{% endif %}</a>
+  {% endfor %}
+</nav>
+
+<div class="season-summary history-summary">
+  <div><span>{% if summary.scope_season %}WEEKS{% else %}SEASONS{% endif %}</span><strong>{% if summary.scope_season %}{{ summary.scope.weeks_played }}{% if summary.scope.in_progress %}/{{ summary.scope.weeks_total }}{% endif %}{% else %}{{ summary.season_count }}{% endif %}</strong></div>
+  <div><span>MANAGERS</span><strong>{{ summary.totals.managers }}</strong></div>
+  <div><span>GAMES</span><strong>{{ summary.totals.games }}</strong></div>
+  <div><span>TRADES</span><strong>{{ summary.totals.trades }}</strong></div>
+  <div><span>MOVES</span><strong>{{ summary.totals.moves }}</strong></div>
+  <div><span>POINTS</span><strong>{{ '{:,.0f}'.format(summary.totals.points) }}</strong></div>
+</div>
+
+{% if summary.champions %}<p class="history-champions"><span class="history-champions-label">{% if summary.scope_season %}Champion{% else %}Champions{% endif %}</span>{% for season in summary.champions %}<span class="history-champion{% if season.champion.is_mine %} history-champion-mine{% endif %}"><b>{{ season.season }}</b> {{ season.champion.handle }}</span>{% endfor %}</p>{% endif %}
+
+{% if summary.failed %}<p class="season-warning">Couldn’t load Sleeper data for {{ summary.failed|join(', ') }}. Those may be missing from the records; try refreshing the page.</p>{% endif %}
+
+<section class="history-records" id="history-records" data-screenshot-name="{% if summary.scope_season %}history-{{ summary.scope_season }}-records{% else %}league-history-records{% endif %}">
+  {% for group in summary.record_groups %}
+  {% if group.records %}
+  <div class="history-group">
+    <header class="history-group-head"><h2>{{ group.title }}</h2><p>{{ group.note }}</p>{% if loop.first %}{{ camera('history-records', 'record book') }}{% endif %}</header>
+    <div class="history-record-grid">
+      {% for record in group.records %}
+      <article class="history-record{% if record.is_mine %} history-record-mine{% endif %}"{% if record.hint %} title="{{ record.hint }}"{% endif %}>
+        <span class="history-record-label">{{ record.label }}</span>
+        <strong class="history-record-value">{{ record.value }}</strong>
+        <span class="history-record-holder">{% if record.is_mine %}<span class="me-dot">YOU</span>{% endif %}{{ record.holder }}</span>
+        <small class="history-record-meta">{{ record.meta }}</small>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</section>
+
+{% if summary.standings %}
+<h2 class="history-section-title">{% if summary.scope_season %}Final Standings{% else %}All-Time Standings{% endif %}</h2>
+<p class="season-games">{% if summary.scope_season %}{% if summary.scope.in_progress %}Regular-season record and scoring through {{ summary.scope.weeks_played }} of {{ summary.scope.regular }} weeks.{% else %}The regular-season record and scoring every team finished with, and how far each one went.{% endif %}{% else %}Regular-season records and scoring, every season added together. A season still being played counts only its completed weeks.{% endif %}</p>
+<div class="season-table-actions">{{ camera('history-standings', 'standings') }}</div>
+<div class="season-table-wrap">
+  <table class="season-table history-table" id="history-standings" data-screenshot-name="{% if summary.scope_season %}final-standings-{{ summary.scope_season }}{% else %}all-time-standings{% endif %}">
+    <thead><tr>{{ sort_head('Manager', 'text', 'asc') }}{% if not summary.scope_season %}{{ sort_head('Seasons', 'number') }}{% endif %}{{ sort_head('W-L-T', 'record') }}{{ sort_head('Win %', 'number') }}{{ sort_head('Points', 'number') }}{{ sort_head('PPG', 'number') }}{{ sort_head('Playoffs', 'number') }}{% if summary.scope_season %}{{ sort_head('Result', 'number') }}{% else %}{{ sort_head('Titles', 'number') }}{% endif %}</tr></thead>
+    <tbody>
+      {% for entry in summary.standings %}
+      <tr class="{% if entry.is_mine %}season-my-team{% endif %}">
+        <th scope="row" data-sort-value="{{ entry.name }}">{{ team_identity(entry.name, entry.logo_url, entry.logo_fallback_urls, entry.is_mine) }}</th>
+        {% if not summary.scope_season %}<td data-sort-value="{{ entry.season_count }}">{{ entry.season_count }}</td>{% endif %}
+        {# The whole record is the sort key, so a tie that the display leaves off still counts. #}
+        <td data-sort-value="{{ entry.wins }}-{{ entry.losses }}-{{ entry.ties }}">{{ entry.wins }}-{{ entry.losses }}{% if entry.ties %}-{{ entry.ties }}{% endif %}</td>
+        <td data-sort-value="{{ entry.win_pct }}">{{ '%.3f'|format(entry.win_pct)|replace('0.', '.') }}</td>
+        <td data-sort-value="{{ entry.points }}">{{ '{:,.2f}'.format(entry.points) }}</td>
+        <td data-sort-value="{{ entry.ppg }}">{{ '%.1f'|format(entry.ppg) }}</td>
+        <td data-sort-value="{{ entry.playoffs }}">{{ entry.playoffs }}</td>
+        {% if summary.scope_season %}<td data-sort-value="{{ entry.result_rank }}">{% if entry.result %}<span class="history-result result-{{ entry.result|lower|replace('-', '') }}">{{ entry.result }}</span>{% else %}<span class="history-none">—</span>{% endif %}</td>{% else %}<td data-sort-value="{{ entry.titles }}">{% if entry.titles %}{{ entry.titles }}{% else %}<span class="history-none">—</span>{% endif %}</td>{% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="history-tables">
+
+  {% if summary.leaderboards.seasons %}
+  <section class="history-table-block">
+    <h2 class="history-section-title">{% if summary.scope_season %}Scoring Leaders{% else %}Highest Scoring Seasons{% endif %}</h2>
+    <p class="season-games">{% if summary.scope_season %}Every team, by points scored.{% else %}Regular-season points, full seasons only.{% endif %}</p>
+    <div class="season-table-wrap">
+      <table class="season-table">
+        <thead><tr>{% if not summary.scope_season %}{{ sort_head('Season', 'number') }}{% endif %}{{ sort_head('Team', 'text', 'asc') }}{{ sort_head('Points', 'number') }}{{ sort_head('PPG', 'number') }}{{ sort_head('Record', 'record') }}</tr></thead>
+        <tbody>{% for row in summary.leaderboards.seasons %}<tr class="{% if row.is_mine %}season-my-team{% endif %}">{% if not summary.scope_season %}<td data-sort-value="{{ row.season }}">{{ row.season }}</td>{% endif %}<td class="history-name" data-sort-value="{{ row.name }}">{% if row.is_mine %}<span class="me-dot">YOU</span>{% endif %}{{ row.name }}</td><td data-sort-value="{{ row.points }}">{{ '{:,.2f}'.format(row.points) }}</td><td data-sort-value="{{ row.ppg }}">{{ '%.1f'|format(row.ppg) }}</td><td>{{ row.record }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if summary.leaderboards.games %}
+  <section class="history-table-block">
+    <h2 class="history-section-title">Highest Scoring Games</h2>
+    <p class="season-games">One team, one week — the regular season and the playoffs alike.</p>
+    <div class="season-table-wrap">
+      <table class="season-table">
+        <thead><tr>{% if not summary.scope_season %}{{ sort_head('Season', 'number') }}{% endif %}{{ sort_head('Week', 'number') }}{{ sort_head('Team', 'text', 'asc') }}{{ sort_head('Points', 'number') }}{{ sort_head('Opponent', 'text', 'asc') }}{{ sort_head('Margin', 'number') }}</tr></thead>
+        <tbody>{% for row in summary.leaderboards.games %}<tr class="{% if row.is_mine %}season-my-team{% endif %}">{% if not summary.scope_season %}<td data-sort-value="{{ row.season }}">{{ row.season }}</td>{% endif %}<td data-sort-value="{{ row.week }}">{{ row.week_label|replace('Week ', 'Wk') }}</td><td class="history-name" data-sort-value="{{ row.team }}">{% if row.is_mine %}<span class="me-dot">YOU</span>{% endif %}{{ row.team }}</td><td data-sort-value="{{ row.points }}">{{ '{:,.2f}'.format(row.points) }}</td><td data-sort-value="{{ row.opponent }}">{{ row.opponent }}</td><td data-sort-value="{{ row.margin }}" class="{% if row.margin > 0 %}positive{% else %}negative{% endif %}">{{ '%+.2f'|format(row.margin) }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if summary.leaderboards.blowouts %}
+  <section class="history-table-block">
+    <h2 class="history-section-title">Biggest Blowouts</h2>
+    <p class="season-games">The widest winning margins of them all.</p>
+    <div class="season-table-wrap">
+      <table class="season-table">
+        <thead><tr>{% if not summary.scope_season %}{{ sort_head('Season', 'number') }}{% endif %}{{ sort_head('Week', 'number') }}{{ sort_head('Winner', 'text', 'asc') }}{{ sort_head('Margin', 'number') }}{{ sort_head('Loser', 'text', 'asc') }}</tr></thead>
+        <tbody>{% for row in summary.leaderboards.blowouts %}<tr class="{% if row.is_mine %}season-my-team{% endif %}">{% if not summary.scope_season %}<td data-sort-value="{{ row.season }}">{{ row.season }}</td>{% endif %}<td data-sort-value="{{ row.week }}">{{ row.week_label|replace('Week ', 'Wk') }}</td><td class="history-name" data-sort-value="{{ row.team }}">{% if row.is_mine %}<span class="me-dot">YOU</span>{% endif %}{{ row.team }}</td><td class="positive" data-sort-value="{{ row.margin }}">{{ '+%.2f'|format(row.margin) }}</td><td data-sort-value="{{ row.opponent }}">{{ row.opponent }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if summary.leaderboards.steals %}
+  <section class="history-table-block">
+    <h2 class="history-section-title">Draft Day Steals</h2>
+    <p class="season-games">{% if summary.scope_season %}Rookies taken in the third round or later of this season's draft, by the points they scored that season.{% else %}The most points in a season by a rookie taken in the third round or later of that season's draft.{% endif %}</p>
+    <div class="season-table-wrap">
+      <table class="season-table">
+        <thead><tr>{% if not summary.scope_season %}{{ sort_head('Season', 'number') }}{% endif %}{{ sort_head('Player', 'text', 'asc') }}{{ sort_head('Drafted by', 'text', 'asc') }}{{ sort_head('Pick', 'number') }}{{ sort_head('Points', 'number') }}{{ sort_head('PPG', 'number') }}</tr></thead>
+        <tbody>{% for row in summary.leaderboards.steals %}<tr class="{% if row.is_mine %}season-my-team{% endif %}">{% if not summary.scope_season %}<td data-sort-value="{{ row.season }}">{{ row.season }}</td>{% endif %}<th scope="row" class="history-player-cell" data-sort-value="{{ row.name }}">{{ player_cell(row) }}</th><td data-sort-value="{{ row.team }}">{% if row.is_mine %}<span class="me-dot">YOU</span>{% endif %}{{ row.team }}</td><td data-sort-value="{{ row.pick_no }}">{{ row.round_label }} pick {{ row.pick_no }}</td><td data-sort-value="{{ row.points }}">{{ '{:,.2f}'.format(row.points) }}</td><td data-sort-value="{{ row.ppg }}">{{ '%.1f'|format(row.ppg) }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if summary.leaderboards.gems %}
+  <section class="history-table-block">
+    <h2 class="history-section-title">Waiver Wire Gems</h2>
+    <p class="season-games">{% if summary.scope_season %}Players added off the wire this season. “After” is what he scored from the week he was added.{% else %}The most points in a season by a player picked up off the wire that same season. “After” is what he scored from the week he was added.{% endif %}</p>
+    <div class="season-table-wrap">
+      <table class="season-table">
+        <thead><tr>{% if not summary.scope_season %}{{ sort_head('Season', 'number') }}{% endif %}{{ sort_head('Player', 'text', 'asc') }}{{ sort_head('Added by', 'text', 'asc') }}{{ sort_head('Wk', 'number') }}{{ sort_head('Points', 'number') }}{{ sort_head('After', 'number') }}</tr></thead>
+        <tbody>{% for row in summary.leaderboards.gems %}<tr class="{% if row.is_mine %}season-my-team{% endif %}">{% if not summary.scope_season %}<td data-sort-value="{{ row.season }}">{{ row.season }}</td>{% endif %}<th scope="row" class="history-player-cell" data-sort-value="{{ row.name }}">{{ player_cell(row) }}{% if row.undrafted %}<small class="history-undrafted" title="UDFA — undrafted free agent: nobody drafted him that season">UDFA</small>{% endif %}</th><td data-sort-value="{{ row.team }}">{% if row.is_mine %}<span class="me-dot">YOU</span>{% endif %}{{ row.team }}</td><td data-sort-value="{{ row.week }}">{{ row.week }}</td><td data-sort-value="{{ row.points }}">{{ '{:,.2f}'.format(row.points) }}</td><td data-sort-value="{{ row.after }}">{{ '{:,.2f}'.format(row.after) }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if summary.leaderboards.bids %}
+  <section class="history-table-block">
+    <h2 class="history-section-title">Biggest Waiver Bids</h2>
+    <p class="season-games">The largest FAAB bids that won their claim.</p>
+    <div class="season-table-wrap">
+      <table class="season-table">
+        <thead><tr>{% if not summary.scope_season %}{{ sort_head('Season', 'number') }}{% endif %}{{ sort_head('Player', 'text', 'asc') }}{{ sort_head('Team', 'text', 'asc') }}{{ sort_head('Wk', 'number') }}{{ sort_head('Bid', 'number') }}</tr></thead>
+        <tbody>{% for row in summary.leaderboards.bids %}<tr class="{% if row.is_mine %}season-my-team{% endif %}">{% if not summary.scope_season %}<td data-sort-value="{{ row.season }}">{{ row.season }}</td>{% endif %}<th scope="row" class="history-player-cell" data-sort-value="{{ row.name }}">{{ player_cell(row) }}</th><td data-sort-value="{{ row.team }}">{% if row.is_mine %}<span class="me-dot">YOU</span>{% endif %}{{ row.team }}</td><td data-sort-value="{{ row.week }}">{{ row.week }}</td><td data-sort-value="{{ row.amount }}">${{ row.amount }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if summary.leaderboards.moves %}
+  <section class="history-table-block">
+    <h2 class="history-section-title">Busiest Managers</h2>
+    <p class="season-games">Settled moves{% if not summary.scope_season %} in a single season{% endif %}: trades, waiver claims and free-agent adds.</p>
+    <div class="season-table-wrap">
+      <table class="season-table">
+        <thead><tr>{% if not summary.scope_season %}{{ sort_head('Season', 'number') }}{% endif %}{{ sort_head('Team', 'text', 'asc') }}{{ sort_head('Moves', 'number') }}{{ sort_head('Trades', 'number') }}{{ sort_head('Waivers', 'number') }}{{ sort_head('Free agents', 'number') }}</tr></thead>
+        <tbody>{% for row in summary.leaderboards.moves %}<tr class="{% if row.is_mine %}season-my-team{% endif %}">{% if not summary.scope_season %}<td data-sort-value="{{ row.season }}">{{ row.season }}</td>{% endif %}<td class="history-name" data-sort-value="{{ row.name }}">{% if row.is_mine %}<span class="me-dot">YOU</span>{% endif %}{{ row.name }}</td><td>{{ row.moves }}</td><td>{{ row.trades }}</td><td>{{ row.waivers }}</td><td>{{ row.free_agents }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+</div>
+
+<p class="season-games history-note">Season records and scoring count the regular season, the way Sleeper counts them; game records and streaks count every week a team played, playoffs included.</p>
+
+</div>
+{% endblock %}
+
+{% block scripts %}<script src="{{ url_for('static', filename='avatar-fallback.js') }}" defer></script><script src="{{ url_for('static', filename='screenshot.js') }}" defer></script><script src="{{ url_for('static', filename='history.js') }}" defer></script>{% endblock %}

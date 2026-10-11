@@ -37,6 +37,7 @@ LIVE_SECONDS = 60
 SCHEDULE_SECONDS = 5 * 60
 
 _MATCHUPS_PATH = re.compile(r"^/league/(?P<league_id>[^/]+)/matchups/(?P<week>\d+)$")
+_TRANSACTIONS_PATH = re.compile(r"^/league/(?P<league_id>[^/]+)/transactions/(?P<week>\d+)$")
 _BRACKET_PATH = re.compile(r"^/league/(?P<league_id>[^/]+)/(?:winners|losers)_bracket$")
 
 
@@ -367,6 +368,16 @@ def _matchups_seconds(league_id: str, week: int) -> float | None:
     return LIVE_SECONDS if week >= current_week else None
 
 
+def _transactions_seconds(league_id: str) -> float | None:
+    """A trade is filed against the week it was processed, so the week still running can
+    gain one; the weeks behind it are settled and never change again."""
+    league = cache_lookup(f"{BASE_URL}/league/{league_id}")
+    season = str((league or {}).get("season") or "") if isinstance(league, dict) else ""
+    if not season or not _nfl_state():
+        return LIVE_SECONDS
+    return None if _current_week_of(season) is None else LIVE_SECONDS
+
+
 def _bracket_seconds(league_id: str) -> float | None:
     """A bracket is fixed once its season is over; while the season runs it can gain rounds."""
     league = cache_lookup(f"{BASE_URL}/league/{league_id}")
@@ -388,6 +399,9 @@ def _response_seconds(url: str) -> float | None:
     match = _MATCHUPS_PATH.match(path)
     if match:
         return _matchups_seconds(match.group("league_id"), int(match.group("week")))
+    match = _TRANSACTIONS_PATH.match(path)
+    if match:
+        return _transactions_seconds(match.group("league_id"))
     match = _BRACKET_PATH.match(path)
     if match:
         return _bracket_seconds(match.group("league_id"))
@@ -457,6 +471,37 @@ def get_user(username: str) -> dict:
     if not user or not user.get("user_id"):
         raise SleeperError(f"Sleeper user '{username}' was not found.")
     return user
+
+
+def display_handle(display_name: str | None, username: str | None) -> str:
+    """A manager's handle, spelled the way he capitalises it.
+
+    Sleeper stores a handle in lower case and keeps the capitalisation a manager writes it with
+    in his display name, so the display name is what the handle is read from when the two spell
+    the same name. A display name that is a nickname instead leaves the handle exactly as
+    Sleeper returned it. Never a lookup key: ``username`` is what the API answers to.
+    """
+    display_name = str(display_name or "").strip()
+    username = str(username or "").strip()
+    if display_name and username and display_name.casefold() == username.casefold():
+        return display_name
+    return username or display_name
+
+
+def get_user_by_id(user_id: str) -> dict:
+    """Return a Sleeper account by its user id, or an empty record when it cannot be read.
+
+    A league's user list carries only display names -- the handle a manager is known by has to
+    come from the account itself. An account Sleeper no longer returns, or one the network
+    could not reach, is not an error here: the caller keeps the name it already had.
+    """
+    if not user_id:
+        return {}
+    try:
+        user = get_json(f"/user/{user_id}")
+    except SleeperError:
+        return {}
+    return user if isinstance(user, dict) else {}
 
 
 def get_user_account_leagues(username: str, season: str) -> tuple[dict, list[dict]]:

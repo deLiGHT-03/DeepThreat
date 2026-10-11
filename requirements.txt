@@ -1,2 +1,4 @@
 Flask>=3.0,<4
 requests>=2.31,<3
+# Ask AI talks to Gemini. The app runs without it; only the Ask AI page needs it.
+google-genai>=2.0,<3
