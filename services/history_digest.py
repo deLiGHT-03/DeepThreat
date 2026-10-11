@@ -15,6 +15,12 @@ The summary is deliberately *not* told whether a row is the reader's: a row carr
 belongs to, so one league's summary is the same summary for everybody looking at it, and the page
 marks its own team when it draws it.
 
+Names are the exception, and a deliberate one: a row keeps the manager or player it was read
+with, so a summary made while a manager was in the league says his handle even if he has since
+left it. The page still reads the current league, so the career table and the record cards are
+named from today's accounts; it is the rows of a season already played that keep the name they
+were played under, which is a small price for not re-reading the season to find a rename.
+
 Three places are looked in, cheapest first:
 
 * this process's memory, so a page opened twice adds up once;

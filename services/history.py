@@ -1046,8 +1046,9 @@ def _season_digest(season_id: str, label: str, league: dict, teams: dict, owner_
                                     "round": int(pick.get("round") or 0),
                                     "drafted_by": roster_label[team["roster_id"]]})
 
-    # Season totals per team, and the career line they feed. Only counted weeks are in
-    # here, so a season in progress adds the games it has actually played.
+    # Season totals per team, which are two things at once: what the season's own records are
+    # built from, and what the career line is added up from by whoever merges this. Only counted
+    # weeks are in here, so a season in progress adds the games it has actually played.
     for roster_id, stats in team_stats.items():
         if not stats["games"]:
             continue
@@ -1394,7 +1395,13 @@ def get_history_summary(league_id: str, username: str = "", manager_id: str = ""
         # are about the manager rather than about the season, so they are counted here rather
         # than kept with the season: a win, a title and a trip belong to the chain, not to a year.
         for row in team_rows:
-            manager = _manager_entry(managers, row["owner_id"], teams[row["roster_id"]])
+            # A roster that has since left the league is still owed its wins here: the season was
+            # played, whatever became of the team, and the row carries the name and owner it was
+            # read with. Only the stand-in's own fields matter, since the manager's name is
+            # settled from the current league below.
+            team = teams.get(row["roster_id"]) or {"name": row.get("name", ""),
+                                                   "owner": row.get("owner", "")}
+            manager = _manager_entry(managers, row["owner_id"], team)
             manager["wins"] += row["wins"]
             manager["losses"] += row["losses"]
             manager["ties"] += row["ties"]
