@@ -20,7 +20,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from services.history import season_plan, warm_history
+from services.history import READ_WORKERS, season_plan, warm_history
 from services.sleeper import (SleeperError, cached_response_count, fetched_response_count,
                               get_json, get_league_dashboard, get_nfl_schedule,
                               get_nfl_week_stats, get_user,
@@ -57,6 +57,11 @@ def preload_status(league_id: str) -> dict:
         "entries": state.get("entries", cached_response_count()),
         # What this process has fetched from Sleeper, counted whether or not a preload did it.
         "fetches": fetched_response_count(),
+        # The reads this process keeps in flight at once. Reported because it is the one setting a
+        # version of this app can be told apart by from outside: a page's timing changes with the
+        # network, but this does not, so "is the copy I am measuring the copy I built" is answered
+        # rather than assumed.
+        "read_workers": READ_WORKERS,
     }
 
 
