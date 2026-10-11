@@ -11,6 +11,7 @@ from requests.adapters import HTTPAdapter, Retry
 from services.data_cache import count as cache_count
 from services.data_cache import drop as cache_drop
 from services.data_cache import get_or_load as cache_get_or_load
+from services.data_cache import load_count as cache_load_count
 from services.data_cache import lookup as cache_lookup
 
 BASE_URL = "https://api.sleeper.app/v1"
@@ -494,6 +495,16 @@ def refresh_league(league_id: str) -> int:
 def cached_response_count() -> int:
     """Return how many Sleeper responses are currently held in memory."""
     return cache_count()
+
+
+def fetched_response_count() -> int:
+    """Return how many Sleeper responses this process has fetched since it started.
+
+    Reported next to :func:`cached_response_count` so a running copy can be asked how much
+    upstream work it has done: two readers of one uncached response arrive as one number here,
+    because they share a single fetch.
+    """
+    return cache_load_count()
 
 
 def get_user(username: str) -> dict:

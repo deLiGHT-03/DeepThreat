@@ -24,6 +24,21 @@ MISS = object()
 _lock = threading.RLock()
 _entries: dict[str, tuple[float, float | None, object]] = {}
 
+#: How many responses this process has fetched from upstream since it started. Counted where a
+#: fetch is decided rather than where one is asked for, so two callers that share a fetch add one
+#: between them: the number is the work actually done, not the number of callers wanting it. That
+#: is what lets duplicated work be seen from outside a served copy, where nothing can be attached
+#: to the process — a page read by two visitors at once reports the same number as the page read
+#: by one, and a number that doubles says the sharing did not happen.
+_loads = 0
+
+
+def _count_load() -> None:
+    """Record a fetch as this process's own: counted as it starts, so a failed one counts too."""
+    global _loads
+    with _lock:
+        _loads += 1
+
 
 def store(key: str, value, ttl: float | None = None) -> None:
     """Keep ``value`` under ``key`` for ``ttl`` seconds, or forever when ``ttl`` is None."""
@@ -96,6 +111,7 @@ def get_or_load(key: str, ttl: float | None, load):
             value = lookup(key)  # the caller we waited for may have just stored it
             if value is not MISS:
                 return value
+            _count_load()
             value = load()
             store(key, value, ttl)
             return value
@@ -127,3 +143,13 @@ def count() -> int:
     """Return how many responses are currently cached."""
     with _lock:
         return len(_entries)
+
+
+def load_count() -> int:
+    """Return how many responses this process has fetched upstream since it started.
+
+    Read alongside :func:`count`, this is how much work the cache has saved rather than what it
+    holds: callers answering from it add nothing here.
+    """
+    with _lock:
+        return _loads

@@ -21,8 +21,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from services.history import season_plan, warm_history
-from services.sleeper import (SleeperError, cached_response_count, get_json,
-                              get_league_dashboard, get_nfl_schedule,
+from services.sleeper import (SleeperError, cached_response_count, fetched_response_count,
+                              get_json, get_league_dashboard, get_nfl_schedule,
                               get_nfl_week_stats, get_user,
                               get_user_account_leagues, refresh_league,
                               season_end_week)
@@ -55,6 +55,8 @@ def preload_status(league_id: str) -> dict:
         "seconds": state.get("seconds"),
         "error": state.get("error", ""),
         "entries": state.get("entries", cached_response_count()),
+        # What this process has fetched from Sleeper, counted whether or not a preload did it.
+        "fetches": fetched_response_count(),
     }
 
 
