@@ -40,30 +40,10 @@ Nothing else is configurable, and no secret belongs in this repository: `.gitign
 - **The session key is a secret.** Run from source it is generated per start; served, it is
   read from `SECRET_KEY`, because a constant in the source is a cookie anyone could forge.
 - **It remembers the connection per browser, not per instance.** The settings file belongs to
-  the desktop app, where "remembered" and "this one person" are the same thing. On a served copy
-  one file is everybody's memory instead of one person's: `/` would send a stranger into the last
-  visitor's league, with that league's name and its owner's username in the URL, and whoever
-  opened it next could replace the remembered league for everyone who came after. Served, then,
-  `services/local_settings.py` reads and writes nothing there, and the signed session cookie —
-  which is that browser's alone already — is the memory. Every page behaves the same, connecting
-  is a one-time step per browser, and it survives a restart because the session key is the same
-  one each time.
-
-### Remembering the connection
-
-Where the connection is remembered is the one thing that differs between the desktop app and a
-served copy, and it is deliberate rather than incidental.
-
-| Where it runs | What remembers the connection |
-| --- | --- |
-| Your machine (`python run.py`, the installed app) | The settings file under `%APPDATA%\DeepThreat`, and the session beside it. |
-| Served (`wsgi.py` on a platform) | The session only. A file on a shared instance is not one person's memory, so it is not read or written. |
-| Served, with `DEEPTHREAT_REMEMBER_FILE=1` | The settings file as well — for a copy with one user, where everyone arriving *is* that user. |
-
-The two are told apart by what the platform provides: it assigns `PORT` and supplies
-`SECRET_KEY`, and the launcher a person runs picks its own port and generates its own key. So a
-served copy needs no variable set for this — the safe behaviour is the one that needs no
-configuration.
+  the desktop app, where "remembered" and "this one person" are the same thing; served, one file
+  is everybody's memory and `/` would open the last visitor's league to whoever arrived next.
+  Served, then, it is not read or written and the signed session cookie is the memory, so
+  connecting is a one-time step per browser. See *Remembering the connection* just below.
 - **`/healthz`** answers without reading Sleeper, so a platform's health check never waits on a
   page's worth of upstream requests.
 - **The preload button stays a local convenience.** It warms this process's in-memory cache; on
@@ -71,6 +51,24 @@ configuration.
 - **It treats its address as public.** Crawlers are asked to stay out and every request is
   counted, against the visitor and against the instance as a whole; see *Keeping crawlers and
   loops out* below for the counts and how to change them.
+
+### Remembering the connection
+
+Where the connection is remembered is the one thing that differs between the desktop app and a
+served copy, and it is deliberate rather than incidental: one file on an instance everybody can
+reach is not one person's memory, so served it is the session only.
+
+| Where it runs | What remembers the connection |
+| --- | --- |
+| Your machine (`python run.py`, the installed app) | The settings file under `%APPDATA%\DeepThreat`, and the session beside it. |
+| Served (`wsgi.py` on a platform) | The session only. Nothing on the host is read or written, so a visitor gets the connect page until that browser has connected once. |
+| Served, with `DEEPTHREAT_REMEMBER_FILE=1` | The settings file as well — for a copy with one user, where everyone arriving *is* that user. |
+
+The two are told apart by what the platform provides: it assigns `PORT` and supplies
+`SECRET_KEY`, and the launcher a person runs picks its own port and generates its own key. A
+served copy therefore needs no variable set for this — the safe behaviour is the one that needs
+no configuration — and the connection it does remember survives a restart, because the platform
+supplies the same session key each time.
 
 ## Keeping crawlers and loops out
 
