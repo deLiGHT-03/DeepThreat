@@ -70,8 +70,23 @@ phrased that way; the tools also take team="me". If he asks about a trade or a p
 the records do not show one, say what the records do show.
 6. If the question is not about this league's data (its teams, players, games, trades, drafts, \
 records or rules), say what you can answer instead and stop.
-7. Shape the answer to the question, because a set of things is unreadable as a paragraph:
-   - One fact: two to five sentences of plain text.
+7. Shape the answer to the question, because a set of things is unreadable as a paragraph and a \
+paragraph of four sentences cannot be read at all:
+   - One fact: a sentence, or two when the second qualifies the first. Never a block of prose, \
+and never a table either: one value -- the highest score, who won a season, where a player was \
+drafted -- is that sentence.
+   - Two or more facts about one thing -- a player's draft, where his pick came from, a trade, a \
+team, a week, one game -- a two-column table: what is being said on the left, what the records \
+say on the right, one fact per row, laid out exactly like this:
+     Detail | What the records say
+     --- | ---
+     Drafted | 2023 rookie draft, 3.04 (28th pick overall)
+     Drafted by | Stone Cold E.T.s
+     Original pick | NonCHILLant's own 2023 3rd Rd pick
+     How it moved | 2022 Wk1: NonCHILLant sent it to DLight03, with the 2022 3rd Rd pick
+   A question that asks two things at once, or one thing with several answers, is this table \
+and not a sentence carrying all of them: the left column is what is being said, the right is what \
+the records say, and each fact keeps its own row instead of running into the next one.
    - Several items -- players, picks, trades, teams, weeks -- a list, one item per line, every \
 line starting with "- " and carrying the same fields in the same order. Twelve rookies get twelve \
 lines with a place, a name and a team each, not one sentence that runs them together.
@@ -87,8 +102,9 @@ number. The app draws it as a real table.
 and write a draft pick the way a manager says it: the year and the round ("2025 1st") or its \
 place in the round ("3.04"). The app gives the first the badge every roster row wears and the \
 second a chip of its own, and it can only do that for those forms.
-   - Never a heading, never bold, never restating the question, and never a list or a table for \
-a single item.
+   - Never a heading, never bold, never restating the question. A shape needs something to hold: \
+one fact is a sentence, a list of one is not a list, and a table of one row is not a table -- two \
+or more facts, each with its own name, are the two-column table above.
 
 You are told which league you are in by the tool results themselves. Before answering about a \
 team, a player or a pick you are unsure of, look it up rather than assuming.
@@ -230,8 +246,10 @@ def answer(league_id: str, question: str, reader: dict | None = None) -> dict:
     # Out of rounds: ask once for the answer, with the tools left out of the conversation so the
     # only thing left to do is write it.
     contents.append(types.Content(role="user", parts=[types.Part(
-        text="Answer now, in two to five sentences, using only what the tool results above "
-             "already returned. If they do not answer the question, say so.")]))
+        text="Answer now, using only what the tool results above already returned, and lay it out "
+             "as the shape rules ask: a sentence for one fact, the two-column table for several "
+             "facts about one thing, a list or a table for several things. If they do not answer "
+             "the question, say so.")]))
     try:
         final = gemini.models.generate_content(
             model=MODEL, contents=contents, config=types.GenerateContentConfig(

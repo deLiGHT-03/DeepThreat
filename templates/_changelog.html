@@ -1,0 +1,51 @@
+{# The notebook beside the mode switch: what has changed, in the reader's own terms.
+
+   It reads services/changelog.py and nothing else -- no league, no Sleeper, no route of its own --
+   so it is the same list on every page and costs no request to open. The panel is written into
+   the page rather than fetched, which is why a page with the app's script missing simply has a
+   button that does nothing rather than a button that asks for something.
+
+   `data-screenshot-ignore` keeps the button and the panel out of a saved picture: neither is
+   part of a league, and a screenshot is a picture of one.
+
+   It is written into the page rather than fetched when it is opened, which costs about 9 KB of
+   every page and nothing after that: the alternative is a request per open and a panel that can
+   fail to appear, for a list of bullets that gzips to a fraction of the logo above it. #}
+<div class="changelog" data-changelog{% if changelog %} data-changelog-latest="{{ changelog[0].stamp }}"{% endif %} data-screenshot-ignore>
+  <button type="button" class="changelog-button" data-changelog-trigger aria-haspopup="dialog" aria-expanded="false" aria-controls="changelog-panel" aria-label="What’s new" title="What’s new">
+    {# A notebook: a cover with the binding drawn through it and three lines on the page. The
+       knockouts are subpaths of one path, so the icon is a single shape at any size -- which is
+       what keeps it legible in a 16px button. #}
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M6.5 2.6h11a2 2 0 0 1 2 2v14.8a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V4.6a2 2 0 0 1 2-2Zm2.1 0h1.7v18.8H8.6Zm3.3 4.6h5.6v1.7h-5.6Zm0 3.95h5.6v1.7h-5.6Zm0 3.95h3.5v1.7h-3.5Z"/></svg>
+    {# Something has been written down since this browser last looked in. The script clears it. #}
+    <span class="changelog-dot" data-changelog-dot aria-hidden="true" hidden></span>
+  </button>
+  <div class="changelog-panel" id="changelog-panel" role="dialog" aria-labelledby="changelog-heading" tabindex="-1" hidden>
+    <header class="changelog-head">
+      <div>
+        <h2 class="changelog-heading" id="changelog-heading">What’s new</h2>
+        <p>Short notes on what changed, newest first.</p>
+      </div>
+      <button type="button" class="changelog-close" data-changelog-close aria-label="Close what’s new" title="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6Z"/></svg>
+      </button>
+    </header>
+    <div class="changelog-body">
+      {% for release in changelog %}
+      <article class="changelog-release">
+        <header class="changelog-release-head">
+          <time datetime="{{ release.date }}">{{ release.date_label }}</time>
+          <h3>{{ release.title }}</h3>
+        </header>
+        {# One line per change, each behind the word for what kind of change it is: the list is
+           read down the left edge or not at all, and a line nobody needs can be skipped. #}
+        <ul class="changelog-lines">
+          {% for line in release.lines %}
+          <li class="changelog-line changelog-line-{{ line.kind }}"><span class="changelog-chip">{{ line.label }}</span><span class="changelog-line-text">{{ line.text }}</span></li>
+          {% endfor %}
+        </ul>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</div>

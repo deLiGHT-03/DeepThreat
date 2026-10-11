@@ -29,6 +29,7 @@ from services.local_settings import clear_connection, load_connection, save_conn
 from services import ask_ai
 from services.ask_model import MODEL as AI_MODEL, AiUnavailable, available as ai_available
 from services.ask_model import key_paths as ai_key_paths
+from services.changelog import releases as changelog_releases
 
 
 def session_secret() -> str:
@@ -120,6 +121,11 @@ def create_app() -> Flask:
     # Ask AI is off until a Gemini key is on the machine. The route stays live either way, so
     # this flag only decides whether the tab is offered; the page itself says where a key goes.
     app.jinja_env.globals["show_ask_ai"] = ai_available()
+    # What's new, written for the reader rather than for the code: services/changelog.py is the
+    # one place a change is written down for somebody using the app, and the notebook on every
+    # page draws from here. Built once at startup, so a release filed under a kind with no name
+    # stops the app instead of drawing itself a chip with nothing written on it.
+    app.jinja_env.globals["changelog"] = changelog_releases()
 
     def league_switcher_data(username: str, manager_id: str, season: str,
                              current_league_id: str = ""):

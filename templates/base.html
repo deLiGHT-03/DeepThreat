@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="{{ asset_url('trades.css') }}">
   <link rel="stylesheet" href="{{ asset_url('history.css') }}">
   <link rel="stylesheet" href="{{ asset_url('ask.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('changelog.css') }}">
   <link rel="stylesheet" href="{{ asset_url('themes.css') }}">
 </head>
 <body>
@@ -31,5 +32,8 @@
   {% block scripts %}{% endblock %}
   <script src="{{ asset_url('preload-data.js') }}" defer></script>
   <script src="{{ asset_url('theme.js') }}" defer></script>
+  {# The notebook's list is written into every page that shows the button, so this only opens
+     and closes it; a page without the include leaves the script with nothing to do. #}
+  <script src="{{ asset_url('changelog.js') }}" defer></script>
 </body>
 </html>

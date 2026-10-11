@@ -53,6 +53,14 @@ the page rather than trusted to a diff:
   static file asked for at a URL without a stamp keeps the revalidate-every-time header, so the
   long cache and the stamp cannot come apart.
 
+## What's new
+
+The notebook to the right of Ask AI opens the changelog: what changed in this app, newest first, in the words of somebody using it rather than somebody building it. `services/changelog.py` is the only place an entry is written, and the panel in every page's toolbar reads that list and nothing else — no league, no Sleeper, no request of its own — so one entry appears on every page at once.
+
+`python tools/draft_changelog.py` does the first half of the writing: it gathers the commits after `COVERED_THROUGH` — the last commit the file already speaks for — asks the same Gemini model Ask AI uses for the reader's version of them, and prints the lines to edit, or with `--write` puts them at the top of `RELEASES` and moves the anchor to `HEAD`. It never invents a figure, it says so when it has to fall back to the commit subjects, it refuses to write that rough version into the file, and it points at any line that still names something a reader cannot open.
+
+One line per change, a few words and never more than a sentence. A **performance** line is a page that used to be slow and is not any more, with the number if there is a real one; a **visual** one is something that looks different; a **functionality** one is something the app can do now that it could not before; and a line nobody would notice from the outside is an **also**, which is printed last and in smaller type. How it was done is not a line at all — no file names, no class names, no "single-flight": a reader cannot check those and has no reason to. Adding a release is one dict at the top of `RELEASES`: a date, a headline in the reader's words, and its lines as `(kind, text)` pairs, newest release first. The date and title of the newest one are what the button's dot compares itself against, so a release that has not been opened yet is what makes the dot appear.
+
 ## Rebuild the Windows installer
 
 Run `packaging\build_windows.ps1` in PowerShell on Windows. Install Inno Setup 6 to create the upgrade-safe installer in `release\DeepThreatSetup.exe`; the standalone application folder is written to `dist\DeepThreat`.
@@ -63,6 +71,7 @@ Run `packaging\build_windows.ps1` in PowerShell on Windows. Install Inno Setup 6
 - `services/local_settings.py` stores the per-user connection settings outside the install folder — and keeps nothing at all when the app is served, where the session is the memory.
 - `services/history_digest.py` keeps what each finished season of a league added up to, so the History page rebuilds it instead of reading every week of matchups and transactions again — from memory, from a file beside the app's other data, or from the snapshot a deployment ships.
 - `services/rate_limit.py` counts requests per visitor and in total, so a public copy cannot be walked or looped.
+- `services/changelog.py` is the changelog the notebook beside Ask AI opens: one entry per change, written for the person using the app, and the only place a change is described for them.
 - `app.py` defines the page routes.
 - `services/sleeper.py` handles Sleeper data.
 - `services/matchups.py` builds weekly position-group score comparisons.
@@ -77,6 +86,7 @@ Run `packaging\build_windows.ps1` in PowerShell on Windows. Install Inno Setup 6
 - `tools/check_layout.py` measures the heading text against the brand logo in a real browser.
 - `tools/make_web_logo.py` writes the lossless WebP the pages load from the PNG the Windows icon is drawn from.
 - `tools/build_history_snapshot.py` writes the History page's season summaries into `data/history/` for a deployed copy to rebuild from, and verifies the rebuilt page is byte-identical to the one built from Sleeper.
+- `tools/draft_changelog.py` drafts the notebook's next release from the commits since `COVERED_THROUGH`, for a person to edit rather than trust.
 
 The player hub opens X's live search and Google News search for one player at a time. It does not fetch results for the full roster in the background.
 
@@ -92,7 +102,7 @@ Ask AI answers questions about one league from that league's own Sleeper records
 
 A question that compares many players is answered by adding up the entire set and ordering it, not by naming the best of the handful that happened to be looked up. Every player the league drafted in that round is assembled, each one's weeks are summed into season totals, and the best of those totals is what gets ranked — so the ranking behind "which third round picks scored the most" covers all of that round's players, rather than a few flattering game logs. A week the season has not finished is not read, a week that scored nothing is not a game, and a filter narrows the set to a draft round, a draft year or a position; a season alone ranks that season's scores.
 
-An answer takes the shape of the question: one fact is a short paragraph, a set of things that share fields — a round of a draft, a week's scores, rosters' records, players ranked by their best season — comes back as a table, and a set of things that do not, such as a list of trades, comes back as one line each. A figure is stated with the season and week it belongs to, and a draft pick is never a round guessed from a nearby pick.
+An answer takes the shape of the question, and prose is kept for the one thing it is good at: one fact is a sentence or two, several facts about one thing — a player's draft and where his pick came from, a trade and what each side received — come back as a two-column table of what was asked and what the records say, a set of things that share fields — a round of a draft, a week's scores, rosters' records, players ranked by their best season — comes back as a table of its own, and a set of things that do not, such as a list of trades, comes back as one line each. The rules the model writes to are in the `SYSTEM_INSTRUCTION` of `services/ask_ai.py`, and every one of those shapes is drawn by the app rather than sent to the page as markup. A figure is stated with the season and week it belongs to, and a draft pick is never a round guessed from a nearby pick.
 
 A position in an answer wears the same badge every roster row wears, and a draft pick a gold chip of its own, so both can be picked out at a glance — in a table and in a sentence alike. The app reads those out of the answer's own text: QB, RB, WR, TE, DEF and DST as whole words, and a pick as the year and the round ("2025 1st") or a place in one ("3.04", "3rd Rd (3.10)"). A place is only read as a pick where a pick word sits beside it or the column is one that names picks, so a table of weekly scores keeps its figures as figures, and a figure is never dressed as a pick.
 
