@@ -7,11 +7,10 @@ import re
 
 import requests
 
-from services.data_cache import MISS
 from services.data_cache import count as cache_count
 from services.data_cache import drop as cache_drop
+from services.data_cache import get_or_load as cache_get_or_load
 from services.data_cache import lookup as cache_lookup
-from services.data_cache import store as cache_store
 
 BASE_URL = "https://api.sleeper.app/v1"
 SCHEDULE_URL = "https://api.sleeper.com/schedule/nfl/regular"
@@ -329,13 +328,13 @@ def _fetch_json(url: str, message: str):
 
 
 def _cached(url: str, ttl: float | None, fetch):
-    """Return the stored response for ``url``, otherwise fetch it and keep it for ``ttl``."""
-    stored = cache_lookup(url)
-    if stored is not MISS:
-        return stored
-    payload = fetch()
-    cache_store(url, payload, ttl)
-    return payload
+    """Return the stored response for ``url``, otherwise fetch it and keep it for ``ttl``.
+
+    Loading goes through :func:`services.data_cache.get_or_load`, so callers that want the same
+    uncached URL at the same moment wait for one fetch between them instead of making one each:
+    the page being rendered twice at once reads the league once, not twice.
+    """
+    return cache_get_or_load(url, ttl, fetch)
 
 
 def _nfl_state() -> dict:
