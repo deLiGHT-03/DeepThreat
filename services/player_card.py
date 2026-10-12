@@ -24,31 +24,10 @@ from concurrent.futures import ThreadPoolExecutor
 from services.matchups import _number, _player_display_names, _position
 from services.sleeper import (SleeperError, get_json, get_league_dashboard,
                               get_nfl_schedule, get_nfl_week_stats, get_player_index,
-                              season_end_week)
+                              season_end_week, season_week_count)
 
 #: A card is a small panel: one slow week must not hold the rest of it up.
 WEEK_WORKERS = 6
-
-
-def _scoring_weeks(league: dict) -> int:
-    """Count the weeks that can hold a score: the week in progress, and the ones behind it.
-
-    A card is read while a week is being played, and Sleeper records what each player scored as
-    each game finishes, so the week in progress counts as far as it has been played: a player
-    whose game is over has his points on the card while one whose game has not started yet does
-    not. That is the window the Player Data Season tables count, so the card's rate is the rate
-    in the tables it is opened from. It runs to the end of the league's season rather than the
-    end of its regular season, so a finished season reads whole, playoff rounds and all.
-    """
-    end_week = season_end_week(league)
-    try:
-        state = get_json("/state/nfl") or {}
-        if str(state.get("season")) == str(league.get("season")):
-            current = int(state.get("week") or state.get("display_week") or 1)
-            return min(end_week, max(1, current))
-    except (SleeperError, TypeError, ValueError):
-        pass
-    return end_week
 
 
 def _points_by_player(league_id: str, weeks: int) -> dict[str, dict[int, float]]:
@@ -145,7 +124,9 @@ def get_player_card(league_id: str, player_id: str) -> dict:
     # The league's season, not just its regular season: a card's listed weeks are the weeks a
     # finished season was played in, so they add up to the season total printed underneath them.
     max_week = season_end_week(league)
-    scoring_weeks = _scoring_weeks(league)
+    # The same window the Player Data Season tables count, so a card's rate is the rate in
+    # the tables it is opened from (see services.sleeper.season_week_count).
+    scoring_weeks = season_week_count(league)
     weekly = _points_by_player(league_id, scoring_weeks).get(player_id, {})
     # Only weeks that recorded a score are worth asking about, and a week whose stats are
     # unavailable keeps its recorded score rather than losing it.

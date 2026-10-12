@@ -6,7 +6,9 @@ from concurrent.futures import ThreadPoolExecutor
 from services.matchups import (POSITION_ORDER, get_normalized_slot_order,
                                get_team_position_groups)
 from services.impact_players import count_player_impact_flips, player_impact_percentage
-from services.sleeper import SleeperError, get_json, get_league_dashboard, get_player_index
+from services.sleeper import (SleeperError, active_week, completed_teams, get_json,
+                              get_league_dashboard, get_player_index, season_end_week,
+                              season_week_count)
 
 
 def _points(row: dict | None) -> float | None:
@@ -19,14 +21,53 @@ def _points(row: dict | None) -> float | None:
         return None
 
 
+def _starter_finished(player: dict, playing: set, finished: set) -> bool:
+    """Whether a starter has no game left to play in the week being checked.
+
+    A player with no NFL team, or whose team is on a bye, cannot score again this week; one
+    whose team plays has finished only once that game is over.
+    """
+    team = str(player.get("team") or "").strip().upper()
+    return not team or team not in playing or team in finished
+
+
+def _settled_rosters(season: str, week: int, rows: list[dict], player_index: dict,
+                     schedule: list[dict] | None = None) -> set:
+    """Roster ids whose lineup for a week has stopped scoring, so the week is a finished one.
+
+    A team's week is over when every starter's NFL game has finished -- a player on a bye, or
+    one without an NFL team, has no game left to play and counts as finished. The week in
+    progress joins a season figure only for the teams this returns, because a lineup still
+    being played would otherwise be averaged as though it had finished, scoring a team by how
+    many of its players had already kicked off. When the schedule cannot say which games are
+    over, no team's partial week is counted.
+    """
+    info = completed_teams(season, week, schedule)
+    if info is None:
+        return set()
+    playing, finished = info["playing"], info["finished"]
+    settled = set()
+    for row in rows:
+        starters = [str(player_id) for player_id in (row.get("starters") or [])
+                    if str(player_id or "") not in {"", "0"}]
+        if all(_starter_finished(player_index.get(player_id, {}), playing, finished)
+               for player_id in starters):
+            settled.add(row.get("roster_id"))
+    return settled
+
+
 def get_seasonal_summary(league_id: str, username: str, week_count: int | None = None,
                          manager_id: str = "", normalized: bool = False,
                          defense: bool = False, true_record: bool = False,
                          ppg: bool = False) -> dict:
     normalized = normalized or defense
     dashboard = get_league_dashboard(league_id)
-    max_week = dashboard["league"]["regular_season_weeks"]
-    week_count = max_week if week_count is None else min(max(int(week_count), 0), max_week)
+    # The window the Player Data Season tables count: every week the league has scored, and the
+    # week in progress as far as it has been played. It runs to the end of the league's season
+    # rather than the end of its regular season, so a finished season reads whole.
+    max_week = season_end_week(dashboard["league"])
+    week_count = (season_week_count(dashboard["league"]) if week_count is None
+                  else min(max(int(week_count), 0), max_week))
     username_key = username.strip().casefold()
     manager_id = str(manager_id).strip()
     own_team = next((team for team in dashboard["teams"]
@@ -54,16 +95,6 @@ def get_seasonal_summary(league_id: str, username: str, week_count: int | None =
     league_points_against_games = 0
     all_play_records = defaultdict(lambda: [0, 0, 0])
 
-    try:
-        nfl_state = get_json("/state/nfl") or {}
-        if str(nfl_state.get("season")) == str(dashboard["league"].get("season")):
-            current_week = int(nfl_state.get("week") or nfl_state.get("display_week") or 1)
-            # Sleeper's current week may still be in progress; include completed
-            # weeks only so partial live scores cannot distort the seasonal average.
-            week_count = min(week_count, max_week, max(0, current_week - 1))
-    except (SleeperError, TypeError, ValueError):
-        pass
-
     def fetch_week(week: int) -> tuple[int, list[dict], bool]:
         try:
             return week, get_json(f"/league/{league_id}/matchups/{week}") or [], False
@@ -74,12 +105,30 @@ def get_seasonal_summary(league_id: str, username: str, week_count: int | None =
         results = list(executor.map(fetch_week, range(1, week_count + 1)))
 
     failed_weeks = [week for week, _, failed in results if failed]
+    # The week in progress is the one this window may end on while the league's season is being
+    # played. Its games are still finishing, so a team joins it only once every starter's game
+    # is over -- a half-played lineup would score a team by how many of its players had already
+    # kicked off, which is exactly what an average of finished games must not do.
+    live_week = active_week(dashboard["league"])
+    if live_week is None or live_week > week_count:
+        live_week = None
+    settled = set()
+    if live_week is not None:
+        live_rows = next((rows for week, rows, _ in results if week == live_week), [])
+        settled = _settled_rosters(str(dashboard["league"].get("season", "")), live_week,
+                                   live_rows, player_index)
+
+    def counts(week: int, roster_id) -> bool:
+        """Whether a team's week is a finished one that may join the season averages."""
+        return week != live_week or roster_id in settled
+
     order = get_normalized_slot_order(lineup_slots) if normalized else POSITION_ORDER
     teams_by_id = {team["roster_id"]: team for team in dashboard["teams"]}
     for week, rows, failed in results:
         if true_record:
             scored_teams = [(row.get("roster_id"), _points(row)) for row in rows
-                            if row.get("roster_id") in teams_by_id and _points(row) is not None]
+                            if row.get("roster_id") in teams_by_id and _points(row) is not None
+                            and counts(week, row.get("roster_id"))]
             for index, (roster_id, score) in enumerate(scored_teams):
                 for opponent_id, opponent_score in scored_teams[index + 1:]:
                     if round(score, 2) == round(opponent_score, 2):
@@ -102,9 +151,12 @@ def get_seasonal_summary(league_id: str, username: str, week_count: int | None =
                 roster_id = row.get("roster_id")
                 if roster_id not in teams_by_id or _points(row) is None:
                     continue
+                if not counts(week, roster_id):
+                    continue
                 opponent_row = next((opponent for opponent in matchup_rows
                                      if opponent.get("roster_id") != roster_id), None)
-                if normalized and opponent_row and _points(opponent_row) is not None:
+                if (normalized and opponent_row and _points(opponent_row) is not None
+                        and counts(week, opponent_row.get("roster_id"))):
                     opponent_points = _points(opponent_row)
                     points_against_totals[roster_id] += opponent_points
                     points_against_games[roster_id] += 1
@@ -113,7 +165,8 @@ def get_seasonal_summary(league_id: str, username: str, week_count: int | None =
                 scoring_row = row
                 if defense:
                     scoring_row = opponent_row
-                    if scoring_row is None or _points(scoring_row) is None:
+                    if (scoring_row is None or _points(scoring_row) is None
+                            or not counts(week, scoring_row.get("roster_id"))):
                         continue
                 groups, scores_available = get_team_position_groups(
                     scoring_row, player_index, lineup_slots, normalized
@@ -186,8 +239,12 @@ def get_seasonal_impact_summary(league_id: str, username: str, week_count: int |
                                 manager_id: str = "") -> dict:
     """Aggregate each normalized starter's weekly outcome flips for every team."""
     dashboard = get_league_dashboard(league_id)
-    max_week = dashboard["league"]["regular_season_weeks"]
-    week_count = max_week if week_count is None else min(max(int(week_count), 0), max_week)
+    # The window the Player Data Season tables count: every week the league has scored, and the
+    # week in progress as far as it has been played. It runs to the end of the league's season
+    # rather than the end of its regular season, so a finished season reads whole.
+    max_week = season_end_week(dashboard["league"])
+    week_count = (season_week_count(dashboard["league"]) if week_count is None
+                  else min(max(int(week_count), 0), max_week))
     username_key = username.strip().casefold()
     manager_id = str(manager_id).strip()
     own_team = next((team for team in dashboard["teams"]
@@ -206,14 +263,6 @@ def get_seasonal_impact_summary(league_id: str, username: str, week_count: int |
                                                             "starts": 0}))
     team_season_totals = defaultdict(float)
 
-    try:
-        nfl_state = get_json("/state/nfl") or {}
-        if str(nfl_state.get("season")) == str(dashboard["league"].get("season")):
-            current_week = int(nfl_state.get("week") or nfl_state.get("display_week") or 1)
-            week_count = min(week_count, max_week, max(0, current_week - 1))
-    except (SleeperError, TypeError, ValueError):
-        pass
-
     def fetch_week(week: int) -> tuple[int, list[dict], bool]:
         try:
             return week, get_json(f"/league/{league_id}/matchups/{week}") or [], False
@@ -223,10 +272,22 @@ def get_seasonal_impact_summary(league_id: str, username: str, week_count: int |
     with ThreadPoolExecutor(max_workers=6) as executor:
         results = list(executor.map(fetch_week, range(1, week_count + 1)))
     failed_weeks = [week for week, _, failed in results if failed]
+    # The same rule as the team Season tab: the week in progress joins only for the teams whose
+    # lineups have finished, so an unfinished one cannot be read as though it were a whole week.
+    live_week = active_week(dashboard["league"])
+    if live_week is None or live_week > week_count:
+        live_week = None
+    settled = set()
+    if live_week is not None:
+        live_rows = next((rows for week, rows, _ in results if week == live_week), [])
+        settled = _settled_rosters(str(dashboard["league"].get("season", "")), live_week,
+                                   live_rows, player_index)
 
-    for _, rows, failed in results:
+    for week, rows, failed in results:
         if failed:
             continue
+        if week == live_week:
+            rows = [row for row in rows if row.get("roster_id") in settled]
         team_scores = []
         for row in rows:
             roster_id = row.get("roster_id")

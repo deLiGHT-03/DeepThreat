@@ -29,6 +29,12 @@ _CDN_PATH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 DEFAULT_REGULAR_SEASON_WEEKS = 14
 MAX_NFL_WEEK = 18
 
+#: NFL game statuses that mean a game will not score again: it has been played out, or it was
+#: called off. A game in any other state - not started, being played, or postponed - can still
+#: put points on the board, so a lineup touching it has not finished.
+FINAL_GAME_STATUSES = frozenset({"complete", "completed", "closed", "final",
+                                 "canceled", "cancelled"})
+
 # How long a cached response stays valid. Player names and weekly statistics are large
 # and effectively frozen once a week is over, so they refresh on their own slow clock.
 # Live data has to keep up with games in progress, so it is re-checked constantly.
@@ -111,6 +117,42 @@ def season_end_week(league: dict) -> int:
         if 1 <= value <= MAX_NFL_WEEK:
             end = max(end, value)
     return end
+
+
+def active_week(league: dict) -> int | None:
+    """Return the NFL week this league's season is being played in, or None if it is over.
+
+    Sleeper's state names the season currently being played, so a league whose season it does
+    not name is one whose scoring has finished - and a season that has finished has no week in
+    progress to count as far as it has been played. The week it names is the one whose games are
+    still being played out; the weeks behind it are settled.
+    """
+    try:
+        state = get_json("/state/nfl") or {}
+        if str(state.get("season")) == str(league.get("season")):
+            return max(1, int(state.get("week") or state.get("display_week") or 1))
+    except (SleeperError, TypeError, ValueError):
+        pass
+    return None
+
+
+def season_week_count(league: dict) -> int:
+    """How many of this league's weeks count towards a season figure so far.
+
+    The week in progress counts as far as it has been played. Sleeper records who took the
+    field and what each of them scored as each game finishes, so a player whose game is over
+    has his points and his game counted while one whose game has not started yet does not, and
+    a team's week is counted only once its own lineup has finished. Stopping at the last
+    complete week would leave production a reader has just watched out of every number they are
+    looking at. The window runs to the end of the league's season rather than the end of its
+    regular season, so a finished season reads whole, its playoff rounds included.
+
+    Every season-counting page reads this, so the Player Data Season tables, the team Season
+    tab and a player's card all count the same weeks instead of each keeping its own rule.
+    """
+    end_week = season_end_week(league)
+    active = active_week(league)
+    return end_week if active is None else min(end_week, active)
 
 
 def playoff_week_start(league: dict) -> int | None:
@@ -477,6 +519,35 @@ def get_nfl_week_stats(season: str, week: int) -> dict[str, dict]:
         for player_id, stats in payload.items()
         if isinstance(stats, dict)
     }
+
+
+def completed_teams(season: str, week: int, schedule: list[dict] | None = None) -> dict | None:
+    """Tell which NFL teams have finished their game in a week, and which are still to play.
+
+    Returns ``{"playing": set(), "finished": set()}`` covering every team with a game that
+    week, or None when the schedule cannot say - a week whose schedule is unavailable is not a
+    week in which every game is over. A team with no game that week (a bye) is in neither set,
+    which is how a caller tells a bye apart from a game still to be played.
+    """
+    if schedule is None:
+        try:
+            schedule = get_nfl_schedule(season)
+        except SleeperError:
+            return None
+    if not schedule:
+        return None
+    playing, finished = set(), set()
+    for game in schedule:
+        if not isinstance(game, dict) or str(game.get("week")) != str(week):
+            continue
+        sides = [str(game.get(side) or "").strip().upper() for side in ("home", "away")]
+        sides = [side for side in sides if side]
+        if not sides:
+            continue
+        playing.update(sides)
+        if str(game.get("status", "")).casefold() in FINAL_GAME_STATUSES:
+            finished.update(sides)
+    return {"playing": playing, "finished": finished} if playing else None
 
 
 def refresh_league(league_id: str) -> int:
