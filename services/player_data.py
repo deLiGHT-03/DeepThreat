@@ -32,21 +32,26 @@ def _starter_score(row: dict, player_id: str, index: int) -> float | None:
     return None
 
 
-def _completed_week_count(league: dict) -> int:
-    """How many of the league's weeks have been scored, its playoffs included.
+def _season_week_count(league: dict) -> int:
+    """How many of the league's weeks count towards a player's season so far.
 
-    A season does not stop at the end of the regular season: the league plays its playoffs in
-    the NFL weeks that follow, and a player's season total takes in those weeks once they have
-    been scored. Sleeper records how far a league has scored, so a finished season reads whole
-    instead of stopping at the end of its regular season.
+    The week in progress counts as far as it has been played. Sleeper records who took the field
+    and what each of them scored as each game finishes, so a player whose game is over has his
+    points and his game counted while one whose game has not started yet does not. Stopping at
+    the last completed week would leave production a reader has just watched out of every number
+    they are looking at, and the card opened from these tables counts the live week the same way.
+    The season runs past the end of the regular season into the league's playoff weeks, so a
+    finished season reads whole.
+
+    A week's official stats are asked for here and an unplayed week answers with an empty set,
+    so a week the NFL has not reached yet contributes nothing rather than failing.
     """
     end_week = season_end_week(league)
     try:
         state = get_json("/state/nfl") or {}
         if str(state.get("season")) == str(league.get("season")):
             current = int(state.get("week") or state.get("display_week") or 1)
-            # The week in progress is not final, so only completed weeks are counted.
-            return min(end_week, max(0, current - 1))
+            return min(end_week, max(0, current))
     except (SleeperError, TypeError, ValueError):
         pass
     return end_week
@@ -111,7 +116,7 @@ def get_player_data(league_id: str, username: str, manager_id: str = "",
     teams_by_id = {team["roster_id"]: team for team in dashboard["teams"]}
     player_index = get_player_index()
     if seasonal:
-        weeks_played = _completed_week_count(dashboard["league"])
+        weeks_played = _season_week_count(dashboard["league"])
         weeks = range(1, weeks_played + 1)
     else:
         week = int(week or get_default_week(league_id))

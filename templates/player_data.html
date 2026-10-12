@@ -17,7 +17,7 @@
         <span class="player-score-trim-separator">|</span>
         <label><input type="checkbox" name="drop_highest" value="1" {% if summary.drop_highest %}checked{% endif %} onchange="this.form.submit()"> Highest</label>
       </form>
-      <p class="season-games">PPG uses recorded weekly points for every player currently on a roster, whether they started or were benched. GP counts only NFL weeks they appeared in; bye and missed games are excluded. Data runs through Week {{ summary.weeks_played }}, playoffs included once the league has scored them.{% if summary.drop_lowest or summary.drop_highest %} Selected score(s) are excluded from both totals and GP.{% endif %}</p>
+      <p class="season-games">PPG uses recorded weekly points for every player currently on a roster, whether they started or were benched. GP counts only NFL weeks they appeared in; bye and missed games are excluded. Data runs through Week {{ summary.weeks_played }}, playoffs included once the league has scored them, and the week in progress counts as far as it has been played.{% if summary.drop_lowest or summary.drop_highest %} Selected score(s) are excluded from both totals and GP.{% endif %}</p>
       {% if team_view %}
         {% if summary.teams %}
         <div class="season-impact-grid player-data-grid">

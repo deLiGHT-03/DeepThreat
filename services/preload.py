@@ -112,15 +112,20 @@ def _warm_league_list(username: str, manager_id: str, season: str) -> None:
         get_user_account_leagues(connected, season)
 
 
-def _completed_weeks(season: str, max_week: int, state: dict) -> int:
-    """Count the weeks whose official stats are final, mirroring the player data page."""
+def _counted_weeks(season: str, max_week: int, state: dict) -> int:
+    """Count the weeks whose official stats the player data page reads, mirroring that page.
+
+    The page counts the week in progress as far as it has been played, so its stats are warmed
+    here too. A week the NFL has not reached yet answers with an empty set, so warming one costs
+    a request and returns nothing.
+    """
     if str(state.get("season") or "") != str(season):
         return max_week
     try:
         current_week = int(state.get("week") or state.get("display_week") or 1)
     except (TypeError, ValueError):
         return max_week
-    return min(max_week, max(0, current_week - 1))
+    return min(max_week, max(0, current_week))
 
 
 def _load(league_id: str, username: str, manager_id: str, force: bool) -> None:
@@ -144,7 +149,7 @@ def _load(league_id: str, username: str, manager_id: str, force: bool) -> None:
         except SleeperError:
             pass  # Projections and the league list fall back on their own; keep loading.
 
-        stats_weeks = range(1, _completed_weeks(season, weeks, state) + 1)
+        stats_weeks = range(1, _counted_weeks(season, weeks, state) + 1)
         jobs = [("matchups", week) for week in range(1, weeks + 1)]
         jobs += [("stats", week) for week in stats_weeks]
         total = len(jobs)

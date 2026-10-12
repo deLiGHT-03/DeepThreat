@@ -5,10 +5,16 @@ you are already on. Weekly fantasy points come from the same league matchup reco
 other page reads, so a card always agrees with the numbers around it, and each week's NFL
 opponent comes from Sleeper's schedule for the league's season.
 
-The whole regular season is listed, so the card keeps showing a schedule before a week has
-been played: a week with no score shows a dash, and a week the player's NFL team does not
-play is a bye. A week only counts as a game when Sleeper recorded him taking the field, so
-a bye or a week he sat out neither shows a score nor joins the season total.
+The league's whole season is listed, its playoff rounds included, so the card keeps showing a
+schedule before a week has been played: a week with no score shows a dash, and a week the
+player's NFL team does not play is a bye. A week only counts as a game when Sleeper recorded
+him taking the field, so a bye or a week he sat out neither shows a score nor joins the
+season total.
+
+The weeks counted are the ones the Player Data Season tables count: every week the league has
+scored, and the week in progress as far as it has been played, so nothing a player has already
+put on the board during a live week is missing from his rate -- and so the rate on a card reads
+the same as the rate in the tables it is opened from.
 """
 
 from __future__ import annotations
@@ -18,23 +24,31 @@ from concurrent.futures import ThreadPoolExecutor
 from services.matchups import _number, _player_display_names, _position
 from services.sleeper import (SleeperError, get_json, get_league_dashboard,
                               get_nfl_schedule, get_nfl_week_stats, get_player_index,
-                              regular_season_week_count)
+                              season_end_week)
 
 #: A card is a small panel: one slow week must not hold the rest of it up.
 WEEK_WORKERS = 6
 
 
 def _scoring_weeks(league: dict) -> int:
-    """Return the weeks that can hold a score: the completed ones and the live one."""
-    max_week = regular_season_week_count(league)
+    """Count the weeks that can hold a score: the week in progress, and the ones behind it.
+
+    A card is read while a week is being played, and Sleeper records what each player scored as
+    each game finishes, so the week in progress counts as far as it has been played: a player
+    whose game is over has his points on the card while one whose game has not started yet does
+    not. That is the window the Player Data Season tables count, so the card's rate is the rate
+    in the tables it is opened from. It runs to the end of the league's season rather than the
+    end of its regular season, so a finished season reads whole, playoff rounds and all.
+    """
+    end_week = season_end_week(league)
     try:
         state = get_json("/state/nfl") or {}
         if str(state.get("season")) == str(league.get("season")):
             current = int(state.get("week") or state.get("display_week") or 1)
-            return min(max_week, max(1, current))
+            return min(end_week, max(1, current))
     except (SleeperError, TypeError, ValueError):
         pass
-    return max_week
+    return end_week
 
 
 def _points_by_player(league_id: str, weeks: int) -> dict[str, dict[int, float]]:
@@ -128,7 +142,9 @@ def get_player_card(league_id: str, player_id: str) -> dict:
         raise SleeperError("That player is not in Sleeper's player list.")
 
     season = str(league.get("season") or "")
-    max_week = regular_season_week_count(league)
+    # The league's season, not just its regular season: a card's listed weeks are the weeks a
+    # finished season was played in, so they add up to the season total printed underneath them.
+    max_week = season_end_week(league)
     scoring_weeks = _scoring_weeks(league)
     weekly = _points_by_player(league_id, scoring_weeks).get(player_id, {})
     # Only weeks that recorded a score are worth asking about, and a week whose stats are
@@ -156,9 +172,21 @@ def get_player_card(league_id: str, player_id: str) -> dict:
             "points": points,
             # A card with no schedule at all must not call every week a bye.
             "scheduled": bool(game) or bool(scheduled),
+            # A week the league has not reached yet, as opposed to one it has scored and he had
+            # no part in: only the first is still to come, and only the first is dimmed.
+            "pending": week > scoring_weeks,
         })
     played = [week for week in weeks if week["points"] is not None]
     total = sum(week["points"] for week in played)
+    # Every figure is rounded to the one decimal it is printed at, here, rather than by whoever
+    # prints it. The same numbers are printed in the Player Data tables, and the two would round
+    # an exact half-tenth apart if each did its own: a rate of 5.25 reads 5.2 in those tables
+    # (Python's "%.1f" sends an exact half to the even digit) and would read 5.3 on a card whose
+    # own formatter rounds halves up. The totals are sums of the unrounded weekly points, so a
+    # card's total is still the season's total and not the sum of its printed rows.
+    for week in weeks:
+        if week["points"] is not None:
+            week["points"] = round(week["points"], 1)
     return {
         "id": player_id,
         "name": name,
@@ -169,7 +197,7 @@ def get_player_card(league_id: str, player_id: str) -> dict:
         "headshot_fallbacks": headshots[1:],
         "weeks": weeks,
         "games": len(played),
-        "total_points": round(total, 2),
-        "points_per_game": round(total / len(played), 2) if played else None,
+        "total_points": round(total, 1),
+        "points_per_game": round(total / len(played), 1) if played else None,
         "fantasy_team": fantasy_team["name"] if fantasy_team else "",
     }

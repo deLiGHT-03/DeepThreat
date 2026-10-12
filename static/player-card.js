@@ -27,6 +27,9 @@
     (isElement(node) ? node.closest(".player-card-target[data-player-id]") : null);
   const insideCard = (node) => isElement(node) && node.closest(".player-card") !== null;
 
+  // The server hands these over already rounded to the one decimal they are printed at, so this
+  // only has to print them: a figure the tables behind the card also show is rounded once, in
+  // one place, and the two cannot round an exact half-tenth apart.
   const points = (value) =>
     (value === null || value === undefined ? "\u2014" : Number(value).toFixed(1));
 
@@ -72,8 +75,10 @@
     const score = document.createElement("b");
     score.className = week.points === null ? "player-card-points is-empty" : "player-card-points";
     score.textContent = points(week.points);
-    // Dim the weeks still to come; a bye is settled, not upcoming.
-    if (week.points === null && week.opponent) row.classList.add("is-upcoming");
+    // Dim the weeks still to come. A bye is settled rather than upcoming, and so is a week the
+    // league has already scored that this player had no part in -- a pool he was not started in,
+    // or a playoff round his team was not in -- which is a dash, not a week yet to be played.
+    if (week.pending && week.points === null && week.opponent) row.classList.add("is-upcoming");
 
     row.append(label, opponent, score);
     return row;
