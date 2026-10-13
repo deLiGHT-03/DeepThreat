@@ -159,7 +159,7 @@ way to tell them apart from the outside is for the running process to say which 
 `/healthz` says it:
 
 ```json
-{"ok": true, "service": "deepthreat", "commit": "ac03788…", "branch": "master", "source": "render"}
+{"branch": "master", "commit": "e61a370…", "ok": true, "service": "deepthreat", "source": "render"}
 ```
 
 `source` is where the answer came from, so a report is never taken for more than it is:
@@ -226,9 +226,9 @@ defaults, which is the check that says a person using the app will never meet a 
 
 Then the same checks on the deployed copy, which answer the questions a local run cannot:
 
-- `/healthz` answers `{"ok": true, "service": "deepthreat", "commit": …, "source": "render"}` from
-  `waitress` — the commit being the one this deploy was built from, so a copy that is behind says
-  so — and the Matchups,
+- `/healthz` answers `{"branch": "master", "commit": …, "ok": true, "service": "deepthreat", "source": "render"}`
+  from `waitress` — the commit being the one this deploy was built from, so a copy that is behind
+  says so — and the Matchups,
   Season, Trades, History, Player Data and Ask AI pages each answer `200` with their stylesheets
   and their titles — the heavy ones read every season the league has played and still come back
   inside the channel timeout.
