@@ -47,14 +47,12 @@
 .season-table-wrap{margin-left:0;margin-right:0}.season-summary{margin-left:0;margin-right:0}.feature-toolbar{flex-direction:row;align-items:center;padding:0 0 9px}.feature-toolbar .league-switcher{margin-left:auto}@media(max-width:640px){.feature-toolbar{align-items:center;flex-direction:row}.feature-toolbar .league-switcher{margin-left:auto}.feature-toolbar .mode-switch{align-self:auto}}
 .defense-toggle{margin-left:auto}.defense-toggle label{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #35465a;border-radius:7px;background:#18222e;color:#c5d4e5;font-size:10px;font-weight:700;cursor:pointer}.defense-toggle input{accent-color:#71a9e8;margin:0}.seasonal-page.defense-mode{margin:-20px -18px;padding:18px 18px 24px;border:1px solid #263a50;border-radius:12px;background:linear-gradient(145deg,#1a2a3a,#15202d 42%,#141d27);box-shadow:inset 0 0 40px #35577b18}.defense-mode .season-table-wrap{border-color:#344b63;box-shadow:0 8px 25px #070e1680}.defense-mode .season-team-table{background:#182431}.defense-mode .season-table th,.defense-mode .season-table td{border-bottom-color:#293c4e}.defense-mode .season-table tbody tr:hover{background:#213247}.defense-mode .season-table tbody tr.season-my-team{background:#20364b}.defense-mode .season-table thead{background:#1d2b39}.defense-mode .season-table .record{background:#2a4054;color:#d2e2f2}@media(max-width:640px){.defense-toggle{margin-left:0}.defense-toggle label{padding:7px 8px}.seasonal-page.defense-mode{margin:-15px -10px;padding:14px 10px 20px}}
 .defense-toggle{margin-left:0}.defense-mode .season-team-table thead th:first-child,.defense-mode .season-team-table tbody th:first-child{background:#182431;box-shadow:1px 0 #344b63}.defense-mode .season-team-table tbody tr.season-my-team th:first-child{background:#20364b}.defense-mode .season-table-actions .screenshot-button{background:#213247;border-color:#344b63;color:#d2e2f2}.defense-mode .season-table-actions .screenshot-button:hover{border-color:#78aee9;color:#fff}
-/* The Defense view turns the two colors around: its figures are the opponent lineup's points, so
-   a positive differential is points given up rather than points scored. themes.css declares
-   .positive/.negative with !important to hold those semantics steady across every palette, and an
-   important declaration outranks any amount of specificity, so these have to match it. The Luck
-   rules come after them to win on specificity: less scored against you is the same good news in
-   either view, so it keeps the green. */
-.defense-mode .season-table .positive{color:#ff9588!important}.defense-mode .season-table .negative{color:#91dfab!important}
-.defense-mode .season-table .luck-cell.positive{color:#91dfab!important}.defense-mode .season-table .luck-cell.negative{color:#ff9588!important}
+/* The Season table colors by meaning rather than by sign: .good is the favorable side of a
+   number and .bad the unfavorable one, which the template decides because only it knows whether
+   a differential is production or points allowed. The Defense view therefore needs no rule of
+   its own, and two plain rules beat nothing -- no !important, and no rule has to outrank the
+   palette rules in themes.css to be visible in every skin. */
+.seasonal-diff.good,.luck-cell.good{color:#b7f56d}.seasonal-diff.bad,.luck-cell.bad{color:#ff9d88}
 .team-record-header{display:flex;align-items:center;justify-content:flex-start;gap:8px;white-space:nowrap}.true-record-toggle{flex:none}.true-record-toggle label{display:inline-flex;align-items:center;gap:4px;padding:4px 5px;border:1px solid #35465a;border-radius:6px;background:#18222e;color:#c5d4e5;font-size:8px;font-weight:700;cursor:pointer}.true-record-toggle input{accent-color:#71a9e8;margin:0}.defense-mode .true-record-toggle label{background:#1c2c3d;border-color:#405b77;color:#d2e2f2}@media(max-width:640px){.team-record-header{gap:4px}.true-record-toggle label{padding:4px 3px;font-size:7px}}
 .season-table-wrap{width:100%;max-width:none}.season-table-actions{width:100%;max-width:none}
 .season-table-actions{align-items:center;gap:8px}.season-table-actions .defense-toggle{margin:0}
