@@ -14,7 +14,12 @@ services:
     startCommand: waitress-serve --host=0.0.0.0 --port=$PORT --threads=8 --channel-timeout=300 wsgi:app
     # Answered without reading Sleeper, so a waking instance is not failed for being slow.
     healthCheckPath: /healthz
-    autoDeploy: true
+    # Wait for the repository's CI checks before deploying, so a commit that fails the
+    # lineup-slot check (.github/workflows/lineup-slots.yml) is not released. That check reads
+    # Sleeper, so an unreachable upstream leaves the deploy waiting rather than failing it
+    # silently: deploy manually from the dashboard, or set this back to `autoDeploy: true`,
+    # to release without it.
+    autoDeployTrigger: checksPass
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.9"

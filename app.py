@@ -390,8 +390,9 @@ def create_app() -> Flask:
         history_id, history = season_history_for(league_id, username, manager_id)
         session["season_history_league_id"] = history_id
         session.update(league_id=league_id, username=username, manager_id=manager_id)
-        # The week view opens on slot-level rows; the Broad View toggle switches it to wider
-        # position groups. Impact is measured per slot, so it keeps that grouping either way.
+        # The week view opens on slot-level rows; the Broad View toggle merges those same
+        # normalized slots into wider position groups. Impact is measured per slot, so it keeps
+        # that grouping either way.
         broad = request.args.get("broad") == "1"
         impact = request.args.get("impact") == "1"
         normalized = not broad or impact
@@ -481,7 +482,8 @@ def create_app() -> Flask:
         ppg = False
         impact = request.args.get("impact") == "1"
         # Same two views as the week page, and the same default: slot-level rows unless the
-        # Broad View toggle asks for position groups. Defense and impact are slot views.
+        # Broad View toggle asks for the normalized slots merged into position groups. Defense
+        # and impact are slot views.
         broad = request.args.get("broad") == "1" and not defense and not impact
         normalized = not broad or defense or impact
         try:

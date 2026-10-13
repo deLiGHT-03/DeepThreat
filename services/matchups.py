@@ -13,7 +13,7 @@ from services.sleeper import (SleeperError, get_json, get_league_dashboard,
                               regular_season_week_count, week_label, MAX_NFL_WEEK)
 
 
-POSITION_ORDER = ("QB", "RB", "WR", "TE", "FLEX", "K", "DEF", "DL", "LB", "DB", "IDP", "P", "OL")
+POSITION_ORDER = ("QB", "SF", "RB", "WR", "TE", "FLEX", "K", "DEF", "DL", "LB", "DB", "IDP", "P", "OL")
 
 
 def get_normalized_slot_order(lineup_slots: list[str]) -> tuple[str, ...]:
@@ -50,15 +50,14 @@ def _number(value) -> float | None:
         return None
 
 
-def _position(player: dict, slot: str | None = None) -> str | None:
+def _position(player: dict) -> str | None:
+    """The position a player counts as, read from his own record.
+
+    His lineup slot is deliberately not consulted: which group a starter belongs to is
+    ``_slot_group``'s question, and answering it here as well left two mappings that could
+    disagree -- a superflex counted as a quarterback in one of them and by the slot in the other.
+    """
     player_position = str(player.get("position") or "").upper()
-    slot = str(slot or "").upper()
-    if slot in {"QB", "SUPER_FLEX"}:
-        return "QB"
-    if slot in {"FLEX", "REC_FLEX", "WRRB_FLEX", "IDP_FLEX"}:
-        return "FLEX"
-    if slot in {"RB", "WR", "TE", "K", "DEF", "DST", "D/ST"}:
-        return "DEF" if slot in {"DEF", "DST", "D/ST"} else slot
     if player_position in {"DEF", "DST", "D/ST"}:
         return "DEF"
     if player_position in {"", "BN", "IR", "TAXI"}:
@@ -79,8 +78,15 @@ def _starter_score(row: dict, player_id: str, index: int) -> float | None:
 
 
 def _slot_group(slot: str, player: dict) -> str | None:
+    """The group a starter occupies in a lineup slot.
+
+    A superflex keeps a bucket of its own. It accepts any of the offensive positions and takes
+    one whenever no quarterback is left for it, so a slot-level answer is the only honest one.
+    """
     slot = str(slot or "").upper()
-    if slot in {"QB", "SUPER_FLEX"}:
+    if slot == "SUPER_FLEX":
+        return "SF"
+    if slot == "QB":
         return "QB"
     if slot in {"FLEX", "REC_FLEX", "WRRB_FLEX", "IDP_FLEX"}:
         return "FLEX"
@@ -104,9 +110,28 @@ def _player_display_names(player: dict, player_id: str) -> tuple[str, str]:
     return full, full
 
 
+def _broad_group(slot_label: str) -> str:
+    """The wide position group a normalized slot belongs to.
+
+    A superflex keeps a bucket of its own rather than joining the quarterbacks. The slot accepts
+    any of the offensive positions, and it takes one whenever no quarterback is left for it, so
+    filing it under the quarterbacks would book a running back's or a receiver's points as
+    quarterback production -- which this league does in about one team-week in twenty. Every team
+    starts exactly one, so its own column still compares like with like.
+    """
+    return str(slot_label).rstrip("0123456789")
+
+
 def get_team_position_groups(row: dict, player_index: dict, lineup_slots: list[str],
                              normalized: bool = False) -> tuple[dict, bool]:
-    """Return points by lineup slot group; optionally best-ball normalize the roster."""
+    """Return points by lineup group: by slot when normalized, by wide position when not.
+
+    Broad View is not a second reading of the week: it is the same best-ball assignment merged
+    one level wider, so a starter's points belong to the slot his score earned him rather than
+    the one he was named in. Without that, a wide receiver started in a flex slot would count
+    as flex production in Broad View and as wide receiver production in the slot view, and the
+    two pages would disagree about the same week.
+    """
     grouped: dict[str, list[dict]] = defaultdict(list)
     starters = row.get("starters") or []
     player_scores = row.get("players_points") or {}
@@ -169,8 +194,12 @@ def get_team_position_groups(row: dict, player_index: dict, lineup_slots: list[s
             if normalized_slot in fixed_eligibility:
                 label = "DEF" if normalized_slot in {"DEF", "DST", "D/ST"} else normalized_slot
                 assign(normalized_slot, fixed_eligibility[normalized_slot], label)
-        # SF is its own slot: use the second available QB whenever possible.
-        # Only when no QB remains does it take the best leftover RB/WR/TE.
+        # The superflex takes the highest-scoring player left once the dedicated slots are
+        # filled, with one forced exception: a leftover quarterback is eligible only for the QB
+        # slot or the superflex, and the QB slot already holds the better one, so he must come
+        # here. Playing a running back or receiver in his place would leave his points without a
+        # legal slot anywhere and the team's columns would stop adding up to its score. With no
+        # quarterback left, the best remaining RB/WR/TE takes the slot by score.
         for slot in lineup_slots:
             if str(slot).upper() == "SUPER_FLEX":
                 if any(player["id"] in available and player["position"] == "QB"
@@ -185,27 +214,15 @@ def get_team_position_groups(row: dict, player_index: dict, lineup_slots: list[s
             if eligible:
                 assign(slot, eligible, "FLEX")
     else:
-        for index, raw_id in enumerate(starters):
-            player_id = str(raw_id or "")
-            if not player_id or player_id == "0":
-                continue
-            player = player_index.get(player_id, {})
-            slot = lineup_slots[index] if index < len(lineup_slots) else ""
-            position = _slot_group(slot, player)
-            if position is None:
-                continue
-            score = _starter_score(row, player_id, index)
-            if score is not None:
-                score_data_available = True
-            slot_label = "SF" if str(slot).upper() == "SUPER_FLEX" else str(slot).upper() or position
-            name, short_name = _player_display_names(player, player_id)
-            grouped[position].append({
-                "id": player_id,
-                "name": name,
-                "short_name": short_name,
-                "points": score,
-                "slot": slot_label,
-            })
+        # Broad View reads the slot view's own answer instead of re-deriving a second one, so
+        # the two cannot disagree about which group a starter's points belong to.
+        slot_labels = get_normalized_slot_order(lineup_slots)
+        slot_groups, score_data_available = get_team_position_groups(
+            row, player_index, lineup_slots, True
+        )
+        for slot_label in list(slot_labels) + sorted(set(slot_groups) - set(slot_labels)):
+            for starter in slot_groups.get(slot_label, {}).get("players", []):
+                grouped[_broad_group(slot_label)].append(starter)
 
     groups = {}
     order = get_normalized_slot_order(lineup_slots) if normalized else POSITION_ORDER

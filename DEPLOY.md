@@ -151,6 +151,26 @@ without becoming a flood of its own.
 - There is **one worker, deliberately**: the cache, the preload and the Sleeper reads all live in
   this process, and more workers would mean reading the same thing several times over.
 
+## Checks before a deploy
+
+`render.yaml` sets `autoDeployTrigger: checksPass`, so Render deploys a commit only after the
+repository's CI checks pass. The check here is the lineup-slot check
+(`.github/workflows/lineup-slots.yml`), which runs `tools/check_lineup_slots.py` on every push and
+pull request.
+
+It is deliberately a GitHub Actions job and not a build step. It reads Sleeper over the network
+and verifies one league's numbers, so putting it in `buildCommand` would tie every deploy to a
+third party's uptime and to that league's data rather than to this repository's code. Instead the
+workflow checks a *finished* season that is already committed under `data/history/`, whose figures
+are frozen, so the run needs no account, no secret and no live league; point the repository
+variable `DEEPTHREAT_CHECK_LEAGUE_ID` at another league to check that one instead. Render's own
+`preDeployCommand` would be the other place a pre-deploy command could go, but it is available for
+paid services only, and this blueprint is `plan: free`.
+
+If Sleeper is unreachable when the workflow runs, the check fails and the deploy waits rather than
+releasing. Deploy manually from the dashboard, or set `autoDeploy: true` in `render.yaml` to go
+back to deploying on every commit, if that wait is ever in the way.
+
 ## Render, concretely
 
 1. Sign in at <https://render.com> (GitHub sign-in is fine) and, from **New → Blueprint**, pick

@@ -1,0 +1,43 @@
+# Run the lineup-slot check on every push and pull request.
+#
+# tools/check_lineup_slots.py proves the Matchups slot view places every starter, sums to each
+# team's official score, shows Broad View as the slot view collapsed, and that the Season tab's
+# slot averages and the Player Data season tables are the same weekly numbers added up. It reads
+# Sleeper directly and needs no browser, so a plain Python runner is enough -- which is what makes
+# it a check that can gate a deploy rather than something only run by hand.
+#
+# It reads one league: a finished season already committed under data/history/, so the figures
+# it checks are frozen and the run needs no account, no secret and no live league. Point the
+# repository variable DEEPTHREAT_CHECK_LEAGUE_ID at another league to check that one instead.
+#
+# render.yaml waits for this workflow (autoDeployTrigger: checksPass), so a commit that breaks
+# one of the promises is not deployed.
+name: Lineup slot check
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lineup-slots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Check the lineup slots
+        env:
+          # A finished season from the committed History snapshots unless the repository sets
+          # its own, so the check is reproducible and needs nothing a fork cannot have.
+          LEAGUE_ID: ${{ vars.DEEPTHREAT_CHECK_LEAGUE_ID || '1048304998225911808' }}
+        run: python tools/check_lineup_slots.py --league-id "$LEAGUE_ID"

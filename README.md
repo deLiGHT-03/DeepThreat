@@ -34,6 +34,16 @@ The brand logo in the toolbar is positioned absolutely, floating above the headi
 
 Exit code 0 means no overlap, 1 means text runs through the logo, and 2 means a page could not be measured — never silently a pass, because the logo only renders once Sleeper returns the account's leagues. Add `--base-url http://127.0.0.1:PORT` to check an app you already have open, or `--json out.json` to keep every measurement.
 
+## Check the lineup slots
+
+The Matchups page's slot view reassigns a team's starters into best-scoring eligible slots. Three things have to stay true of that answer, and none of them is visible when it breaks — the page still renders, and a figure that has quietly moved is not an error a reader can see: every starter is placed in exactly one slot, a team's columns add up to the score the matchup records, and Broad View is exactly the slot view collapsed to wide positions. `python tools/check_lineup_slots.py` runs all three over every scored team-week of the connected league and reports each promise on its own, so a failure says which one broke and on which team's week.
+
+The same check runs in CI on every push and pull request (`.github/workflows/lineup-slots.yml`), against a finished season already committed under `data/history/` so the figures are frozen and the run needs no account or secret, and `render.yaml` waits for the repository's checks before deploying (`autoDeployTrigger: checksPass`) so a commit that breaks one of the promises is not released. Render's own `preDeployCommand` is the other place a pre-deploy command could go, but it is paid-only; see DEPLOY.md.
+
+Two seasonal pages read the same weekly assignment over a season-long window, and the check reconciles both against it: the Season tab's points-per-slot, times the games it counts, is compared with the weekly slot buckets added up over the same weeks, and each Player Data season row is compared with the weekly matchup records for that player over the same weeks. The Player Data tables carry the bench as well as the starters, so they are reconciled against the weekly records the slot view reads rather than the slot buckets, which hold starters alone. Every section prints how many rows it compared and the worst difference it found, and a section that compared nothing fails instead of passing quietly.
+
+Exit code 0 means every promise held, 1 means one broke, and 2 means the league could not be read or a comparison could not be made. It reads Sleeper directly — no browser, no running app — and leaves your saved connection as it found it. Use `--weeks 4,5,6` for a range of the weekly check, `--weekly-only` to skip the two seasonal comparisons, `--league-id` for another league, or `--json out.json` to keep every week's outcome.
+
 ## What a page sends
 
 Two things keep a first load small, and both are the kind of change that has to be checked on
@@ -84,6 +94,7 @@ Run `packaging\build_windows.ps1` in PowerShell on Windows. Install Inno Setup 6
 - `static/player-card.js` opens the player card from any player name, on a click.
 - `templates/` contains the pages; `static/style.css` contains the visual styling.
 - `tools/check_layout.py` measures the heading text against the brand logo in a real browser.
+- `tools/check_lineup_slots.py` proves the slot assignment places every starter, sums to each team's official score, and keeps Broad View equal to the collapsed slot view, and reconciles the Season tab's slot averages and the Player Data season tables against the same weekly numbers.
 - `tools/make_web_logo.py` writes the lossless WebP the pages load from the PNG the Windows icon is drawn from.
 - `tools/build_history_snapshot.py` writes the History page's season summaries into `data/history/` for a deployed copy to rebuild from, and verifies the rebuilt page is byte-identical to the one built from Sleeper.
 - `tools/draft_changelog.py` drafts the notebook's next release from the commits since `COVERED_THROUGH`, for a person to edit rather than trust.
