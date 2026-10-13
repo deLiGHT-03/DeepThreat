@@ -20,6 +20,7 @@ from services.seasonal import get_seasonal_impact_summary, get_seasonal_summary
 from services.player_data import get_player_data
 from services.player_card import get_player_card
 from services.trades import get_trades_summary
+from services import build_info
 from services import draft_picks
 from services import pick_query
 from services import rate_limit
@@ -434,8 +435,14 @@ def create_app() -> Flask:
         It answers without reading Sleeper, so a health check never waits on a page's worth of
         requests and never fails because the upstream is slow. Deliberately not a status of the
         league: it says this process is up, which is the only thing the platform can act on.
+
+        It also names the revision it is running, which is the one thing a page cannot say: a
+        host that has not released the newest commit looks exactly like one that has, so the
+        commit is what tells the copy being read apart from the copy that was pushed. Read from
+        the host's own variables, or from the checkout when there are none; see
+        :mod:`services.build_info`.
         """
-        response = jsonify(ok=True, service="deepthreat")
+        response = jsonify(ok=True, service="deepthreat", **build_info.describe())
         response.headers["Cache-Control"] = "no-store"
         return response
 

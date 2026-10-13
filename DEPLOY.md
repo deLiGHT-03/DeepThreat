@@ -45,7 +45,8 @@ Nothing else is configurable, and no secret belongs in this repository: `.gitign
   Served, then, it is not read or written and the signed session cookie is the memory, so
   connecting is a one-time step per browser. See *Remembering the connection* just below.
 - **`/healthz`** answers without reading Sleeper, so a platform's health check never waits on a
-  page's worth of upstream requests.
+  page's worth of upstream requests. It also names the commit this copy is running, which is how
+  a deploy that has fallen behind is visible instead of guessed at; see *Which commit is live*.
 - **The preload button stays a local convenience.** It warms this process's in-memory cache; on
   a hosted copy with a cold-started instance it warms that instance only. It is harmless.
 - **Its stylesheets and scripts are cached rather than re-asked for, by the browser.** Every
@@ -151,6 +152,32 @@ without becoming a flood of its own.
 - There is **one worker, deliberately**: the cache, the preload and the Sleeper reads all live in
   this process, and more workers would mean reading the same thing several times over.
 
+## Which commit is live
+
+A copy that has not released the newest commit answers the same pages as one that has, so the only
+way to tell them apart from the outside is for the running process to say which revision it is.
+`/healthz` says it:
+
+```json
+{"ok": true, "service": "deepthreat", "commit": "ac03788…", "branch": "master", "source": "render"}
+```
+
+`source` is where the answer came from, so a report is never taken for more than it is:
+
+| `source` | The revision came from |
+| --- | --- |
+| `render` | `RENDER_GIT_COMMIT`, which Render sets for the deploy it built and still serves. |
+| `host` | `SOURCE_VERSION` or `GIT_COMMIT`, as Heroku and the platforms that copied its convention set it. |
+| `environment` | `DEEPTHREAT_COMMIT`, for a host that sets none of its own — a container run with the SHA passed to it. |
+| `checkout` | The `git` checkout the process is running out of, which is what a run from source is. `dirty` says whether tracked files have moved on from that commit. |
+| `unknown` | Nothing said. `commit` is `null`, which is a fact about the deploy rather than a failure: a copy that cannot be asked what it is should not pretend to know. |
+
+The branch is read the same way (`DEEPTHREAT_BRANCH`, `RENDER_GIT_BRANCH`, …), and is `null` when
+there is none to name — a detached checkout, or a host that names only the SHA. Nothing is read
+from Sleeper and nothing is cached in the platform's sense: the answer is worked out once, when
+the first health check asks, and cannot change while the process lives. Compare it against
+`git rev-parse HEAD` on the branch you pushed.
+
 ## Checks before a deploy
 
 `render.yaml` sets `autoDeployTrigger: checksPass`, so Render deploys a commit only after the
@@ -179,7 +206,8 @@ back to deploying on every commit, if that wait is ever in the way.
 2. When it asks for the variables it cannot generate: leave `GEMINI_API_KEY` empty unless you
    want Ask AI (you can add it later under **Environment**).
 3. Deploy. The first build takes a few minutes; the URL is on the service page.
-4. Check `/healthz` answers `{"ok": true}`, then open `/` and connect a Sleeper username.
+4. Check `/healthz` answers `{"ok": true}` and names the commit it was built from, then open `/`
+   and connect a Sleeper username.
 
 Any other container platform works the same way with the `Dockerfile` (Fly, Koyeb, Cloud Run,
 DigitalOcean App Platform) — the `Dockerfile` runs the same two commands, so what was verified
@@ -198,7 +226,9 @@ defaults, which is the check that says a person using the app will never meet a 
 
 Then the same checks on the deployed copy, which answer the questions a local run cannot:
 
-- `/healthz` answers `{"ok": true, "service": "deepthreat"}` from `waitress`, and the Matchups,
+- `/healthz` answers `{"ok": true, "service": "deepthreat", "commit": …, "source": "render"}` from
+  `waitress` — the commit being the one this deploy was built from, so a copy that is behind says
+  so — and the Matchups,
   Season, Trades, History, Player Data and Ask AI pages each answer `200` with their stylesheets
   and their titles — the heavy ones read every season the league has played and still come back
   inside the channel timeout.
