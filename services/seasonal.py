@@ -206,6 +206,11 @@ def get_seasonal_summary(league_id: str, username: str, week_count: int | None =
                         "games": team_games[roster_id],
                         "is_mine": roster_id == own_team["roster_id"]}
         if normalized:
+            # Luck is points-against schedule strength, not points scored: a team whose opponents
+            # have scored below the league's per-team average has been given a head start, so the
+            # league average is the minuend and a positive value means a scoring buffer. Both
+            # averages are built from the same finished team-weeks, so a team that has played the
+            # live week is measured against an equally current league rather than a stale one.
             league_points_against_average = (
                 league_points_against_total / league_points_against_games
                 if league_points_against_games else 0
