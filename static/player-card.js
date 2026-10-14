@@ -138,6 +138,12 @@
       const label = document.createElement("th");
       label.scope = "row";
       label.textContent = row.label;
+      // The short name a reader scans a box score by, beside the long one he may not know:
+      // PASY and RECY are how these columns are headed everywhere else he reads them.
+      const abbreviation = document.createElement("small");
+      abbreviation.className = "player-card-pace-abbr";
+      abbreviation.textContent = row.abbr;
+      label.append(abbreviation);
       const value = document.createElement("td");
       value.textContent = paceValue(row);
       // Points per game is already a rate, so its "pace" is the same figure rather than a
