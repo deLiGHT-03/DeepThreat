@@ -43,10 +43,37 @@ KINDS = (
 #: notebook has not been told about yet, and that is what ``tools/draft_changelog.py`` drafts
 #: from; the tool moves this along when it writes a release, so it is kept honest by being written
 #: rather than remembered. Nothing reads it while the app runs -- it is a note to that tool.
-COVERED_THROUGH = "628850d"
+COVERED_THROUGH = "d0da1dc"
 
 #: Every release, newest first. See the module docstring for what belongs in one.
 RELEASES = [
+    {
+        "date": "2026-10-13",
+        "title": "Ask AI knows who was on the other side",
+        "entries": [
+            ("performance",
+             "Ask AI answers in seconds again instead of minutes: the model it asked was taking "
+             "27–76 seconds over a single call when it was measured, so a question that took "
+             "three lookups was a four-minute wait. The model it asks now answers the same call "
+             "in about a second."),
+            ("functionality",
+             "Ask AI can answer how one player has done against one NFL team — \"what does he "
+             "average against the Texans\" comes back with every game he has played against "
+             "them, the seasons they fall in, and the average. Asked without a team, it adds him "
+             "up against every team he has faced."),
+            ("also",
+             "Those games reach back further than this league does, and the points are this "
+             "league's own scoring applied to Sleeper's official game stats — the same numbers "
+             "the weeks it did score him are scored with."),
+            ("also",
+             "A model that is too busy to answer is passed over for a second one instead of "
+             "failing the question, and a call that stays quiet for 25 seconds counts as too "
+             "busy."),
+            ("also",
+             "The health check says which commit the running copy was built from, so a copy "
+             "that has fallen behind says so rather than looking like the newest one."),
+        ],
+    },
     {
         "date": "2026-10-11",
         "title": "History kept instead of re-read, and a changelog",

@@ -23,7 +23,7 @@ import json
 import time
 
 from services import league_tools
-from services.ask_model import MODEL, AiUnavailable, client
+from services.ask_model import MODEL, MODEL_CHAIN, AiUnavailable, client
 
 #: How many times the model may look something up before it has to answer. Each round is one
 #: model call, so this is also the most calls one question can cost. It is set high enough for a
@@ -37,6 +37,14 @@ MAX_RESULT_CHARS = 12000
 
 #: Low, because a question about a specific league has a right answer and no reason to wander.
 TEMPERATURE = 0.2
+
+#: HTTP codes that mean the model was busy rather than the question unanswerable: out of
+#: capacity, out of quota, or the API too slow to answer inside the time it was given.
+BUSY_CODES = frozenset({408, 429, 500, 502, 503, 504})
+
+#: Words in an API error that mean the same thing where the code does not say it outright.
+BUSY_WORDS = ("high demand", "unavailable", "overloaded", "rate limit", "quota",
+              "timed out", "timeout", "deadline")
 
 SYSTEM_INSTRUCTION = """\
 You answer questions about one specific fantasy football league from its own records.
@@ -68,8 +76,16 @@ exactly that rather than choosing an answer, and pass the limitation on with the
 league_overview reports for him, which is why that tool is called before answering a question \
 phrased that way; the tools also take team="me". If he asks about a trade or a pick he made and \
 the records do not show one, say what the records do show.
-6. If the question is not about this league's data (its teams, players, games, trades, drafts, \
-records or rules), say what you can answer instead and stop.
+6. A question about how one of this league's players has done against a particular NFL team -- \
+his points against the Texans, his best game against Dallas, which teams he scores most against \
+-- is answered with the player_vs_opponent tool. It reads his own NFL games from Sleeper's \
+official logs, which reach back before this league's first season and include weeks it never \
+scored him, and scores each one with this league's own scoring, so its average stands beside a \
+week's score in this league. Quote the average that tool's note gives rather than one worked out \
+from the rows, say which seasons and how many games it covers, and lay out the games it lists as \
+a table (season, week, opponent, his team, points) like any other set. If the question is not \
+about this league at all (its teams, players, games, trades, drafts, records, rules, or how one \
+of its players has done against an NFL team), say what you can answer instead and stop.
 7. Shape the answer to the question, because a set of things is unreadable as a paragraph and a \
 paragraph of four sentences cannot be read at all:
    - One fact: a sentence, or two when the second qualifies the first. Never a block of prose, \
@@ -115,6 +131,12 @@ as it takes. Nothing about this league is available to you except through them, 
 about who was drafted, what a week's scores were, or what the league's records are is answered by \
 looking it up, not by declining. When a lookup returns nothing useful, try a different one before \
 saying you could not find it.
+
+Ask for everything you need in one round. Several tools can be called at the same time in a \
+single reply, and each round costs the person waiting: two lookups that do not depend on each \
+other -- a player's games and his opponent splits, two players, a week and a team's roster -- \
+belong in one round rather than two. Lookups that do build on each other still have to wait \
+for their answer, but nothing else should.
 
 Who was drafted, what a round of a draft held, a week's scores and a league's leaderboards are \
 sets: answer them as the list or the table rule 7 describes, and give every figure that belongs \
@@ -167,6 +189,45 @@ def _tool_config():
     )
 
 
+def _busy(exc: Exception) -> bool:
+    """Whether a failure means the model was busy rather than the question being unanswerable.
+
+    Everything else -- a rejected key, a request the API refuses -- would fail the same way at
+    every model in the chain, so it is reported rather than tried again elsewhere.
+    """
+    code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+    if isinstance(code, int) and code in BUSY_CODES:
+        return True
+    if isinstance(code, str) and code.isdigit() and int(code) in BUSY_CODES:
+        return True
+    lowered = str(exc).casefold()
+    if any(word in lowered for word in BUSY_WORDS):
+        return True
+    return exc.__class__.__name__.endswith("Timeout")
+
+
+def _asked(gemini, contents, config) -> tuple[str, object]:
+    """Ask the models in turn until one answers, and say which one did.
+
+    A model that cannot answer because it is busy is not an answer to the question, so the next
+    model in the chain is asked instead -- a question that has been explored and understood
+    should not be lost to a tier having a bad minute. When every model is busy the last failure
+    is raised, which the caller turns into something a reader can act on.
+    """
+    trouble: Exception | None = None
+    for model in MODEL_CHAIN:
+        try:
+            return model, gemini.models.generate_content(model=model, contents=contents,
+                                                          config=config)
+        except AiUnavailable:
+            raise
+        except Exception as exc:  # noqa: BLE001 - classified immediately below.
+            if not _busy(exc):
+                raise
+            trouble = exc
+    raise trouble if trouble is not None else RuntimeError("no model could be asked")
+
+
 def _describe(name: str, result: dict) -> str:
     """A short line for the page's "what it looked up" list, taken from the tool's own note."""
     note = str(result.get("note") or result.get("error") or "").strip()
@@ -215,7 +276,7 @@ def answer(league_id: str, question: str, reader: dict | None = None) -> dict:
     while rounds < MAX_TOOL_ROUNDS:
         rounds += 1
         try:
-            response = gemini.models.generate_content(model=MODEL, contents=contents, config=config)
+            model, response = _asked(gemini, contents, config)
         except AiUnavailable:
             raise
         except Exception as exc:
@@ -223,7 +284,7 @@ def answer(league_id: str, question: str, reader: dict | None = None) -> dict:
 
         calls = list(getattr(response, "function_calls", None) or [])
         if not calls:
-            return _finished(response, steps, started, rounds)
+            return _finished(response, steps, started, rounds, model=model)
         if not response.candidates:
             return _failed(RuntimeError("the model returned no candidates"), steps, started)
 
@@ -251,12 +312,11 @@ def answer(league_id: str, question: str, reader: dict | None = None) -> dict:
              "facts about one thing, a list or a table for several things. If they do not answer "
              "the question, say so.")]))
     try:
-        final = gemini.models.generate_content(
-            model=MODEL, contents=contents, config=types.GenerateContentConfig(
-                temperature=TEMPERATURE, system_instruction=SYSTEM_INSTRUCTION))
+        model, final = _asked(gemini, contents, types.GenerateContentConfig(
+            temperature=TEMPERATURE, system_instruction=SYSTEM_INSTRUCTION))
     except Exception as exc:
         return _failed(exc, steps, started)
-    return _finished(final, steps, started, rounds, looked_up_too_long=True)
+    return _finished(final, steps, started, rounds, looked_up_too_long=True, model=model)
 
 
 def _validate(question: str) -> str:
@@ -276,7 +336,7 @@ def _text_of(response) -> str:
 
 
 def _finished(response, steps: list[dict], started: float, rounds: int,
-              looked_up_too_long: bool = False) -> dict:
+              looked_up_too_long: bool = False, model: str = MODEL) -> dict:
     text = _text_of(response)
     if not text:
         text = ("I looked this league up but could not put the answer into words. "
@@ -288,7 +348,7 @@ def _finished(response, steps: list[dict], started: float, rounds: int,
         "answer": text,
         "steps": steps,
         "seconds": round(time.monotonic() - started, 2),
-        "model": MODEL,
+        "model": model,
         "rounds": rounds,
         "usage": _usage(response),
     }

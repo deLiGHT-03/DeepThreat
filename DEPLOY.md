@@ -232,8 +232,11 @@ Then the same checks on the deployed copy, which answer the questions a local ru
   Season, Trades, History, Player Data and Ask AI pages each answer `200` with their stylesheets
   and their titles — the heavy ones read every season the league has played and still come back
   inside the channel timeout.
-- The Ask AI page names `gemini-3.5-flash-lite`, which is how the page reads that the platform's
-  `GEMINI_API_KEY` was found — not just that the variable is set.
+- The Ask AI page names `gemini-3.5-flash`, which is how the page reads that the platform's
+  `GEMINI_API_KEY` was found — not just that the variable is set. That is the model it asks
+  first; a question the model cannot answer because it is busy is asked of
+  `gemini-3.1-flash-lite` instead, so the name on the page is the setting rather than a promise
+  about which one answered a particular question.
 - `robots.txt` and `X-Robots-Tag` are on everything the header has to reach: the HTML, the JSON,
   the CSS, the redirect, a `404`, and a refusal.
 - The limits refuse in production, not only here: the thirteenth preload in a minute was answered

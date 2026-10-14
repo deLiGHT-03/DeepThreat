@@ -19,9 +19,28 @@ import os
 import sys
 from pathlib import Path
 
-#: The model Ask AI asks. Flash Lite is the cheap, fast tier, which suits questions that are
-#: mostly a few lookups followed by one short answer.
-MODEL = "gemini-3.5-flash-lite"
+#: The model Ask AI asks. Flash is the fast tier, which suits questions that are mostly a few
+#: lookups followed by one short answer, and one question costs several calls: a tier that takes
+#: a minute to answer a sentence makes a question that needs three lookups a four-minute wait.
+MODEL = "gemini-3.5-flash"
+
+#: The models tried, in order, when the one before them cannot answer.
+#:
+#: A tier can be briefly out of capacity -- the API's own words are "this model is currently
+#: experiencing high demand" -- and that is a reason to ask a different model, not to fail the
+#: question. The fallback is a lite tier, which is cheaper and, measured here, quicker; it
+#: answers a little more plainly than the model above it, which is the right trade for an answer
+#: that would otherwise not arrive.
+FALLBACK_MODELS = ("gemini-3.1-flash-lite",)
+
+#: Every model Ask AI may ask, in the order it asks them.
+MODEL_CHAIN = (MODEL,) + FALLBACK_MODELS
+
+#: How long one call may take before that model is treated as unreachable and the next is
+#: asked. A call that hangs is worse than one that fails: the page waits, and nothing says why.
+#: Measured against this API, a healthy call is a second or two and a struggling tier is 20s or
+#: more, so this is long enough for the model to think and short enough to give up on it.
+CALL_TIMEOUT_MS = 25_000
 
 #: The file a key can be kept in, in the app folder or the per-user settings folder.
 KEY_FILENAME = "api-key.txt"
@@ -93,8 +112,12 @@ def client():
         )
     try:
         from google import genai
+        from google.genai import types
     except ImportError as exc:  # pragma: no cover - depends on the installed environment.
         raise AiUnavailable(
             "Ask AI needs the google-genai package. Run: python -m pip install -r requirements.txt"
         ) from exc
-    return genai.Client(api_key=key)
+    # One client, one timeout, built here so every caller gets the same bound on a call that
+    # would otherwise wait on the API as long as the API feels like taking.
+    return genai.Client(api_key=key,
+                        http_options=types.HttpOptions(timeout=CALL_TIMEOUT_MS))

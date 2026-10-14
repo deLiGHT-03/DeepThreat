@@ -27,7 +27,7 @@
   <button type="submit" id="ask-submit">Ask</button>
 </form>
 
-<p class="ask-scope">Answered only from <strong>{{ league_name }}</strong> — seasons {{ seasons_label }}. Every figure comes from this league's own Sleeper records, so if a thing is not in them, the answer says so.</p>
+<p class="ask-scope">Answered only from <strong>{{ league_name }}</strong> — seasons {{ seasons_label }}. Everything about the league comes from its own Sleeper records; a player's own NFL games, which is what a question about one NFL opponent needs, come from Sleeper's official NFL stats, scored with this league's scoring. If a thing is in neither, the answer says so.</p>
 
 {# One click asks the question, so every sample has to be one this league can actually answer:
    a question with a missing name in it would only come back asking for the name. #}
@@ -50,7 +50,7 @@
   </details>
 </section>
 
-<p class="ask-footnote">Answers are written by {{ ai_model }}, which explores {{ league_name }} through its own lookups — a player's games, trades, draft picks and where they ended up, draft boards, a week's scores, rosters, standings, a whole set of players ranked by their best season, and the league's record book. A question that names several things comes back as a list or a table rather than a paragraph — as does a question whose answer is several facts about one thing — and every figure in it is the one the tools read. A position in an answer wears the same badge the rest of the app uses and a draft pick a chip of its own, so both can be picked out at a glance. It cannot change anything, and it is never shown another league.</p>
+<p class="ask-footnote">Answers are written by {{ ai_model }}, which explores {{ league_name }} through its own lookups — a player's games, trades, draft picks and where they ended up, draft boards, a week's scores, rosters, standings, a whole set of players ranked by their best season, the league's record book, and one player's own NFL games against a named NFL team. A question that names several things comes back as a list or a table rather than a paragraph — as does a question whose answer is several facts about one thing — and every figure in it is the one the tools read. A position in an answer wears the same badge the rest of the app uses and a draft pick a chip of its own, so both can be picked out at a glance. It cannot change anything, and it is never shown another league.</p>
 {% endif %}
 
 </div>

@@ -16,7 +16,21 @@ from services.data_cache import lookup as cache_lookup
 
 BASE_URL = "https://api.sleeper.app/v1"
 SCHEDULE_URL = "https://api.sleeper.com/schedule/nfl/regular"
+PLAYER_GAMES_URL = "https://api.sleeper.com/stats/nfl/player"
 TIMEOUT = 20
+
+#: The oldest season Sleeper's own game logs reach back to. A career can only be followed as far
+#: as the source goes, so this is where one is looked for from; a season before it, a season that
+#: has not been played and a player who was not in the league yet all come back empty rather than
+#: wrong, and a caller skips those instead of counting them.
+FIRST_GAME_LOG_SEASON = 2009
+
+#: The season types a game log may be asked for. The league scores NFL regular-season weeks, so
+#: that is the one its games are read from unless a caller says otherwise.
+GAME_LOG_SEASON_TYPES = frozenset({"regular", "post"})
+
+#: A player id as Sleeper writes one: digits for a player, letters for a team defense.
+_PLAYER_ID = re.compile(r"^[A-Za-z0-9]{1,24}$")
 # Team avatars, team logos and player headshots live on Sleeper's CDN, whose responses reach
 # a page with no Access-Control-Allow-Origin header, so a page cannot read those bytes back to
 # embed them in a screenshot. Relaying them from this app's own origin is what makes them
@@ -498,6 +512,45 @@ def get_nfl_schedule(season: str) -> list[dict]:
         url, "Sleeper's NFL schedule could not be reached."
     ))
     return payload if isinstance(payload, list) else []
+
+
+def _game_log_seconds(season: str) -> float | None:
+    """A season that is over never changes again; the one being played gains stats each week.
+
+    The same clock the weekly NFL statistics are kept on, because it is the same data arriving:
+    a played game is final as soon as it ends, and the week in progress fills in behind it.
+    """
+    if not _nfl_state():
+        return LIVE_SECONDS
+    return None if _current_week_of(str(season)) is None else STATS_SECONDS
+
+
+def get_player_season_games(player_id: str, season: str,
+                            season_type: str = "regular") -> dict[str, dict]:
+    """One player's own NFL games in one season, keyed by the week they were played in.
+
+    This is the one place Sleeper names the team a player played for in a given week and the
+    opponent he faced, which is what a question about how he has done against one NFL team is
+    made of. Each entry carries that week's official stat line as well, so a game can be scored
+    by whoever asked for it -- including one played before, or outside, a fantasy league.
+
+    A week he did not play is null, and a season Sleeper has nothing for comes back empty. A
+    team defense is named by its team abbreviation, as it is everywhere else in Sleeper's stats.
+    """
+    player_id = str(player_id or "").strip()
+    season = str(season or "").strip()
+    if not _PLAYER_ID.match(player_id) or not season.isdigit():
+        return {}
+    if season_type not in GAME_LOG_SEASON_TYPES:
+        season_type = "regular"
+    url = (f"{PLAYER_GAMES_URL}/{player_id}"
+           f"?season_type={season_type}&season={season}&grouping=week")
+    payload = _cached(url, _game_log_seconds(season), lambda: _fetch_json(
+        url, "Sleeper's NFL game log could not be reached."
+    ))
+    if not isinstance(payload, dict):
+        return {}
+    return {str(week): game for week, game in payload.items() if isinstance(game, dict)}
 
 
 def get_nfl_week_stats(season: str, week: int) -> dict[str, dict]:

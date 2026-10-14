@@ -23,6 +23,7 @@ question about a league costs almost nothing.
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
@@ -32,8 +33,9 @@ from services import pick_query
 from services import trades as trades_service
 from services.matchups import _number
 from services.player_card import _appearances
-from services.sleeper import (MAX_NFL_WEEK, SleeperError, get_json, get_league_dashboard,
-                              get_league_season_history, get_player_index)
+from services.sleeper import (FIRST_GAME_LOG_SEASON, MAX_NFL_WEEK, SleeperError,
+                              get_json, get_league_dashboard, get_league_season_history,
+                              get_player_index, get_player_season_games)
 
 #: How many weeks are read at once when a tool walks a season.
 FETCH_WORKERS = 8
@@ -44,6 +46,46 @@ MAX_ROWS = 60
 
 #: How many trades a search will return before it says how many more there were.
 MAX_TRADES = 40
+
+#: Every NFL club a game log can name: the code Sleeper writes for it now, its full name, its
+#: nickname, and the codes an older season writes for the same club. A club that moved also
+#: changed code, so a question about the Raiders has to find the games Sleeper filed under OAK
+#: before 2020 and the Chargers' under SD before 2017. The codes are Sleeper's own; the names
+#: are what a person types.
+NFL_FRANCHISES = (
+    ("ARI", "Arizona Cardinals", "Cardinals", ("Cards",)),
+    ("ATL", "Atlanta Falcons", "Falcons", ()),
+    ("BAL", "Baltimore Ravens", "Ravens", ()),
+    ("BUF", "Buffalo Bills", "Bills", ()),
+    ("CAR", "Carolina Panthers", "Panthers", ()),
+    ("CHI", "Chicago Bears", "Bears", ()),
+    ("CIN", "Cincinnati Bengals", "Bengals", ()),
+    ("CLE", "Cleveland Browns", "Browns", ()),
+    ("DAL", "Dallas Cowboys", "Cowboys", ()),
+    ("DEN", "Denver Broncos", "Broncos", ()),
+    ("DET", "Detroit Lions", "Lions", ()),
+    ("GB", "Green Bay Packers", "Packers", ()),
+    ("HOU", "Houston Texans", "Texans", ()),
+    ("IND", "Indianapolis Colts", "Colts", ()),
+    ("JAX", "Jacksonville Jaguars", "Jaguars", ("JAC", "Jags")),
+    ("KC", "Kansas City Chiefs", "Chiefs", ()),
+    ("LAC", "Los Angeles Chargers", "Chargers", ("SD", "SDG")),
+    ("LAR", "Los Angeles Rams", "Rams", ("STL",)),
+    ("LV", "Las Vegas Raiders", "Raiders", ("OAK", "LVR")),
+    ("MIA", "Miami Dolphins", "Dolphins", ()),
+    ("MIN", "Minnesota Vikings", "Vikings", ()),
+    ("NE", "New England Patriots", "Patriots", ()),
+    ("NO", "New Orleans Saints", "Saints", ()),
+    ("NYG", "New York Giants", "Giants", ()),
+    ("NYJ", "New York Jets", "Jets", ()),
+    ("PHI", "Philadelphia Eagles", "Eagles", ()),
+    ("PIT", "Pittsburgh Steelers", "Steelers", ()),
+    ("SEA", "Seattle Seahawks", "Seahawks", ()),
+    ("SF", "San Francisco 49ers", "49ers", ("Niners", "SF 49ers")),
+    ("TB", "Tampa Bay Buccaneers", "Buccaneers", ("TAM", "Bucs")),
+    ("TEN", "Tennessee Titans", "Titans", ()),
+    ("WAS", "Washington Commanders", "Commanders", ("WSH", "Redskins", "Football Team")),
+)
 
 
 # --------------------------------------------------------------------------------------
@@ -125,6 +167,65 @@ def _universe(league_id: str) -> dict[str, dict]:
                 })
                 record["seasons"][str(entry["season"])] = team["name"]
     return players
+
+
+def _resolve_franchise(text: str) -> tuple[tuple[str, ...], list[str]]:
+    """Match a typed NFL team against the clubs a game log can name.
+
+    Returns the codes the club is filed under -- the one it wears now and any it wore in an
+    older season -- and, when the text names no club or more than one, nothing plus the clubs it
+    could have meant. Every word typed has to be one of the club's own words, so "Houston",
+    "Texans" and "the Houston Texans" all reach the same club, "CAR" is Carolina rather than
+    every club with those letters in its name, and "New York" reaches both clubs it could be.
+    """
+    typed = {word for word in re.split(r"[^a-z0-9]+", str(text or "").casefold())
+             if word and word not in {"the", "nfl"}}
+    if not typed:
+        return (), []
+    hits: list[tuple[tuple[str, ...], str]] = []
+    for code, full, nickname, older in NFL_FRANCHISES:
+        spelled = set()
+        for name in (full, nickname, code, *older):
+            spelled.update(word for word in re.split(r"[^a-z0-9]+", str(name).casefold()) if word)
+        if typed <= spelled:
+            hits.append(((code,) + tuple(str(alias).upper() for alias in older),
+                         f"{full} ({code})"))
+    if len(hits) == 1:
+        return hits[0][0], []
+    return (), [label for _, label in hits]
+
+
+def _league_points(scoring: dict, position: str, line: dict) -> float:
+    """One week's official stat line scored the way this league scores, to two decimals.
+
+    Sleeper computes a league's weekly points from its own stat line, and the keys it computes
+    them with are the league's scoring settings, so the same sum over the same line reproduces
+    the league's own figure -- which is what lets a game the league never scored be quoted on
+    the same scale as one it did. The one setting that is not a stat is the bonus a league may
+    pay a tight end per reception: Sleeper keeps it as ``bonus_rec_te`` and it is the reception
+    count that earns it, so it is added here by hand.
+    """
+    scoring = scoring or {}
+    total = 0.0
+    for key, weight in scoring.items():
+        if key == "bonus_rec_te" or isinstance(weight, bool):
+            continue
+        try:
+            weight = float(weight)
+        except (TypeError, ValueError):
+            continue
+        value = line.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            total += float(value) * weight
+    if str(position).upper() == "TE":
+        try:
+            bonus = float(scoring.get("bonus_rec_te") or 0.0)
+        except (TypeError, ValueError):
+            bonus = 0.0
+        receptions = line.get("rec")
+        if bonus and isinstance(receptions, (int, float)) and not isinstance(receptions, bool):
+            total += float(receptions) * bonus
+    return round(total, 2)
 
 
 def _resolve_player(league_id: str, text: str) -> tuple[list[dict], list[str], dict[str, dict]]:
@@ -409,6 +510,236 @@ def player_game_log(league_id: str, player: str, season: str = "", above: float 
         "match_count": len(filtered) if applied else len(games),
         "note": note,
     }
+
+
+def player_vs_opponent(league_id: str, player: str, opponent: str = "",
+                       season: str = "") -> dict:
+    """How one player has scored against one NFL team, over every season Sleeper has for him.
+
+    The league's own weekly records only reach the weeks it scored, and they never say which NFL
+    team a player faced, so this reads Sleeper's own game log for the player instead. That log
+    names the team he played for and the opponent in each game, back before this league's first
+    season, which is what makes a question about one NFL opponent answerable at all. Every game
+    is then scored with this league's own scoring settings, so a figure here is on the same
+    scale as the weeks this league scored him -- the same numbers, not a different format.
+
+    With no opponent named, the same games are added up per NFL team: how he has done against
+    everybody he has faced. Both read regular-season games only, because those are the weeks
+    this league plays.
+    """
+    matched, nearest, _ = _resolve_player(league_id, player)
+    if not matched:
+        return {"games": [], "note": (f"No player in this league matches \"{player}\"."
+                                      + (f" Closest names: {', '.join(nearest)}." if nearest else ""))}
+    if len(matched) > 1:
+        return {
+            "games": [],
+            "matches": [{"name": p["name"], "position": p["position"]} for p in matched[:8]],
+            "note": f"\"{player}\" matches more than one player; ask again with the full name.",
+        }
+    who = matched[0]
+    codes, candidates = _resolve_franchise(opponent)
+    wanted = str(opponent or "").strip()
+    if wanted and not codes:
+        note = (f"\"{opponent}\" is not an NFL team I can place."
+                + (f" Did you mean {', '.join(candidates)}?" if candidates else ""))
+        return {"games": [], "note": note}
+
+    seasons, problem = _game_log_seasons(league_id, season)
+    if problem:
+        return {"games": [], "note": problem}
+    failed: list[str] = []
+
+    def fetch(year: str) -> tuple[str, dict | None]:
+        try:
+            return year, get_player_season_games(who["id"], year)
+        except SleeperError:
+            return year, None
+
+    with ThreadPoolExecutor(max_workers=FETCH_WORKERS) as executor:
+        results = dict(executor.map(fetch, seasons))
+    games: list[dict] = []
+    for year in seasons:
+        log = results.get(year)
+        if log is None:
+            failed.append(year)
+            continue
+        for week, game in log.items():
+            stats = game.get("stats")
+            if not isinstance(stats, dict) or not stats:
+                continue  # A week he did not play: a bye, an injury, or a game still to come.
+            if not (_number(stats.get("gp")) or 0.0) > 0:
+                continue
+            faced = str(game.get("opponent") or "").strip().upper()
+            if codes and faced not in codes:
+                continue
+            played = str(game.get("team") or "").strip().upper()
+            try:
+                week_number = int(week)
+            except (TypeError, ValueError):
+                continue
+            games.append({
+                "season": str(game.get("season") or year),
+                "week": week_number,
+                "nfl_team": played,
+                "opponent": faced,
+                "home": not bool(game.get("is_away_team")),
+                "points": _league_points(_scoring(league_id), who["position"], stats),
+            })
+    games.sort(key=lambda game: (game["season"], game["week"]), reverse=True)
+
+    if not games:
+        where = f" against the {_franchise_label(codes)}" if codes else ""
+        wanted_season = str(season).strip()
+        if wanted_season:
+            window = f" in {wanted_season}"
+        elif seasons:
+            window = f" between {seasons[0]} and {seasons[-1]}"
+        else:
+            window = ""
+        note = (f"{who['name']} ({who['position']}) has no recorded game{where}{window}. "
+                "Only games Sleeper recorded him playing are counted.")
+        if failed:
+            note += f" Seasons {', '.join(failed)} could not be read."
+        return {"games": [], "opponents": [], "note": note}
+
+    # The span the games themselves cover, not the span read: seasons a player was not in the
+    # NFL yet would otherwise be quoted as part of his record.
+    read_label = _season_span(sorted({game["season"] for game in games}))
+    basis = ("Points are this league's own scoring, applied to Sleeper's official stat line for "
+             "each game, so they are on the same scale as the weeks this league scored him.")
+    if codes:
+        listing = games[:MAX_ROWS]
+        points = [game["points"] for game in games]
+        best = max(games, key=lambda game: (game["points"], game["season"], game["week"]))
+        worst = min(games, key=lambda game: (game["points"], game["season"], game["week"]))
+        teams = sorted({game["nfl_team"] for game in games if game["nfl_team"]})
+        label = _franchise_label(codes)
+        note = (f"{who['name']} ({who['position']}, {'/'.join(teams) or 'NFL'}) has played "
+                f"{len(games)} game{'s' if len(games) != 1 else ''} against the {label}, "
+                f"{read_label}: {round(sum(points) / len(points), 2)} points a game, from "
+                f"{min(points)} ({worst['season']} Wk{worst['week']}) to {max(points)} "
+                f"({best['season']} Wk{best['week']}). {basis} NFL regular-season games only.")
+        if len(listing) < len(games):
+            note += f" The {len(listing)} newest are listed; the average is over all {len(games)}."
+        if failed:
+            note += f" Seasons {', '.join(failed)} could not be read."
+        return {
+            "player": {"name": who["name"], "position": who["position"]},
+            "opponent": {"codes": list(codes), "name": label},
+            "seasons_read": seasons,
+            "games": listing,
+            "listed_lines": [_game_line(game) for game in listing],
+            "match_count": len(games),
+            "average_points": round(sum(points) / len(points), 2),
+            "best_game": best,
+            "worst_game": worst,
+            "note": note,
+        }
+
+    # No opponent named: the same games, totalled per NFL team.
+    totals: dict[str, dict] = {}
+    for game in games:
+        row = totals.setdefault(game["opponent"], {"opponent": game["opponent"], "games": 0,
+                                                   "points": 0.0})
+        row["games"] += 1
+        row["points"] += game["points"]
+    opponents = []
+    for row in totals.values():
+        codes_for = _resolve_franchise(row["opponent"])[0]
+        opponents.append({
+            "opponent": row["opponent"],
+            "opponent_name": _franchise_label(codes_for) or row["opponent"],
+            "games": row["games"],
+            "average_points": round(row["points"] / row["games"], 2),
+        })
+    opponents.sort(key=lambda row: (row["average_points"], row["games"]), reverse=True)
+    listed = opponents[:MAX_ROWS]
+    best, worst = opponents[0], opponents[-1]
+    note = (f"{who['name']} ({who['position']}) has faced {len(opponents)} NFL teams, "
+            f"{read_label}, across {len(games)} games: his best average is "
+            f"{best['average_points']} against the {best['opponent_name']} in {best['games']} "
+            f"game{'s' if best['games'] != 1 else ''}, his lowest {worst['average_points']} "
+            f"against the {worst['opponent_name']} in {worst['games']}. "
+            f"{basis} NFL regular-season games only.")
+    if len(listed) < len(opponents):
+        note += f" The {len(listed)} highest averages are listed."
+    if failed:
+        note += f" Seasons {', '.join(failed)} could not be read."
+    return {
+        "player": {"name": who["name"], "position": who["position"]},
+        "seasons_read": seasons,
+        "opponents": listed,
+        "listed_lines": [f"{row['opponent']}: {row['games']} games, "
+                         f"{row['average_points']} points a game" for row in listed],
+        "match_count": len(games),
+        "note": note,
+    }
+
+
+def _scoring(league_id: str) -> dict:
+    """This league's own scoring settings, from its newest season."""
+    chain = _chain(league_id)
+    if not chain:
+        return {}
+    try:
+        return get_league_dashboard(chain[0]["league_id"]).get("scoring") or {}
+    except SleeperError:
+        return {}
+
+
+def _game_log_seasons(league_id: str, season: str) -> tuple[list[str], str]:
+    """Which NFL seasons a game log is read for, oldest first, and why not when it cannot be.
+
+    One named season, or every season from the oldest Sleeper has a log for through the season
+    in progress: a career is read whole, because the question is about the player rather than
+    about this league's seasons. A season Sleeper has nothing for comes back empty and drops
+    out of the result on its own.
+    """
+    wanted = str(season or "").strip()
+    if wanted:
+        if not wanted.isdigit():
+            return [], f"\"{season}\" is not a season year."
+        return [wanted], ""
+    newest = str((_state() or {}).get("season") or "").strip()
+    chain = _chain(league_id)
+    for entry in chain:
+        if str(entry["season"]).isdigit() and int(entry["season"]) > int(newest or 0):
+            newest = str(entry["season"])
+    if not newest.isdigit():
+        return [], "This league's seasons could not be read from Sleeper."
+    first = min(FIRST_GAME_LOG_SEASON, int(newest))
+    return [str(year) for year in range(first, int(newest) + 1)], ""
+
+
+def _franchise_label(codes) -> str:
+    """Name a club the table's way -- "Houston Texans (HOU)" -- whichever code filed the games.
+
+    A club that moved wears a different code in an older season, and the games keep it, so the
+    label is read from whichever of the club's codes the caller passed rather than from the
+    games themselves.
+    """
+    wanted = {str(code).upper().strip() for code in codes or () if str(code).strip()}
+    for code, full, _nickname, older in NFL_FRANCHISES:
+        aliases = {str(alias).upper() for alias in older}
+        if code in wanted or aliases & wanted:
+            return f"{full} ({code})"
+    return sorted(wanted)[0] if wanted else ""
+
+
+def _season_span(seasons) -> str:
+    """The seasons a set of games falls in, as a span: "2014-2026", or "2024" for one."""
+    years = sorted({int(year) for year in seasons if str(year).isdigit()})
+    if not years:
+        return "no seasons"
+    return str(years[0]) if len(years) == 1 else f"{years[0]}-{years[-1]}"
+
+
+def _game_line(game: dict) -> str:
+    """One game as a line, so the figure that is quoted is one the code wrote down."""
+    where = "home" if game.get("home") else "away"
+    return (f"{game['season']} Wk{game['week']}: {game['points']} pts vs {game['opponent']} "
+            f"({game.get('nfl_team') or 'NFL'}, {where})")
 
 
 def find_trades(league_id: str, player: str = "", team: str = "", season: str = "",
@@ -1165,6 +1496,32 @@ TOOL_SPECS = [
         },
     },
     {
+        "name": "player_vs_opponent",
+        "description": ("How one player in this league has scored against one NFL team, game "
+                        "by game and season by season -- his own NFL games, including seasons "
+                        "before this league existed and weeks he was not on a roster here. Call "
+                        "this for any question about a player against an opponent: 'how does he "
+                        "do against the Texans', 'his average against Dallas', 'who has he "
+                        "scored most against'. Name the opponent as a person would ('Texans', "
+                        "'Houston', 'HOU') or leave it out for his averages against every NFL "
+                        "team he has faced. His points are this league's own scoring, so they "
+                        "read on the same scale as his weeks in this league."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "player": {"type": "string", "description": "Player name."},
+                "opponent": {"type": "string",
+                             "description": ("The NFL team faced, as a name or code, e.g. "
+                                             "'Texans' or 'HOU'. Leave it out to add his games "
+                                             "up per NFL team instead.")},
+                "season": {"type": "string",
+                           "description": ("Only this NFL season, e.g. 2024. Leave it out for "
+                                           "every season Sleeper has for him.")},
+            },
+            "required": ["player"],
+        },
+    },
+    {
         "name": "find_trades",
         "description": ("Trades in this league's history, and what each side received in players "
                         "and draft picks. Call this for any question about a trade, who traded "
@@ -1334,6 +1691,7 @@ TOOLS = {
     "league_overview": league_overview,
     "find_players": find_players,
     "player_game_log": player_game_log,
+    "player_vs_opponent": player_vs_opponent,
     "find_trades": find_trades,
     "trace_draft_pick": trace_draft_pick,
     "draft_board": draft_board,
