@@ -4,8 +4,10 @@
 has to be: a commit says what changed in the code, and the notebook says what changed for the
 person playing in the league. That translation is the whole job here. It gathers the commits
 after ``COVERED_THROUGH`` -- the last commit the changelog already speaks for -- hands their
-messages to the same Gemini model Ask AI uses, and asks for the reader's version: one line per
-change, behind the word for what kind of change it is, in the voice the file is written in.
+messages to the same Gemini models Ask AI uses, and asks for the reader's version: one line per
+change, behind the word for what kind of change it is, in the voice the file is written in. The
+models are asked in turn, so a tier that is out of capacity for the day is skipped rather than
+being allowed to fail the draft.
 
     python tools/draft_changelog.py                    # draft what is not written down yet
     python tools/draft_changelog.py --since HEAD~6     # draft a range you name yourself
@@ -16,12 +18,18 @@ A draft is a draft. Numbers are the one thing that cannot be invented here -- a 
 only figures that appear in the messages, prints the commits behind the draft beside it, and warns
 about any line that still carries a file name, because a reader has no way to check one.
 
+A range of commits that holds nothing a reader would notice is answered as such and left alone. The
+model is asked to say so outright, because a model told to write two to eight lines writes two to
+eight lines, and the alternative -- filling an empty note with a sentence about work nobody can see
+-- is how the notebook stops being worth opening.
+
 With no key, or with a model that will not answer, the tool still does the gathering half: it
 prints the commits and a rough draft made from their own subjects, marked as rough. A rough draft
 is never written to the file: the notebook is read by people playing in leagues, and a commit
 subject is the one thing its lines must not be.
 
-Exit codes: 0 a draft was produced, 1 there is nothing to draft, 2 the repository or the module
+Exit codes: 0 a draft was produced, 1 there is nothing to draft -- every commit is already written
+down, or none of them changed anything a reader would notice -- 2 the repository or the module
 could not be read, or the draft had to be rough.
 """
 
@@ -126,7 +134,17 @@ TITLE: <the release's headline, in the reader's words, no more than eight words>
 performance | <line>
 visual | <line>
 also | <line>
+
+Or, when the commits hold nothing a reader would notice — every one of them work behind the app —
+answer with that single word and nothing else:
+
+NONE
 """
+
+#: What the model answers when a range of commits holds nothing for the reader. It has to be asked
+#: for outright: left to choose, a model told to write two to eight lines writes two to eight
+#: lines, and the notebook gains a line about a commit nobody playing in a league can see.
+NOTHING = "NONE"
 
 
 def _git(*args: str) -> str:
@@ -209,28 +227,46 @@ def _parse(answer: str) -> tuple[str, list[tuple[str, str]]]:
     return title, lines
 
 
-def draft_with_model(commits: list[dict]) -> tuple[str, list[tuple[str, str]], str]:
-    """Ask the model for a draft. Returns the title, the lines, and the model's name."""
+def draft_with_model(commits: list[dict]) -> tuple[str, list[tuple[str, str]], str, bool]:
+    """Ask the models in turn for a draft.
+
+    Returns the title, the lines, the model that answered, and whether it answered that there is
+    nothing here for a reader. A model that cannot answer is not an answer -- the notebook is
+    written for the person playing in a league, and a tier being out of capacity for the day, or
+    answering with something that is not a draft at all, is a reason to ask the next one rather
+    than to hand that person a developer's commit subject. The failures are kept and the last is
+    raised, which is what the caller falls back to a rough draft on.
+    """
     from google.genai import types
 
-    from services.ask_model import MODEL, client
+    from services.ask_model import MODEL_CHAIN, client
 
     # The client is held in a name rather than built inline: it owns the connection the request
     # goes out on, and a temporary that nothing refers to can be collected before it is used.
     gemini = client()
-    answer = gemini.models.generate_content(
-        model=MODEL,
-        contents=_prompt(commits),
-        config=types.GenerateContentConfig(
-            temperature=0.4,
-            system_instruction=SYSTEM_INSTRUCTION,
-            # There are no tools to call here, and asking for a plain answer is the whole job:
-            # left on, the SDK offers the model a round of automatic calls and says so on stderr.
-            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-        ),
+    config = types.GenerateContentConfig(
+        temperature=0.4,
+        system_instruction=SYSTEM_INSTRUCTION,
+        # There are no tools to call here, and asking for a plain answer is the whole job: left
+        # on, the SDK offers the model a round of automatic calls and says so on stderr.
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
     )
-    title, lines = _parse(getattr(answer, "text", "") or "")
-    return title, lines, MODEL
+    trouble: Exception | None = None
+    for model in MODEL_CHAIN:
+        try:
+            answer = gemini.models.generate_content(
+                model=model, contents=_prompt(commits), config=config)
+        except Exception as exc:  # noqa: BLE001 - which model failed is what the next one fixes.
+            trouble = exc
+            continue
+        text = (getattr(answer, "text", "") or "").strip()
+        if text.strip("`").strip().upper() == NOTHING:
+            return "", [], model, True
+        title, lines = _parse(text)
+        if lines:
+            return title, lines, model, False
+        trouble = RuntimeError(f"{model} answered with no line the notebook could label")
+    raise trouble if trouble is not None else RuntimeError("no model could be asked")
 
 
 def _rough_kind(commit: dict) -> str:
@@ -363,11 +399,20 @@ def main() -> int:
     for commit in commits:
         print(f"  {commit['sha'][:8]}  {commit['date']}  {commit['subject']}")
 
-    title, lines, model_used, failure = "", [], "", ""
+    title, lines, model_used, declined = "", [], "", False
+    failure = ""
     try:
-        title, lines, model_used = draft_with_model(commits)
+        title, lines, model_used, declined = draft_with_model(commits)
     except Exception as exc:  # noqa: BLE001 - any failure here means drafting it roughly instead
         failure = str(exc).splitlines()[0] if str(exc) else exc.__class__.__name__
+    # A model that read the commits and found nothing a reader would notice is not a model that
+    # failed, and its answer is not a draft to fill in: inventing lines from the commit subjects
+    # here would put a developer's words in the notebook, which is the one thing it must not hold.
+    if declined:
+        print(f"\n{model_used} read these {len(commits)} commit"
+              f"{'' if len(commits) == 1 else 's'} as nothing a reader would notice: there is no "
+              f"release to draft, and {_display(path)} is unchanged")
+        return 1
     if not lines:
         title, lines = rough_draft(commits)
         model_used = ""
