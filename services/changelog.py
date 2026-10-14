@@ -45,10 +45,68 @@ KINDS = (
 #: notebook has not been told about yet, and that is what ``tools/draft_changelog.py`` drafts
 #: from; the tool moves this along when it writes a release, so it is kept honest by being written
 #: rather than remembered. Nothing reads it while the app runs -- it is a note to that tool.
-COVERED_THROUGH = "13ccc48"
+COVERED_THROUGH = "b789f1e"
 
 #: Every release, newest first. See the module docstring for what belongs in one.
 RELEASES = [
+    {
+        "date": "2026-10-14",
+        "title": "A player comparison is the table and nothing said twice",
+        "entries": [
+            ("visual",
+             "The comparison no longer writes the table out again in a paragraph underneath it: "
+             "the card is the two names, the stats and their figures with the leader of each row "
+             "marked, so what gets saved is the table rather than the table and an account of it "
+             "-- and the small print under its buttons is down to the one thing the figures cannot "
+             "say for themselves."),
+            ("visual",
+             "The card is also narrower, and each figure now sits beside the stat it belongs to "
+             "instead of out at the card's far edge -- and the two players' figures are each given "
+             "the same room, so a value and the mark on the row's leader line up down the card "
+             "instead of the two columns ending in different places."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "History has the season switcher every other page has",
+        "entries": [
+            ("functionality",
+             "The season switcher now sits at the top of History, where the rest of the app keeps "
+             "it, and picking a season moves you into that season rather than only narrowing what "
+             "you are reading: the tabs follow you there, so Matchups, Player Data, Pace and Trades "
+             "all open on the season you chose."),
+            ("also",
+             "The year chips over the record book are unchanged. They still read one season of the "
+             "whole history, and still leave the season you are in where it was."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "Broad View and Defense are one choice on the Season table",
+        "entries": [
+            ("visual",
+             "The Broad View checkbox now sits beside Defense, over the Season table, instead "
+             "of up among the tabs — and the two are one choice: turning one on dims the other, "
+             "so the table can no longer be asked to be both at once."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "Compare lives on the Pace board now",
+        "entries": [
+            ("visual",
+             "The Compare tab is gone and Pace has moved to sit beside Player Data, so the tabs "
+             "now read Matchups, Player Data, Pace, Trades, History and Ask AI."),
+            ("functionality",
+             "Comparing two players no longer needs a tab of its own: the two name boxes sit "
+             "above the Pace board, folded away until you search, and a search opens them onto "
+             "the same side-by-side card of what each is on pace for. Fold it back and the "
+             "board you were reading is still there."),
+            ("also",
+             "A comparison follows you when you switch season or league, and a link to the old "
+             "Compare page opens the same comparison above the board."),
+        ],
+    },
     {
         "date": "2026-10-14",
         "title": "A Pace board says which position it is showing",

@@ -12,12 +12,16 @@
     {% set destination = url_for('trades', league_id=option.league_id, username=username, manager_id=manager_id, history_id=history_league_id) %}
     {% elif switch_page == 'ask' %}
     {% set destination = url_for('ask', league_id=option.league_id, username=username, manager_id=manager_id, history_id=history_league_id) %}
-    {% elif switch_page == 'compare' %}
-    {% set destination = url_for('compare', league_id=option.league_id, player=first, other=second, username=username, manager_id=manager_id, history_id=history_league_id) %}
+    {% elif switch_page == 'history' %}
+    {# A season chosen here moves the reader into it, the way the switcher does on every other
+       page: the book is the whole chain either way, and the year chips below stay the thing that
+       narrows it to one year. The chain is the one already in view, so it is passed along. #}
+    {% set destination = url_for('history', league_id=option.league_id, username=username, manager_id=manager_id, history_id=history_league_id) %}
     {% elif switch_page == 'pace' %}
     {# The board in view stays in view: the position and the column it is read by both follow the
-       reader into another season, because it is the same board he is looking at. #}
-    {% set destination = url_for('pace', league_id=option.league_id, position=switch_position or none, sort=switch_sort or none, dir=switch_dir or none, username=username, manager_id=manager_id, history_id=history_league_id) %}
+       reader into another season, because it is the same board he is looking at -- and a
+       comparison open above it is the same two players, looked up again over the other season. #}
+    {% set destination = url_for('pace', league_id=option.league_id, position=switch_position or none, sort=switch_sort or none, dir=switch_dir or none, player=switch_player or none, other=switch_other or none, username=username, manager_id=manager_id, history_id=history_league_id) %}
     {% else %}
     {% set destination = url_for('seasonal', league_id=option.league_id, username=username, manager_id=manager_id, broad='1' if switch_broad else None, defense='1' if switch_defense else None, true_record='1' if switch_true_record else None, impact='1' if switch_impact else None, history_id=history_league_id) %}
       {% endif %}

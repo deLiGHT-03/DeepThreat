@@ -32,13 +32,11 @@
     {% elif switch_page == 'ask' %}
     {# Ask AI reads whichever season is in view, so switching leagues lands on the new one's questions. #}
     {% set destination = url_for('ask', league_id=option.league_id, username=username, manager_id=manager_id, history_id=option.league_id) %}
-    {% elif switch_page == 'compare' %}
-    {# The same two players, looked up again in the other league: names that are not there are reported by the page itself. #}
-    {% set destination = url_for('compare', league_id=option.league_id, player=first, other=second, username=username, manager_id=manager_id, history_id=option.league_id) %}
     {% elif switch_page == 'pace' %}
     {# The same board in the other league: still on the position that was being looked at, and
-       still read by the column it was read by, because that is what the reader was looking at. #}
-    {% set destination = url_for('pace', league_id=option.league_id, position=switch_position or none, sort=switch_sort or none, dir=switch_dir or none, username=username, manager_id=manager_id, history_id=option.league_id) %}
+       still read by the column it was read by, because that is what the reader was looking at --
+       and the same two players, compared again for the league being moved to. #}
+    {% set destination = url_for('pace', league_id=option.league_id, position=switch_position or none, sort=switch_sort or none, dir=switch_dir or none, player=switch_player or none, other=switch_other or none, username=username, manager_id=manager_id, history_id=option.league_id) %}
     {% else %}
     {% set destination = url_for('league', league_id=option.league_id, username=username, manager_id=manager_id, season=season, history_id=option.league_id) %}
     {% endif %}

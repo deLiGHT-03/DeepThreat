@@ -626,9 +626,12 @@ def create_app() -> Flask:
         year on its own -- the same book, its leaders drawn from that season -- and is read from
         the chain's newest season either way, because that is what describes the whole history.
 
-        A year is a look at the book rather than a move to that year's league: the tabs above it,
-        the league switcher beside them, the All-Time chip and the address itself all stay on the
-        season the reader is in, and the scope changes under them and nothing else.
+        The league in the address is the season the reader is in when the chain holds it -- the one
+        the switcher above the title moved him to -- and the chain's newest season otherwise, which
+        is the season every other tab opens on. A year is then a look at the book rather than a move
+        to that year's league: the tabs above it, the league switcher beside them, the All-Time chip
+        and the address itself all stay on the season the reader is in, and the scope changes under
+        them and nothing else.
         """
         username = request.args.get("username", "").strip() or session.get("username", "")
         manager_id = request.args.get("manager_id", "").strip() or session.get("manager_id", "")
@@ -641,13 +644,17 @@ def create_app() -> Flask:
                                           username, manager_id=manager_id, season=season)
         except SleeperError as exc:
             return render_template("index.html", error=str(exc)), 400
-        # The league the reader is in is the newest season of the chain -- the one every other tab
-        # opens on -- and it is the newest entry of the chain that names it, so nothing here has to
-        # read the scope to find out where the reader is. The summary describes the season in view
-        # (its book, and the name the page is titled with); these describe the reader.
-        current_league_id = str(history[0]["league_id"]) if history else str(league_id)
-        current_season = str(history[0]["season"]) if history else str(summary["season"])
-        current_league_name = str(history[0].get("name") or summary["league"].get("name", ""))
+        # It is the chain that says which season the reader is in, and the entry he is on when the
+        # address names one of its own seasons -- the one the switcher above the title moved him to
+        # -- with the newest entry standing in otherwise, because that is the season every other tab
+        # opens on. The summary describes the book in view (its records, and the name the page is
+        # titled with); these describe the reader.
+        current = next((item for item in history if item["league_id"] == str(league_id)), None)
+        if current is None and history:
+            current = history[0]
+        current_league_id = str(current["league_id"]) if current else str(league_id)
+        current_season = str(current["season"]) if current else str(summary["season"])
+        current_league_name = str((current or {}).get("name") or summary["league"].get("name", ""))
         save_connection(username, manager_id, current_league_id, history_id)
         return render_template("history.html", summary=summary, username=username,
                                manager_id=manager_id, season=current_season,
@@ -655,8 +662,13 @@ def create_app() -> Flask:
                                switch_page="history",
                                season_options=history, history_league_id=history_id,
                                current_league_name=current_league_name,
+                               # The leagues offered are the ones the reader is in this season, the
+                               # way every other page offers them, rather than the older season he
+                               # has moved the board back to read.
                                league_options=league_switcher_data(
-                                   username, manager_id, current_season, current_league_id))
+                                   username, manager_id,
+                                   str(history[0]["season"]) if history else current_season,
+                                   current_league_id))
 
     @app.get("/league/<league_id>/pick")
     def pick_detail(league_id: str):
@@ -755,53 +767,16 @@ def create_app() -> Flask:
 
     @app.get("/league/<league_id>/compare")
     def compare(league_id: str):
-        """Two players' 17-game paces beside each other, on a page with an address of its own.
+        """The old Compare address, which is now the panel above the Pace board.
 
-        This is the comparison Ask AI draws inside an answer, given a home: both read
-        :func:`services.league_tools.compare_paces`, so the page and an answer can never
-        disagree, and a page has the two things an answer does not -- an address that can be
-        pasted into a chat and reach the same figures for whoever opens it, and something the
-        camera button can save as a picture.
+        Two names were the whole of what the page took, and the board takes them the same way,
+        so this address still lands on the comparison it names -- the board rather than a page,
+        with the two players read into the panel above the table. Nothing links here any more;
+        the redirect is for an address already pasted into a league chat before it was folded
+        in, so an old link still reaches the figures it was shared for.
         """
-        username = request.args.get("username", "").strip() or session.get("username", "")
-        manager_id = request.args.get("manager_id", "").strip() or session.get("manager_id", "")
-        history_id, history = season_history_for(league_id, username, manager_id)
-        session["season_history_league_id"] = history_id
-        session.update(league_id=league_id, username=username, manager_id=manager_id)
-        try:
-            dashboard = get_league_dashboard(league_id)
-        except SleeperError as exc:
-            return render_template("index.html", error=str(exc)), 400
-        league = dashboard["league"]
-        # The lookup is anchored on the newest season of the chain -- the same anchoring an Ask AI
-        # question uses -- and told which season to project, so the season switcher reads what it
-        # says: opening the page from an older season compares that season, and with no season
-        # chosen (the newest league, as the app normally opens) it projects the one being played.
-        root = str(history[0]["league_id"]) if history else league_id
-        # Two names, each typed by itself. One name alone is not a comparison, so it is shown
-        # back in the box that asked for it rather than answered as though it were half of one.
-        first = request.args.get("player", "").strip()
-        second = request.args.get("other", "").strip()
-        comparison = (league_tools.compare_paces(root, first, second,
-                                                 season=str(league.get("season") or ""))
-                      if first and second else None)
-        save_connection(username, manager_id, league_id, history_id)
-        seasons = sorted(str(item["season"]) for item in history) or [str(league.get("season") or "")]
-        return render_template(
-            "compare.html", username=username, manager_id=manager_id,
-            league_name=str(league.get("name") or ""),
-            current_league_id=league["league_id"],
-            current_league_name=str(league.get("name") or ""),
-            season=str(league.get("season") or ""),
-            seasons_label=(seasons[0] if len(seasons) == 1 else f"{seasons[0]}\u2013{seasons[-1]}"),
-            switch_page="compare",
-            season_options=history, history_league_id=history_id,
-            league_options=league_switcher_data(
-                username, manager_id,
-                history[0]["season"] if history else str(league.get("season") or ""),
-                league["league_id"]),
-            first=first, second=second, comparison=comparison,
-        )
+        carried = {key: value for key, value in request.args.items() if key != "league_id"}
+        return redirect(url_for("pace", league_id=league_id, **carried))
 
     @app.get("/league/<league_id>/players")
     def league_players(league_id: str):
@@ -852,6 +827,16 @@ def create_app() -> Flask:
         root = str(history[0]["league_id"]) if history else league_id
         board = get_pace_board(root, season=str(league.get("season") or ""), position=position,
                                sort=sort, direction=direction)
+        # Two players' paces, asked for above the board they are read beside. The comparison used
+        # to be a page of its own; it is now folded into this one, and read from the same lookup
+        # the old page and Ask AI drew, so the panel, an answer and a card cannot disagree. Two
+        # names, each typed by itself: one alone is not a comparison, so it is shown back in the
+        # box that asked for it rather than answered as though it were half of one.
+        first = request.args.get("player", "").strip()
+        second = request.args.get("other", "").strip()
+        comparison = (league_tools.compare_paces(root, first, second,
+                                                 season=str(league.get("season") or ""))
+                      if first and second else None)
         save_connection(username, manager_id, league_id, history_id)
         seasons = sorted(str(item["season"]) for item in history) or [str(league.get("season") or "")]
         # What the switches to another season or another league carry: the board in view, sort and
@@ -867,12 +852,13 @@ def create_app() -> Flask:
             seasons_label=(seasons[0] if len(seasons) == 1 else f"{seasons[0]}\u2013{seasons[-1]}"),
             switch_page="pace", switch_position=position,
             switch_sort=switch_sort, switch_dir=switch_dir,
+            switch_player=first, switch_other=second,
             season_options=history, history_league_id=history_id,
             league_options=league_switcher_data(
                 username, manager_id,
                 history[0]["season"] if history else str(league.get("season") or ""),
                 league["league_id"]),
-            board=board,
+            board=board, first=first, second=second, comparison=comparison,
         )
 
     @app.get("/league/<league_id>/player-data")

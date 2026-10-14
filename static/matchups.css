@@ -133,13 +133,22 @@
 .player-card-head,.player-card-total{padding-right:calc(10px + var(--player-card-gutter,0px))}
 .player-card-note{padding:10px;color:#89978f;font-size:10px}
 
-/* The Broad View checkbox sits with the page tabs: it turns the slot-level rows into wider
-   position groups without leaving the page. */
+/* The Broad View checkbox turns the slot-level rows into wider position groups without leaving
+   the page. On the weekly Matchups page it sits with the page tabs; on the Season table the
+   Season rule below puts it beside the Defense toggle, where the two are one choice. */
 .broad-view-toggle{display:flex;align-items:center;margin:0 0 0 4px}
 .broad-view-toggle label{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border:1px solid #3a4940;border-radius:5px;color:#c5d2c9;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap}
 .broad-view-toggle label:hover,.broad-view-toggle label:focus-within{border-color:#94c965;color:#d7f3c4}
 .broad-view-toggle input{accent-color:#a8f32f;margin:0}
 @media(max-width:640px){.broad-view-toggle{margin-left:2px}.broad-view-toggle label{gap:5px;padding:6px 7px;font-size:9px}}
+/* On the Season table Broad View and Defense sit side by side and are one choice: a table is
+   either widened into position groups or read as points allowed, never both. The toggle that
+   does not apply is drawn shut -- dimmed, and not lighting up under the pointer -- so the pair
+   reads as one setting with two sides rather than two switches fighting over the same table. */
+.season-table-actions .broad-view-toggle{margin:0}
+.season-table-actions .broad-view-toggle label{border-radius:7px}
+.broad-view-toggle.is-off label,.defense-toggle.is-off label{opacity:.45;cursor:default}
+.broad-view-toggle.is-off label:hover,.broad-view-toggle.is-off label:focus-within{border-color:#3a4940;color:#c5d2c9}
 @media(max-width:640px){.player-card{width:min(300px,calc(100vw - 20px))}}
 /* A card grows when its pace is generated, so the last thing in it - whichever section that is -
    carries the panel's bottom corners, and the week list gives up some of its own room so the whole
