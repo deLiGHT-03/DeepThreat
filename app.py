@@ -112,6 +112,16 @@ def create_app() -> Flask:
     # Every template builds its asset URLs here rather than with url_for("static", ...), so
     # nothing can take the long-lived caching below without also carrying a stamp.
     app.jinja_env.globals["asset_url"] = static_asset
+    # What a position is called when a table is grouped under one, rather than the code a lineup
+    # and a chip name it by. It lives here rather than in each page that groups by position, so
+    # the Player Data tables and the Pace board call a running back the same thing; a position
+    # this list has never heard of is named by its own code, which is what a league with a
+    # position nobody expected should be shown.
+    app.jinja_env.globals["position_names"] = {
+        "QB": "Quarterback", "RB": "Running Back", "WR": "Wide Receiver", "TE": "Tight End",
+        "K": "Kicker", "DEF": "Defense", "DL": "Defensive Line", "LB": "Linebacker",
+        "DB": "Defensive Back", "IDP": "IDP", "P": "Punter", "OL": "Offensive Line",
+    }
     # The Impact Players page is hidden until its shape is settled. Its routes and data
     # stay live, so this one flag brings the tab back on every page that links to it.
     app.jinja_env.globals["show_impact_players"] = False

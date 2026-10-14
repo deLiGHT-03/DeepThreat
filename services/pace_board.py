@@ -169,7 +169,12 @@ def get_pace_board(league_id: str, season: str = "", position: str = "",
     carried = [abbr for abbr in order
                if any(abbr in {row["abbr"] for row in who["line"]} for who in wanted_players)]
     columns = [{"abbr": abbr, "label": labels[abbr]["label"]} for abbr in carried]
-    heads = _heads(columns)
+    # A board narrowed to one position is one position all the way down, so the column that would
+    # print the same two letters in every row is dropped and the table is headed with the position
+    # itself instead. It is dropped here rather than hidden in the page because the headings are
+    # what the browser sorts by: a column that is not drawn is not a column to order by, and the
+    # remaining cells shift up with it.
+    heads = [head for head in _heads(columns) if not (wanted and head["key"] == "pos")]
 
     rows: list[dict] = []
     for who in wanted_players:

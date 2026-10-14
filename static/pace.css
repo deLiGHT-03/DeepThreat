@@ -27,8 +27,18 @@
 /* The position's own column is given only the width its contents need -- the two-letter label,
    and the heading a reader clicks to sort by it -- so the board's figures take the rest of the
    table instead of a narrow label holding a column as broad as a column of numbers. Its pads are
-   set here as well: 12px on either side of two letters is the rest of what made it look empty. */
-.pace-page .pace-table th:nth-child(2),.pace-page .pace-table td:nth-child(2){width:1%;padding-left:9px;padding-right:9px}
+   set here as well: 12px on either side of two letters is the rest of what made it look empty.
+   Nothing is said about a board narrowed to one position, where that column is gone and the
+   second cell of a row is a figure like any other. */
+.pace-page .pace-table:not(.pace-one-position) th:nth-child(2),.pace-page .pace-table:not(.pace-one-position) td:nth-child(2){width:1%;padding-left:9px;padding-right:9px}
+/* The position a board is narrowed to, named once at the head of the table. It is the table's own
+   caption rather than a bar above the box: the camera saves the table, and a board that arrived
+   as a picture without the position it was showing would be a picture of anonymous figures. */
+.pace-page .pace-table caption{width:100%;padding:8px 12px;background:#202a23;border-bottom:1px solid #303b33;text-align:left}
+.pace-page .pace-table caption .position{
+  display:inline-block;width:auto;min-width:36px;padding:4px 7px;border-radius:5px;
+  font-size:9px;text-align:center;
+}
 /* A dash is the absence of a figure rather than a zero: it keeps its column and is set quieter
    than the figures beside it. */
 .pace-page .pace-table tbody td.pace-blank{color:#748178}

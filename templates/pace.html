@@ -48,7 +48,11 @@
    force is the one the server marked: it arrives sorted, so a pasted board is read the same way
    in the first frame it is drawn in. The two openings are on the table for the browser, which
    leaves them out of the address rather than writing down what a page already does. #}
-<div class="season-table-wrap"><table class="season-table pace-table" id="pace-table" data-screenshot-name="pace-{{ board.season }}{{ '-' ~ board.position if board.position else '' }}" data-open-sort="{{ board.open_sort }}" data-open-direction="{{ board.open_direction }}" data-open-phrase="{{ opening_phrase }}">
+<div class="season-table-wrap"><table class="season-table pace-table{% if board.position %} pace-one-position{% endif %}" id="pace-table" data-screenshot-name="pace-{{ board.season }}{{ '-' ~ board.position if board.position else '' }}" data-open-sort="{{ board.open_sort }}" data-open-direction="{{ board.open_direction }}" data-open-phrase="{{ opening_phrase }}">
+  {# A board narrowed to one position names it once, at the head of the table, the way the Player
+     Data season tables head their own group -- and says it inside the table rather than above the
+     box, so the picture the camera takes carries the name of what it is a picture of. #}
+  {% if board.position %}<caption class="pace-group"><span class="position pos-{{ board.position|lower|replace('/', '-') }}">{{ position_names.get(board.position, board.position) }}</span></caption>{% endif %}
   <thead><tr>
     {% for head in board.heads %}<th scope="col" aria-sort="{{ head.aria }}"{% if head.title %} title="{{ head.title }}"{% endif %}><button class="sort-button" type="button" data-sort-key="{{ head.key }}" data-sort-type="{{ head.type }}" data-sort-phrase="{{ sorted_prefix ~ head.saying|lower }}">{{ head.label }} <span>{{ head.arrow }}</span></button></th>{% endfor %}
   </tr></thead>
@@ -56,7 +60,9 @@
     {% for row in board.rows %}
     <tr>
       <td><span class="player-card-target" data-player-id="{{ row.id }}">{{ row.name }}</span></td>
-      <td><span class="position pos-{{ row.position|lower }}">{{ row.position }}</span></td>
+      {# The label under the position's own name, or nothing at all where the board is already
+         narrowed to one: a column of the same two letters is what the group heading replaced. #}
+      {% if not board.position %}<td><span class="position pos-{{ row.position|lower }}">{{ row.position }}</span></td>{% endif %}
       <td data-sort-value="{{ row.games }}">{{ row.games }}</td>
       {# One cell per column, in the header's own order. A dash is a stat this player's position
          is not measured by: it keeps its column and sorts to the end of it, because he has none

@@ -51,6 +51,17 @@ COVERED_THROUGH = "20b877c"
 RELEASES = [
     {
         "date": "2026-10-14",
+        "title": "A Pace board says which position it is showing",
+        "entries": [
+            ("visual",
+             "A Pace board narrowed to a position now names it once at the top of the table — "
+             "Quarterback, Running Back — instead of a two-letter label repeating down every row, "
+             "and the room that column took is spent on the figures. All still labels each "
+             "player, because its rows are not all one position."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
         "title": "A year in History is a look, not a move",
         "entries": [
             ("functionality",
