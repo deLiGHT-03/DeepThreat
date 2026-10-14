@@ -49,6 +49,22 @@ COVERED_THROUGH = "7bc65dd"
 RELEASES = [
     {
         "date": "2026-10-13",
+        "title": "Every copy can say which commit it is",
+        "entries": [
+            ("also",
+             "Every copy of the app now says which commit it was built from, not just the first "
+             "one it was hosted on: a second copy answered that it did not know, which reads the "
+             "same as a copy that has fallen behind."),
+            ("also",
+             "One command asks every copy which commit it is running, so a deploy that did not "
+             "land is a line of output instead of a page somebody has to remember to open."),
+            ("also",
+             "A copy on a host that tells it nothing about itself can have its revision written in "
+             "while it is built, so it can still say which commit it is."),
+        ],
+    },
+    {
+        "date": "2026-10-13",
         "title": "Ask AI knows who was on the other side",
         "entries": [
             ("performance",

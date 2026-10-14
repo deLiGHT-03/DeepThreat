@@ -167,16 +167,108 @@ way to tell them apart from the outside is for the running process to say which 
 | `source` | The revision came from |
 | --- | --- |
 | `render` | `RENDER_GIT_COMMIT`, which Render sets for the deploy it built and still serves. |
+| `vercel` | `VERCEL_GIT_COMMIT_SHA`, which Vercel sets for the commit a deployment was triggered by. It arrives only once the project has **Enable access to System Environment Variables** turned on (Settings → Environment Variables); a project that has not is read as a host that sets nothing, unless the build stamps one — see “Stamping the revision into a build” below. |
 | `host` | `SOURCE_VERSION` or `GIT_COMMIT`, as Heroku and the platforms that copied its convention set it. |
 | `environment` | `DEEPTHREAT_COMMIT`, for a host that sets none of its own — a container run with the SHA passed to it. |
 | `checkout` | The `git` checkout the process is running out of, which is what a run from source is. `dirty` says whether tracked files have moved on from that commit. |
+| `build` | `services/revision.txt`, which a build wrote with `tools/stamp_revision.py` before the copy was packaged — the answer for a host that hands nothing over and leaves no checkout behind. Read after the checkout and not before it. |
 | `unknown` | Nothing said. `commit` is `null`, which is a fact about the deploy rather than a failure: a copy that cannot be asked what it is should not pretend to know. |
 
-The branch is read the same way (`DEEPTHREAT_BRANCH`, `RENDER_GIT_BRANCH`, …), and is `null` when
-there is none to name — a detached checkout, or a host that names only the SHA. Nothing is read
-from Sleeper and nothing is cached in the platform's sense: the answer is worked out once, when
-the first health check asks, and cannot change while the process lives. Compare it against
-`git rev-parse HEAD` on the branch you pushed.
+The branch is read the same way (`DEEPTHREAT_BRANCH`, `RENDER_GIT_BRANCH`,
+`VERCEL_GIT_COMMIT_REF`, …), and is `null` when there is none to name — a detached checkout, or
+a host that names only the SHA. Nothing is read from Sleeper and nothing is cached in the
+platform's sense: the answer is worked out once, when the first health check asks, and cannot
+change while the process lives. Compare it against `git rev-parse HEAD` on the branch you pushed.
+
+## Stamping the revision into a build
+
+A host that hands no revision over can still be named. The build runs in the checkout even when
+the running copy has nothing left of it, so a build step can write down what it can see, and the
+file travels inside the deployment for the app to read:
+
+    python tools/stamp_revision.py            # writes services/revision.txt beside build_info.py
+    python tools/stamp_revision.py --strict   # fail the build when it cannot be stamped
+
+The tool answers from the same places `services/build_info.py` does, in the same order — the
+host's own variable first, the checkout after it — so whatever a build can work out is what gets
+written down, and a host whose variable is withheld but whose build has a `.git` is named anyway.
+The stamp is read last of all: a tree git can answer about is the tree itself, dirty flag and all,
+and a stamp is what a build recorded when there was no tree to read. It is reported as `build`.
+
+The file is not committed, and `services/revision.txt` is in `.gitignore` for that reason: it
+names one build, and a stamp in the repository would have every copy claim a revision nobody
+shipped. By default the tool succeeds even when it cannot stamp, because a deploy that happens
+without being able to name itself is better than one that does not happen; `--strict` is for a
+pipeline that would rather hear about it.On Vercel the hook is committed in the repository, so nothing has to be set in an account only its
+owner can open — `vercel.json`, which Vercel reads for a deployment built from that commit:
+
+```json
+{ "buildCommand": "python tools/stamp_revision.py" }
+```
+
+Three things about that one line, and each is a reason it is one line:
+
+- **The install is a separate step.** Vercel has its own `installCommand` for dependencies and
+  detects them from `requirements.txt`; a build command is not where they belong, and naming them
+  there would install them twice.
+- **It overrides a Build Command set in the dashboard** rather than adding to it — this file
+  first, then Project Settings, then the preset's default. So the dashboard field
+  (**Settings → Build & Development Settings → Build Command**) does the same job with a click,
+  and a copy that has both is following this file.
+- **A `[tool.vercel.scripts] build` hook in `pyproject.toml` is not used instead.** It is the
+  documented hook for the Flask and FastAPI presets, but a `pyproject.toml` is also a dependency
+  manifest, and Vercel has been seen preferring it over `requirements.txt` when both are present
+  — which installs no dependencies at all and leaves a deployment that imports nothing. A file the
+  app reads is not worth a build that can lose its libraries.
+
+The first deploy after this is the test, and it fails safely: Vercel keeps the last good
+deployment when a build fails, so a copy that cannot be built is a deploy that did not happen
+rather than a site that is down. If the build or the deployed function is affected, delete this
+file and push — the stamp is a nicety, and the app is not. Push the tool with or before this hook,
+too: a command naming a file the repository does not have yet fails the build, and the writer's own
+tolerance for a build it cannot stamp does not cover not being there at all.
+
+## Asking every copy at once
+
+`tools/check_deployed_revisions.py` asks each host for `/healthz` and compares the revision it
+reports with the commit that was pushed, so a deploy that did not land is a line of output rather
+than a page somebody has to remember to open and read:
+
+    python tools/check_deployed_revisions.py                 # every known host, against the push
+    python tools/check_deployed_revisions.py --wait 600      # keep asking while a deploy lands
+    python tools/check_deployed_revisions.py --expect 49eaf8a
+    python tools/check_deployed_revisions.py --json revisions.json
+
+The commit it asks for is the pushed one — this branch's upstream, not this HEAD — because work
+that has not been pushed is work no host can have, and asking for it would report every host as
+behind for a deploy that could not have happened. `--expect` names a commit by hand instead, and
+when the two differ the run says so before it asks anything.
+
+Each host comes back as `current`, `behind`, `unknown`, `blocked` or `unreachable`, and only
+`current` is quiet. A copy that cannot be asked is reported as unasked and never counted as
+current, because a page from a stale copy and a page from a current one are the same bytes; the
+exit code is `0` only when every host answered for itself and is current, `1` when a host is
+behind, and `2` when a host could not be asked or could not say.
+
+Two of those answers are about a host rather than about a deploy:
+
+- **`blocked` is something answering in the app's place**, which is either a sign-in gate in front
+  of the app or a host that is not this app at all. The health check sits behind whatever gates
+  the host — the same gate the platform's own `healthCheckPath` is asking — so the app was never
+  reached, and nothing can be concluded about the copy behind it. Nothing out here tells the two
+  apart, so settle it at the host: a host whose `/login` serves a sign-in page and whose
+  `/healthz` has never answered this app's JSON is not a copy of this app, whatever its name.
+- **`unknown` is the host not handing its revision over.** The copy answers and says it does not
+  know what it is. There are two ways to fix that at the host: expose the platform's own variable
+  (the `vercel` row above), or stamp the revision in while it is built. Until one of them is done,
+  that copy cannot be told from one that is months behind.
+
+The hosts it asks are the ones in `HOSTS` in the tool — the Vercel copy, which answers as this app
+— plus any named with `--host NAME=URL`. **The Render service in `render.yaml` has no URL recorded
+in this repository**, so it is passed by hand until one is written down; a hostname guessed from a
+service name is how a check ends up reporting on somebody else's app. It asks the network and not
+this repository, so it is a command you run after a deploy rather than a check CI can hold a
+commit to.
 
 ## Checks before a deploy
 

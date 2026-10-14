@@ -1,6 +1,9 @@
 api-key.txt
 # A hosting provider's API token, kept out of the repository the same way the Gemini key is.
 *-token.txt
+# The revision a build wrote down (tools/stamp_revision.py). It names one build, so a committed
+# one would go stale at the next commit and have a deployed copy name a revision nobody shipped.
+services/revision.txt
 __pycache__/
 *.py[cod]
 .venv/

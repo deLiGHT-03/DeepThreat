@@ -41,3 +41,9 @@ to know that the ground moved.
 - `.github/workflows/lineup-slots.yml` runs that check on every push and pull request, and
   `render.yaml` holds a deploy until the checks pass. Point the repository variable
   `DEEPTHREAT_CHECK_LEAGUE_ID` at another league to check that league instead.
+- `python tools/check_deployed_revisions.py` asks every deployed copy which revision it is running
+  and compares it with the commit that was pushed, so a deploy that did not land is a line of
+  output rather than a page somebody has to remember to open. It asks the hosts over the network
+  and not this repository, so it is run after a deploy rather than in CI. A host that hands its
+  copy nothing can be stamped at build time with `python tools/stamp_revision.py`; both are in
+  DEPLOY.md.
