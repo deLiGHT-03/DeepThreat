@@ -62,6 +62,41 @@ POSITION_STATS: dict[str, tuple[tuple[str, str, tuple[str, ...], int], ...]] = {
 _STAT_KEYS = tuple(sorted({key for stats in POSITION_STATS.values()
                            for _, _, keys, _ in stats for key in keys}))
 
+#: The two figures every position carries. They are scored by the league rather than read from a
+#: key in Sleeper's line, which is why they are kept out of :data:`POSITION_STATS`: that table is
+#: what one position is measured by, and these are what all of them are.
+SCORED_STATS = (("PTS", "Points", 1), ("PPG", "Points Per Game", 1))
+
+
+def stat_table() -> dict[str, dict]:
+    """Every stat a pace can be read from, and the positions that are measured by it.
+
+    Built from :data:`POSITION_STATS` rather than written out a second time, so a stat is
+    rankable exactly when some position's pace table holds it -- the two can never drift apart,
+    and a stat added to a position is one a ranking can immediately be asked for.
+
+    Each entry carries the label and the abbreviation the table prints, the Sleeper keys the stat
+    adds up, how many decimals it is printed to, and which positions carry it. ``positions`` is
+    None for points and points a game, which is every position rather than a set of them: the
+    league scores whoever it likes. ``scored`` says the figure is the league's own rather than a
+    sum of Sleeper's keys, and ``rate`` says it is already a per-game number, so a full season
+    cannot change it.
+    """
+    table: dict[str, dict] = {}
+    for place, stats in POSITION_STATS.items():
+        for label, abbreviation, keys, decimals in stats:
+            entry = table.setdefault(abbreviation, {
+                "label": label, "abbr": abbreviation, "keys": keys, "decimals": decimals,
+                "positions": set(), "rate": False, "scored": False,
+            })
+            entry["positions"].add(place)
+    for abbreviation, label, decimals in SCORED_STATS:
+        table[abbreviation] = {
+            "label": label, "abbr": abbreviation, "keys": (), "decimals": decimals,
+            "positions": None, "rate": abbreviation == "PPG", "scored": True,
+        }
+    return table
+
 
 def _pace(total: float, games: int) -> float:
     """One season figure, projected over a full season at the rate it was earned at."""

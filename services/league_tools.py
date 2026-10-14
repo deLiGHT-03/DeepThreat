@@ -32,11 +32,11 @@ from services import name_search
 from services import pick_query
 from services import trades as trades_service
 from services.matchups import _number
-from services.player_card import _appearances
-from services.player_pace import get_player_pace
+from services.player_card import _appearances, _weekly_stats
+from services.player_pace import SEASON_GAMES, get_player_pace, stat_table
 from services.sleeper import (FIRST_GAME_LOG_SEASON, MAX_NFL_WEEK, SleeperError,
                               get_json, get_league_dashboard, get_league_season_history,
-                              get_player_index, get_player_season_games)
+                              get_player_index, get_player_season_games, season_week_count)
 
 #: How many weeks are read at once when a tool walks a season.
 FETCH_WORKERS = 8
@@ -748,12 +748,92 @@ def player_pace(league_id: str, player: str, season: str = "") -> dict:
              "Sleeper recorded him on the field for are counted, so byes and weeks he sat out "
              "are not games.")
     return {
-        "player": {"name": who["name"], "position": who["position"], "nfl_team": who["nfl_team"]},
+        "player": {"id": who["id"], "name": who["name"], "position": who["position"],
+                   "nfl_team": who["nfl_team"]},
         "season": played,
         "games_played": games,
         "season_games": over,
         "rows": rows,
         "listed_lines": [f"{row['stat']} ({row['abbr']}) | {row['figure']}" for row in rows],
+        "note": note,
+    }
+
+
+def compare_paces(league_id: str, player: str, other: str, season: str = "") -> dict:
+    """Two players' 17-game paces beside each other, for weighing one against the other.
+
+    This is the trade question: not how each of them has scored, but what each is on course for,
+    and on which of the stats that matter they are ahead. Both sides are projected by
+    :func:`player_pace` -- the same call behind the button on a player's card -- so the two
+    columns are the two cards, and a comparison cannot disagree with either of them.
+
+    Two players of different positions do not carry the same stats, and a table of two columns
+    needs rows that mean something under both headings: the stats both positions carry (points,
+    points a game and total touchdowns, always) are compared, and the stats only one of them has
+    are reported beside the comparison rather than left out of it. Every figure already exists in
+    both halves, so nothing here is derived, averaged or combined.
+    """
+    sides = [player_pace(league_id, player, season), player_pace(league_id, other, season)]
+    projected = [side for side in sides if side.get("rows")]
+    if len(projected) < len(sides):
+        # One side has nothing to project, or a name that matched nothing or more than one
+        # player. Either way the honest answer is the sentence saying which side it was.
+        trouble = [str(side.get("note") or "no pace") for side in sides if not side.get("rows")]
+        return {
+            "players": [side.get("player") or {} for side in sides],
+            "compared": [],
+            "note": ("No comparison to draw: " + " ".join(trouble)
+                     + " Ask for two players this league has scored this season."),
+        }
+    if sides[0]["player"]["id"] == sides[1]["player"]["id"]:
+        return {
+            "players": [sides[0]["player"]],
+            "compared": [],
+            "note": (f"{sides[0]['player']['name']} is the same player on both sides, so there"
+                     " is nothing to compare him with."),
+        }
+
+    names = [side["player"]["name"] for side in sides]
+    looked_up = [{row["abbr"]: row for row in side["rows"]} for side in sides]
+    shared = [row["abbr"] for row in sides[0]["rows"] if row["abbr"] in looked_up[1]]
+    compared = []
+    for abbr in shared:
+        here, there = looked_up[0][abbr], looked_up[1][abbr]
+        tie = here["pace"] == there["pace"]
+        compared.append({
+            "stat": here["stat"],
+            "abbr": abbr,
+            "values": [here["figure"], there["figure"]],
+            "leads": "" if tie else (names[0] if here["pace"] > there["pace"] else names[1]),
+            "is_rate": here["is_rate"],
+        })
+    alone = [[row for row in side["rows"] if row["abbr"] not in shared] for side in sides]
+
+    played = sides[0]["season"]
+    over = sides[0]["season_games"]
+    games = [side["games_played"] for side in sides]
+    where = [f"{side['player']['position']}, {side['player']['nfl_team']}" for side in sides]
+    note = (f"{names[0]} ({where[0]}) against {names[1]} ({where[1]}), both in {played}: each "
+            f"projected over {over} games from the {games[0]} and {games[1]} games he has "
+            f"played. {names[0]}'s figure is given first, {names[1]}'s second. They share "
+            f"{len(compared)} stat{'s' if len(compared) != 1 else ''} -- "
+            + "; ".join(f"{row['abbr']} {row['values'][0]} to {row['values'][1]}"
+                        for row in compared) + ".")
+    for side, rows in zip(names, alone):
+        if rows:
+            note += (f" Only on {side}'s side: "
+                     + ", ".join(f"{row['abbr']} {row['figure']}" for row in rows) + ".")
+    note += (" Points are this league's own scoring, and a pace counts only the weeks this "
+             "league scored and that Sleeper recorded the player on the field for.")
+    return {
+        "players": [side["player"] for side in sides],
+        "season": played,
+        "season_games": over,
+        "games_played": games,
+        "compared": compared,
+        "only": [rows for rows in alone],
+        "listed_lines": [f"{row['stat']} ({row['abbr']}) | {row['values'][0]} | "
+                         f"{row['values'][1]}" for row in compared],
         "note": note,
     }
 
@@ -1524,6 +1604,175 @@ def best_player_seasons(league_id: str, season: str = "", round: str = "", draft
     return {"players": listed, "ranked": len(rows), "note": note}
 
 
+def _stat_choices() -> str:
+    """Every stat a pace can be ranked by, as the model is told them: the abbreviation and name."""
+    table = stat_table()
+    return ", ".join(f"{abbr} ({table[abbr]['label']})" for abbr in sorted(table))
+
+
+def _name_positions(positions) -> str:
+    """A set of positions as a reader reads them: ``QB, RB, WR and TE``."""
+    places = sorted(positions)
+    if len(places) == 1:
+        return f"{places[0]}s"
+    return ", ".join(places[:-1]) + f" and {places[-1]}"
+
+
+def pace_ranking(league_id: str, season: str = "", position: str = "", limit: int = 10,
+                 stat: str = "PTS") -> dict:
+    """Rank this league's players by what each is on pace for in one season, in one stat.
+
+    The question this answers is "who is on pace for the most points this season" and its
+    siblings -- the most rushing yards, the most receptions, the most touchdowns -- and the season
+    it means is the one being played, not the best season anybody has already had. Every player
+    whose position is measured by the stat asked for is projected over a full season at the rate
+    he has earned it at, and that whole ranking is the answer, because a handful of game logs
+    cannot say who leads a league.
+
+    The games counted are a player card's games, so a row here reads beside the pace button on the
+    card it names: a week this league scored and that Sleeper recorded him taking the field in. A
+    bye, an inactive week and a week still to come are none of them a game, which is what stops a
+    player who has missed time being quietly averaged down by weeks he never played.
+
+    ``stat`` is an abbreviation :func:`services.player_pace.stat_table` lists -- points by
+    default -- and only the positions that carry a stat are ranked by it. ``season`` names one
+    season to project (empty is the one being played); ``position`` narrows the ranking to a
+    single position; ``limit`` is how many rows come back.
+    """
+    entries, problem = _season_entries(league_id, season)
+    if problem:
+        return {"players": [], "note": problem}
+    chosen = stat_table().get(str(stat or "PTS").strip().upper() or "PTS")
+    if chosen is None:
+        return {"players": [], "note": (
+            f'"{stat}" is not a stat this app can rank a pace by. Ask for one of: '
+            + _stat_choices() + ".")}
+    # The chain arrives oldest first, so the season being played is the newest of them -- the one
+    # a question with no season in it means.
+    entry = entries[-1]
+    played = str(entry["season"])
+    try:
+        dashboard = get_league_dashboard(entry["league_id"])
+    except SleeperError as exc:
+        return {"players": [], "note": f"The {played} season could not be read: {exc}"}
+    weeks = season_week_count(dashboard["league"])
+    if weeks < 1:
+        return {"players": [], "note":
+                f"No game of this league's {played} season has been played yet."}
+    wanted_position = str(position or "").strip().upper()
+    # A position this stat is not measured by has nothing to rank, and saying that is a better
+    # answer than an empty table the reader has to work out for himself.
+    if (wanted_position and chosen["positions"] is not None
+            and wanted_position not in chosen["positions"]):
+        return {"players": [], "note": (
+            f"A {wanted_position} has no {chosen['label'].lower()}: it is measured for "
+            + _name_positions(chosen["positions"]) + ".")}
+    try:
+        wanted_rows = max(1, min(int(limit or 10), MAX_ROWS))
+    except (TypeError, ValueError):
+        wanted_rows = 10
+
+    scored = _read_scores(entry["league_id"], weeks)
+    weekly = _weekly_stats(played, list(range(1, weeks + 1)))
+    # A week whose official stats could not be read cannot say who took the field or what he did
+    # with it, so it is left out of every player's games rather than counted on the league's
+    # record alone -- and said so, because a pace built on the wrong games is worse than one that
+    # names the gap.
+    unread = sorted(week for week, lines in weekly.items() if lines is None)
+
+    index = get_player_index()
+    totals: dict[str, float] = {}
+    games: dict[str, int] = {}
+    places: dict[str, str] = {}
+    for week in range(1, weeks + 1):
+        lines = weekly.get(week)
+        if lines is None:
+            continue
+        for player_id, (_roster_id, scored_week) in (scored.get(week) or {}).items():
+            line = lines.get(player_id)
+            # ``gp`` is what says he took the field: a bye and an inactive week both record none,
+            # and the league recording him is the other half of what makes a week a game.
+            if not isinstance(line, dict) or not (_number(line.get("gp")) or 0.0) > 0:
+                continue
+            who = index.get(player_id) or {}
+            place = str(who.get("position") or "-")
+            if chosen["positions"] is not None and place not in chosen["positions"]:
+                continue
+            if wanted_position and place.upper() != wanted_position:
+                continue
+            # A figure the league scores is his own points for that week; anything else is the
+            # stat's own keys in Sleeper's line added up, which is where the card's stats come
+            # from as well.
+            value = (scored_week if chosen["scored"]
+                     else sum(_number(line.get(key)) or 0.0 for key in chosen["keys"]))
+            totals[player_id] = totals.get(player_id, 0.0) + value
+            games[player_id] = games.get(player_id, 0) + 1
+            places[player_id] = place
+
+    decimals = chosen["decimals"]
+    rows: list[dict] = []
+    for player_id, total in totals.items():
+        played_games = games.get(player_id, 0)
+        if played_games < 1:
+            continue
+        who = index.get(player_id) or {}
+        name = f"{who.get('first_name', '')} {who.get('last_name', '')}".strip() or player_id
+        rate = total / played_games
+        rows.append({
+            "player": name,
+            "position": places.get(player_id) or str(who.get("position") or "-"),
+            "games": played_games,
+            "stat": chosen["label"],
+            "abbr": chosen["abbr"],
+            # A whole-number stat is a whole number of it, and points are the league's own and
+            # carry the hundredths his card prints; a pace is read at the stat's own precision.
+            "total": round(total, 2 if chosen["scored"] else decimals),
+            "per_game": round(rate, decimals),
+            # A rate is already a per-game figure, so a full season does not change it: the pace
+            # of one is that figure.
+            "pace": (round(rate, decimals) if chosen["rate"]
+                     else round(rate * SEASON_GAMES, decimals)),
+        })
+    rows.sort(key=lambda item: (-item["pace"], item["player"].casefold()))
+    listed = rows[:wanted_rows]
+
+    weeks_read = weeks - len(unread)
+    stat_label = chosen["label"].lower()
+    what = "every player this league has scored" + (
+        f" at {wanted_position}" if wanted_position else "")
+    if not rows:
+        if wanted_position:
+            return {"players": [], "note": (
+                f"Read {weeks_read} scored weeks of {played} and counted no {wanted_position} "
+                f"with a {stat_label} to project from.")}
+        return {"players": [], "note": (
+            f"Read {weeks_read} scored weeks of {played}, but no player this league has scored "
+            f"has a {stat_label} to project from yet.")}
+
+    def _figure(row: dict) -> str:
+        detail = (f"{row['games']} games" if chosen["rate"]
+                  else f"{row['per_game']} a game, {row['games']} games")
+        return f"{row['player']} {row['pace']} ({detail})"
+
+    note = (f"Projected {len(rows)} players ({what}) over {SEASON_GAMES} games from the "
+            f"{weeks_read} weeks of {played} this league has scored, ranked by {stat_label}, "
+            "highest first: " + "; ".join(_figure(row) for row in listed[:5]) + ".")
+    if len(rows) > len(listed):
+        note += f" {len(rows) - len(listed)} more were ranked below these."
+    if unread:
+        note += (f" Week{'s' if len(unread) != 1 else ''} "
+                 + ", ".join(str(week) for week in unread)
+                 + " could not be read from Sleeper, so "
+                 + ("they are" if len(unread) != 1 else "it is") + " not counted.")
+    note += ((f" {chosen['label']} is this league's own scoring" if chosen["scored"] else
+              f" {chosen['label']} comes from Sleeper's official weekly stats")
+             + ", and a pace counts only the weeks this league scored and that Sleeper recorded "
+             "the player on the field for.")
+    return {"players": listed, "ranked": len(rows), "stat": chosen["label"],
+            "abbr": chosen["abbr"], "season": played, "season_games": SEASON_GAMES,
+            "note": note}
+
+
 # --------------------------------------------------------------------------------------
 # what the model is offered
 # --------------------------------------------------------------------------------------
@@ -1627,6 +1876,30 @@ TOOL_SPECS = [
         },
     },
     {
+        "name": "compare_paces",
+        "description": ("Two players' paces side by side over a full 17-game season, for a "
+                        "trade or a lineup decision: each one's projection over the stats both "
+                        "positions carry -- points, points a game and total touchdowns -- with "
+                        "the stats only one of them has reported beside them. Call this for any "
+                        "question weighing two players against each other -- 'should I trade "
+                        "Bucky Irving for Drake London', 'who is better, him or him', 'compare "
+                        "their paces'. Both sides come from the same lookup a player's card "
+                        "uses, so neither column can disagree with his card. Name a season that "
+                        "has already been played to compare that one; leave it out for the "
+                        "season being played."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "player": {"type": "string", "description": "The first player's name."},
+                "other": {"type": "string", "description": "The player compared against him."},
+                "season": {"type": "string",
+                           "description": ("The season to project, e.g. 2024. Leave it out for "
+                                           "the season being played.")},
+            },
+            "required": ["player", "other"],
+        },
+    },
+    {
         "name": "find_trades",
         "description": ("Trades in this league's history, and what each side received in players "
                         "and draft picks. Call this for any question about a trade, who traded "
@@ -1721,14 +1994,15 @@ TOOL_SPECS = [
     },
     {
         "name": "best_player_seasons",
-        "description": ("Rank players by their best single season in this league, computed over "
-                        "every scored week rather than sampled: each player's weeks are added "
-                        "into season totals and the best of those is ranked. Filter to the "
-                        "players drafted in a round (\"3rd round picks\"), drafted in a year, or "
-                        "of one position. Call this for any question that compares many players "
-                        "across a season -- which picks scored the most, the best season anyone "
-                        "has had, a season's top scorers. It returns the whole ranking, which is "
-                        "a table; never answer such a question from a few players' game logs."),
+        "description": ("Rank players by their best single season ever played in this league -- "
+                        "a record already set, not a projection. Each player's weeks are added "
+                        "into season totals and the best of those is ranked, over every scored "
+                        "week rather than sampled. Filter to the players drafted in a round "
+                        "(\"3rd round picks\"), drafted in a year, or of one position. Call this "
+                        "for which picks scored the most in a season or the best season anyone "
+                        "has had; for anything on pace, or projected, call pace_ranking instead. "
+                        "It returns the whole ranking, which is a table; never answer such a "
+                        "question from a few players' game logs."),
         "parameters": {
             "type": "object",
             "properties": {
@@ -1740,6 +2014,37 @@ TOOL_SPECS = [
                                           "for third-round picks.")},
                 "draft_season": {"type": "string",
                                  "description": "Only players drafted in this year, e.g. 2023."},
+                "position": {"type": "string",
+                             "description": "Only this position, e.g. RB, WR, QB, TE."},
+                "limit": {"type": "integer",
+                          "description": "How many rows to return, up to 60. Defaults to 10."},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "pace_ranking",
+        "description": ("Rank this league's players by what each is on pace for over a full "
+                        "season, highest first, in one stat: points by default, and any stat a "
+                        "position is measured by -- " + _stat_choices() + ". Call this for any "
+                        "question about who is on pace for the most of something this season, "
+                        "this season's pace leaders, or a position's pace leaders -- it projects "
+                        "the season being played rather than a season already played, and it is "
+                        "the only tool that reads a pace stat other than points. Only the "
+                        "positions the stat is measured by are ranked by it. Filter to one "
+                        "position; leave the season out for the one being played. It returns "
+                        "the whole ranking, which is a table; never answer such a question from "
+                        "a few players' game logs."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "stat": {"type": "string",
+                         "description": ("Which stat to rank by, as its abbreviation: PTS for "
+                                         "points (the default), or one of " + _stat_choices()
+                                         + ".")},
+                "season": {"type": "string",
+                           "description": ("The season to project, e.g. 2025. Leave it out for "
+                                           "the season being played.")},
                 "position": {"type": "string",
                              "description": "Only this position, e.g. RB, WR, QB, TE."},
                 "limit": {"type": "integer",
@@ -1798,6 +2103,7 @@ TOOLS = {
     "player_game_log": player_game_log,
     "player_vs_opponent": player_vs_opponent,
     "player_pace": player_pace,
+    "compare_paces": compare_paces,
     "find_trades": find_trades,
     "trace_draft_pick": trace_draft_pick,
     "draft_board": draft_board,
@@ -1805,6 +2111,7 @@ TOOLS = {
     "weekly_scores": weekly_scores,
     "league_records": league_records,
     "best_player_seasons": best_player_seasons,
+    "pace_ranking": pace_ranking,
     "team_roster": team_roster,
     "season_standings": season_standings,
 }

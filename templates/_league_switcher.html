@@ -32,6 +32,9 @@
     {% elif switch_page == 'ask' %}
     {# Ask AI reads whichever season is in view, so switching leagues lands on the new one's questions. #}
     {% set destination = url_for('ask', league_id=option.league_id, username=username, manager_id=manager_id, history_id=option.league_id) %}
+    {% elif switch_page == 'compare' %}
+    {# The same two players, looked up again in the other league: names that are not there are reported by the page itself. #}
+    {% set destination = url_for('compare', league_id=option.league_id, player=first, other=second, username=username, manager_id=manager_id, history_id=option.league_id) %}
     {% else %}
     {% set destination = url_for('league', league_id=option.league_id, username=username, manager_id=manager_id, season=season, history_id=option.league_id) %}
     {% endif %}

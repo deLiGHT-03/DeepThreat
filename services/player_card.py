@@ -55,6 +55,26 @@ def _points_by_player(league_id: str, weeks: int) -> dict[str, dict[int, float]]
     return scores
 
 
+def _weekly_stats(season: str, weeks: list[int]) -> dict[int, dict[str, dict] | None]:
+    """Every player's official stat line for each of these weeks, or None where it is unknown.
+
+    Sleeper answers a whole week at a time -- one request per week, keyed by player id -- so this
+    is the shape a week's numbers arrive in, and the one place they are read. A week it cannot
+    answer is None rather than an empty week, because "nobody played" and "that was not read"
+    are different facts and only one of them is true.
+    """
+    def fetch(week: int) -> tuple[int, dict[str, dict] | None]:
+        try:
+            stats = get_nfl_week_stats(season, week)
+        except SleeperError:
+            return week, None
+        return week, {str(player_id): values for player_id, values in stats.items()
+                      if isinstance(values, dict)}
+
+    with ThreadPoolExecutor(max_workers=WEEK_WORKERS) as executor:
+        return dict(executor.map(fetch, weeks))
+
+
 def _appearances(season: str, weeks: list[int]) -> dict[int, set[str] | None]:
     """Return who Sleeper recorded as playing each week, and None where that is unknown.
 
@@ -62,16 +82,10 @@ def _appearances(season: str, weeks: list[int]) -> dict[int, set[str] | None]:
     an injury both record zero — so the official weekly stats are what decide whether a
     week counts as a game at all.
     """
-    def fetch(week: int) -> tuple[int, set[str] | None]:
-        try:
-            stats = get_nfl_week_stats(season, week)
-        except SleeperError:
-            return week, None
-        return week, {player_id for player_id, values in stats.items()
-                      if isinstance(values, dict) and (_number(values.get("gp")) or 0.0) > 0}
-
-    with ThreadPoolExecutor(max_workers=WEEK_WORKERS) as executor:
-        return dict(executor.map(fetch, weeks))
+    weekly = _weekly_stats(season, weeks)
+    return {week: (None if lines is None else {
+        player_id for player_id, values in lines.items()
+        if (_number(values.get("gp")) or 0.0) > 0}) for week, lines in weekly.items()}
 
 
 def _opponents(season: str) -> dict[str, dict[int, dict]]:

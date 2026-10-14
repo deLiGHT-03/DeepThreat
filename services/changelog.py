@@ -51,6 +51,47 @@ COVERED_THROUGH = "dd8ea94"
 RELEASES = [
     {
         "date": "2026-10-14",
+        "title": "Pace rankings cover every stat a position has",
+        "entries": [
+            ("functionality",
+             "Ask who is on pace for the most rushing yards, catches or touchdowns and it "
+             "answers for this season the same way it does for points."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "Share a comparison from its own page",
+        "entries": [
+            ("functionality",
+             "Compare tab: name two players and their paces sit side by side, on a page whose "
+             "address can be pasted into a league chat, and a camera button saves the table as "
+             "an image."),
+            ("visual",
+             "The player ahead on each stat is marked in the comparison table, so the two "
+             "columns can be read down a row instead of counted up."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "Ask AI can rank the league by what it is on pace for",
+        "entries": [
+            ("functionality",
+             "Ask who is on pace for the most points and it answers for this season, ranking "
+             "every player the league has scored by his pace — not the best season anyone has "
+             "already had."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "Ask AI can weigh two players against each other",
+        "entries": [
+            ("functionality",
+             "Name two players and Ask AI puts their paces side by side for a trade, on the "
+             "stats both of them are measured by, projecting each over the same 17 games."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
         "title": "Ask AI can say what a player is on pace for",
         "entries": [
             ("functionality",

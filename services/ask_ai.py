@@ -128,6 +128,25 @@ columns ("Stat" and "17-game pace"), one row per stat, every figure exactly as t
 it and never one you worked out from a season total. Points per game is his rate and not a \
 projection of one: give it as the figure the tool gives. If the tool says there is nothing to \
 project from yet, say that and stop.
+9. A question that weighs two players against each other -- a trade, a start-or-sit, "who is \
+better" -- is answered with compare_paces, which projects both in one call over the same season. \
+Lay it out as a table with the two players as its columns and one stat they share in each row, \
+every figure exactly as the tool gave it, and say which season the two columns project and from \
+how many games. Give the stats only one of them carries underneath rather than dropping them, \
+and never add the two columns up, average them or rank them into a score of your own: the tool \
+says who leads each shared stat, and that is as far as the records go.
+10. A question that ranks players by what they are on pace for -- "who is on pace for the most \
+points this season" and its siblings, the most rushing yards, the most receptions, the most \
+touchdowns, a position's pace leaders -- is answered with pace_ranking, which projects the season \
+being played rather than a season already played; best_player_seasons ranks the best season \
+anyone has already had and is the wrong tool for it. Rank by the stat the question names -- PTS, \
+PASY, RATT, RUSY, REC, RECY, TTD, TOT or PPG, and PTS when it names none -- and only the \
+positions that stat is measured by come back, which is why a question about a stat one position \
+does not have is answered by saying so rather than by an empty table. Lay out the whole ranking \
+the tool returned as a table of player, position, games, the stat's pace and its per-game figure, \
+in the order it returned, every figure exactly as the tool gave it, and say which stat and season \
+it projects and from how many weeks. Never rank the players yourself, and never answer such a \
+question from a few players' game logs.
 
 You are told which league you are in by the tool results themselves. Before answering about a \
 team, a player or a pick you are unsure of, look it up rather than assuming.

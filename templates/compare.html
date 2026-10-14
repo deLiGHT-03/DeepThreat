@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Compare · {{ league_name }}{% endblock %}
+
+{# Two players' paces side by side, on a page with an address of its own.
+
+   The figures are the ones Ask AI answers a trade question with -- both read the same lookup --
+   so the page and an answer can never disagree. What a page adds is what the debate needs: an
+   address that can be pasted into a league chat and reach the same table for whoever opens it,
+   and a card the camera button can save as a picture. #}
+{% block content %}
+<div class="seasonal-page compare-page">
+
+<div class="matchups-heading"><div>{% include "_season_switcher.html" %}<h1 class="section-title">Compare Players</h1></div></div>
+<div class="feature-toolbar"><div class="mode-switch"><a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, username=username, manager_id=manager_id) }}">Matchups</a>{% if show_impact_players %}<a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, impact='1', username=username, manager_id=manager_id) }}">Impact Players</a>{% endif %}<a class="mode-button" href="{{ url_for('player_data', league_id=current_league_id, seasonal='1', username=username, manager_id=manager_id) }}">Player Data</a>{% if show_trades %}<a class="mode-button" href="{{ url_for('trades', league_id=current_league_id, username=username, manager_id=manager_id) }}">Trades</a>{% endif %}{% if show_history %}<a class="mode-button" href="{{ url_for('history', league_id=current_league_id, username=username, manager_id=manager_id) }}">History</a>{% endif %}{% if show_ask_ai %}<a class="mode-button" href="{{ url_for('ask', league_id=current_league_id, username=username, manager_id=manager_id) }}">Ask AI</a>{% endif %}<span class="mode-button active" aria-current="page">Compare</span></div>{% include "_changelog.html" %}{% include "_league_switcher.html" %}</div>
+
+{# Two names, each in its own box: a comparison is a question about a pair, and asking for the
+   pair in the order it reads is what makes the table's two columns predictable. #}
+<form class="compare-form" id="compare-form" method="get" action="{{ url_for('compare', league_id=current_league_id) }}">
+  <input type="hidden" name="username" value="{{ username }}">
+  <input type="hidden" name="manager_id" value="{{ manager_id }}">
+  <label class="visually-hidden" for="compare-first">First player</label>
+  <input id="compare-first" name="player" type="search" autocomplete="off" maxlength="80" required
+         value="{{ first }}" placeholder="First player">
+  <span class="compare-form-vs" aria-hidden="true">vs</span>
+  <label class="visually-hidden" for="compare-second">Second player</label>
+  <input id="compare-second" name="other" type="search" autocomplete="off" maxlength="80" required
+         value="{{ second }}" placeholder="Second player">
+  <button type="submit">Compare</button>
+</form>
+
+{% if comparison and comparison.compared %}
+{% set left = comparison.players[0] %}
+{% set right = comparison.players[1] %}
+<section class="compare-card" id="compare-card"
+         data-screenshot-name="compare-{{ left.name }}-vs-{{ right.name }}">
+  <header class="compare-card-head">
+    <div class="compare-side">
+      <strong class="compare-name">{{ left.name }}</strong>
+      <span class="compare-meta"><span class="position pos-{{ left.position|lower }}">{{ left.position }}</span>{{ left.nfl_team }} · {{ comparison.games_played[0] }} GP</span>
+    </div>
+    <span class="compare-card-vs">vs</span>
+    <div class="compare-side right">
+      <strong class="compare-name">{{ right.name }}</strong>
+      <span class="compare-meta"><span class="position pos-{{ right.position|lower }}">{{ right.position }}</span>{{ right.nfl_team }} · {{ comparison.games_played[1] }} GP</span>
+    </div>
+  </header>
+  <p class="compare-sub">Projected over {{ comparison.season_games }} games of the {{ comparison.season }} season</p>
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th scope="col">Stat</th>
+        <th scope="col">{{ left.name }}</th>
+        <th scope="col">{{ right.name }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in comparison.compared %}
+      <tr>
+        <th scope="row">{{ row.stat }} <span class="compare-abbr">{{ row.abbr }}</span></th>
+        {# The leader is the tool's own answer, and it wears it: the cell that is ahead is marked
+           and given the edge, so the table can be read down one column or across a row. #}
+        {# Subscripted, not dotted: a dict key called ``values`` would otherwise resolve to the
+           dict's own ``values`` method and print nothing. #}
+        <td class="{% if row.leads == left.name %}compare-leads{% endif %}">{{ row['values'][0] }}</td>
+        <td class="{% if row.leads == right.name %}compare-leads{% endif %}">{{ row['values'][1] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if comparison.only[0] or comparison.only[1] %}
+  {# The stats only one side carries belong under the table rather than dropped from it: an RB
+     and a WR do not share a chart of what they are on pace for, and hiding the difference would
+     make the two columns look like the whole of both players. #}
+  <div class="compare-only">
+    {% for side, rows in ((left, comparison.only[0]), (right, comparison.only[1])) %}
+    {% if rows %}
+    <p><span class="compare-only-who">{{ side.name }} alone</span>
+      {% for row in rows %}<span class="compare-only-stat">{{ row.stat }} <b>{{ row.figure }}</b></span>{% endfor %}
+    </p>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  <p class="compare-note">{{ comparison.note }}</p>
+</section>
+<div class="compare-actions">
+  <button class="screenshot-button" type="button" aria-label="Save this comparison as an image" title="Save this comparison as an image" data-screenshot-target="compare-card" data-screenshot-ignore><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.2 5.5 9.5 4h5l1.3 1.5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2h3.2ZM12 8a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0 2a3 3 0 1 1 0 6 3 3 0 0 1-3-3Z"/></svg></button>
+  <button class="compare-copy" type="button" data-copy-link data-screenshot-ignore>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 13.4a1 1 0 0 1 0-1.4l3.4-3.4a3 3 0 0 1 4.2 4.2l-2.1 2.1a1 1 0 1 1-1.4-1.4l2.1-2.1a1 1 0 0 0-1.4-1.4L12 13.4a1 1 0 0 1-1.4 0Zm2.8-2.8a1 1 0 0 1 0 1.4l-3.4 3.4a1 1 0 0 0 1.4 1.4l2.1-2.1a1 1 0 0 1 1.4 1.4l-2.1 2.1a3 3 0 0 1-4.2-4.2l3.4-3.4a1 1 0 0 1 1.4 0Z"/></svg><span>Copy link</span>
+  </button>
+</div>
+{% elif comparison %}
+{# The lookup said, in its own words, why there is no table -- a name that matched nothing, or
+   the same player on both sides. Showing that is the answer, not an error. #}
+<p class="compare-empty">{{ comparison.note }}</p>
+{% elif first or second %}
+<p class="compare-empty">Pick two players to compare.</p>
+{% else %}
+<p class="compare-scope">Name two players and this page projects each over a full {{ season }} season, side by side, on the stats they share — points, points a game and total touchdowns always — with the stats only one of them carries listed underneath. It is the same projection the <strong>Generate Pace</strong> button draws on a player's card, so a figure here and a figure there are the same figure. Save it as an image with the camera, or copy the address and paste it into a league chat.</p>
+{% endif %}
+
+<p class="compare-footnote">Names are matched loosely — part of a surname is enough — but only against the players <strong>{{ league_name }}</strong> has held. Points are this league's own scoring, and a pace counts only the weeks this league scored and that Sleeper recorded the player on the field for.</p>
+
+</div>
+{% endblock %}
+
+{% block scripts %}<script src="{{ asset_url('compare.js') }}" defer></script><script src="{{ asset_url('screenshot.js') }}" defer></script>{% endblock %}

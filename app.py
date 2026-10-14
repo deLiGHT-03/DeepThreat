@@ -29,6 +29,7 @@ from services.history import get_history_summary
 from services.preload import preload_status, start_preload
 from services.local_settings import clear_connection, load_connection, save_connection
 from services import ask_ai
+from services import league_tools
 from services.ask_model import MODEL as AI_MODEL, AiUnavailable, available as ai_available
 from services.ask_model import key_paths as ai_key_paths
 from services.changelog import releases as changelog_releases
@@ -705,6 +706,56 @@ def create_app() -> Flask:
         response = jsonify(result)
         response.headers["Cache-Control"] = "no-store"
         return response
+
+    @app.get("/league/<league_id>/compare")
+    def compare(league_id: str):
+        """Two players' 17-game paces beside each other, on a page with an address of its own.
+
+        This is the comparison Ask AI draws inside an answer, given a home: both read
+        :func:`services.league_tools.compare_paces`, so the page and an answer can never
+        disagree, and a page has the two things an answer does not -- an address that can be
+        pasted into a chat and reach the same figures for whoever opens it, and something the
+        camera button can save as a picture.
+        """
+        username = request.args.get("username", "").strip() or session.get("username", "")
+        manager_id = request.args.get("manager_id", "").strip() or session.get("manager_id", "")
+        history_id, history = season_history_for(league_id, username, manager_id)
+        session["season_history_league_id"] = history_id
+        session.update(league_id=league_id, username=username, manager_id=manager_id)
+        try:
+            dashboard = get_league_dashboard(league_id)
+        except SleeperError as exc:
+            return render_template("index.html", error=str(exc)), 400
+        league = dashboard["league"]
+        # The lookup is anchored on the newest season of the chain -- the same anchoring an Ask AI
+        # question uses -- and told which season to project, so the season switcher reads what it
+        # says: opening the page from an older season compares that season, and with no season
+        # chosen (the newest league, as the app normally opens) it projects the one being played.
+        root = str(history[0]["league_id"]) if history else league_id
+        # Two names, each typed by itself. One name alone is not a comparison, so it is shown
+        # back in the box that asked for it rather than answered as though it were half of one.
+        first = request.args.get("player", "").strip()
+        second = request.args.get("other", "").strip()
+        comparison = (league_tools.compare_paces(root, first, second,
+                                                 season=str(league.get("season") or ""))
+                      if first and second else None)
+        save_connection(username, manager_id, league_id, history_id)
+        seasons = sorted(str(item["season"]) for item in history) or [str(league.get("season") or "")]
+        return render_template(
+            "compare.html", username=username, manager_id=manager_id,
+            league_name=str(league.get("name") or ""),
+            current_league_id=league["league_id"],
+            current_league_name=str(league.get("name") or ""),
+            season=str(league.get("season") or ""),
+            seasons_label=(seasons[0] if len(seasons) == 1 else f"{seasons[0]}\u2013{seasons[-1]}"),
+            switch_page="compare",
+            season_options=history, history_league_id=history_id,
+            league_options=league_switcher_data(
+                username, manager_id,
+                history[0]["season"] if history else str(league.get("season") or ""),
+                league["league_id"]),
+            first=first, second=second, comparison=comparison,
+        )
 
     @app.get("/league/<league_id>/player-data")
     def player_data(league_id: str):
