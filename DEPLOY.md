@@ -221,6 +221,13 @@ Three things about that one line, and each is a reason it is one line:
   — which installs no dependencies at all and leaves a deployment that imports nothing. A file the
   app reads is not worth a build that can lose its libraries.
 
+This hook is insurance rather than the reason Vercel can be named. The copy there answered
+`source: vercel` as soon as it was running code that read those variables, which is what its
+`unknown` had meant all along — the app was not reading them, not the host withholding them — and
+the deployment this file was added in built and released normally with it in place. It stays
+because it costs one line and covers a project whose system variables are turned off or a host
+that never had any; delete it if a stamp nobody needed is worse than the line it takes.
+
 The first deploy after this is the test, and it fails safely: Vercel keeps the last good
 deployment when a build fails, so a copy that cannot be built is a deploy that did not happen
 rather than a site that is down. If the build or the deployed function is affected, delete this
