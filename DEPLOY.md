@@ -159,8 +159,12 @@ way to tell them apart from the outside is for the running process to say which 
 `/healthz` says it:
 
 ```json
-{"branch": "master", "commit": "e61a370…", "ok": true, "service": "deepthreat", "source": "render"}
+{"branch": "master", "commit": "e61a370…", "ok": true, "service": "deepthreat", "source": "render", "stamp": null}
 ```
+
+`stamp` is the revision a build wrote into this copy, or `null`: it is reported whether or not it
+was the answer, because that is the only way to tell a build hook whose file reached the copy from
+one whose host did not package it.
 
 `source` is where the answer came from, so a report is never taken for more than it is:
 
@@ -171,7 +175,7 @@ way to tell them apart from the outside is for the running process to say which 
 | `host` | `SOURCE_VERSION` or `GIT_COMMIT`, as Heroku and the platforms that copied its convention set it. |
 | `environment` | `DEEPTHREAT_COMMIT`, for a host that sets none of its own — a container run with the SHA passed to it. |
 | `checkout` | The `git` checkout the process is running out of, which is what a run from source is. `dirty` says whether tracked files have moved on from that commit. |
-| `build` | `services/revision.txt`, which a build wrote with `tools/stamp_revision.py` before the copy was packaged — the answer for a host that hands nothing over and leaves no checkout behind. Read after the checkout and not before it. |
+| `build` | `services/revision.txt`, which a build wrote with `tools/stamp_revision.py` before the copy was packaged — the answer for a host that hands nothing over and leaves no checkout behind. Read after the checkout and not before it, and reported as `stamp` whenever it exists, so a hook whose file did not reach the copy says so. |
 | `unknown` | Nothing said. `commit` is `null`, which is a fact about the deploy rather than a failure: a copy that cannot be asked what it is should not pretend to know. |
 
 The branch is read the same way (`DEEPTHREAT_BRANCH`, `RENDER_GIT_BRANCH`,
@@ -325,7 +329,7 @@ defaults, which is the check that says a person using the app will never meet a 
 
 Then the same checks on the deployed copy, which answer the questions a local run cannot:
 
-- `/healthz` answers `{"branch": "master", "commit": …, "ok": true, "service": "deepthreat", "source": "render"}`
+- `/healthz` answers `{"branch": "master", "commit": …, "ok": true, "service": "deepthreat", "source": "render", "stamp": null}`
   from `waitress` — the commit being the one this deploy was built from, so a copy that is behind
   says so — and the Matchups,
   Season, Trades, History, Player Data and Ask AI pages each answer `200` with their stylesheets

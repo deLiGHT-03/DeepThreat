@@ -125,14 +125,21 @@ def describe(checkout: Path | None = None) -> dict[str, object]:
     """What this copy can say about the revision it is running.
 
     Keys: ``commit`` (or None), ``branch`` (or None), ``source`` -- which of ``environment``,
-    ``render``, ``vercel``, ``host``, ``checkout``, ``build`` or ``unknown`` answered -- and, for
-    a checkout, ``dirty``: whether tracked files differ from that commit.
+    ``render``, ``vercel``, ``host``, ``checkout``, ``build`` or ``unknown`` answered -- ``stamp``
+    (or None): the revision a build wrote down, whether or not it was the one reported, which is
+    what says whether a build hook's file reached this copy at all -- and, for a checkout,
+    ``dirty``: whether tracked files differ from that commit.
 
     ``checkout`` names the tree to read when nothing in the environment does, and defaults to
     this file's own project. Cached, because it cannot change while the process lives.
     """
     root = PROJECT_ROOT if checkout is None else Path(checkout)
-    report: dict[str, object] = {"commit": None, "branch": None, "source": "unknown"}
+    # The stamp is read whatever the answer turns out to be, so a report says whether a build wrote
+    # one down even when something else named the revision: that is the only way to tell a build
+    # hook that shipped its file from one the host left behind, and the file travels only if the
+    # host packaged it.
+    report: dict[str, object] = {"commit": None, "branch": None, "source": "unknown",
+                                "stamp": _revision_from_stamp()}
 
     from_host = _revision_from_environment()
     if from_host is not None:
@@ -145,9 +152,8 @@ def describe(checkout: Path | None = None) -> dict[str, object]:
         # Not a checkout, and nothing in the environment: a build may still have written the
         # revision down. Failing that, the answer is that this copy does not know, which is a
         # fact about the deploy rather than a failure to report one.
-        stamped = _revision_from_stamp()
-        if stamped:
-            report["commit"], report["source"] = stamped, "build"
+        if report["stamp"]:
+            report["commit"], report["source"] = report["stamp"], "build"
         return report
     branch = _git(root, "rev-parse", "--abbrev-ref", "HEAD")
     changes = _git(root, "status", "--porcelain", "--untracked-files=no")
