@@ -9,13 +9,15 @@ the whole of it. What belongs here is what somebody using DeepThreat would notic
   a real one;
 * **visual** -- something that looks different, or something new to look at;
 * **functionality** -- something the app can do now that it could not before;
-* **also** -- the changes nobody would see from the outside, kept quiet and last, because somebody
-  comparing two copies of the app may still want to know that the ground moved.
+* **also** -- the smaller things a reader would still notice, kept quiet and last.
 
-What does not belong here is how it was done. No file names, no class names, no "single-flight",
-no thread counts: a line says "History opens in 5s instead of 13", not "finished seasons are
-rebuilt from a derived digest". A reader has no way to check the second line and no reason to care
-about it, and a notebook nobody reads is a notebook that was written for the wrong person.
+What does not belong here is how it was done, and what belongs here even less is work only the
+person who built the app would see. No file names, no class names, no "single-flight", no thread
+counts, no commits, no deploys, no hosting: a line says "History opens in 5s instead of 13", not
+"finished seasons are rebuilt from a derived digest". A change nobody playing in a league would
+notice is not a line at all -- a release records what a reader gets, so work that reaches them as
+nothing stays out of it rather than being explained to them. Lines are read, not studied: a few
+words, one sentence at the most.
 
 Adding a release is one dict at the top of :data:`RELEASES`: a date, a headline in the reader's
 words, and its lines as ``(kind, text)`` pairs. Newest first, and the date is the only order there
@@ -52,30 +54,8 @@ RELEASES = [
         "title": "A card can say what a player is on pace for",
         "entries": [
             ("functionality",
-             "A quarterback's, running back's, receiver's or tight end's card has a Generate Pace "
-             "button. It projects his season over seventeen games for the stats his position is "
-             "measured by -- yardage, carries or catches, touchdowns and turnovers, points and "
-             "points per game -- from the games he has actually played."),
-            ("also",
-             "A pace counts the same games a card's season total does, and its points are scored "
-             "by this league rather than by Sleeper's default, so a projection and the number it "
-             "sits under read on one scale."),
-        ],
-    },
-    {
-        "date": "2026-10-13",
-        "title": "Every copy can say which commit it is",
-        "entries": [
-            ("also",
-             "Every copy of the app now says which commit it was built from, not just the first "
-             "one it was hosted on: a second copy answered that it did not know, which reads the "
-             "same as a copy that has fallen behind."),
-            ("also",
-             "One command asks every copy which commit it is running, so a deploy that did not "
-             "land is a line of output instead of a page somebody has to remember to open."),
-            ("also",
-             "A copy on a host that tells it nothing about itself can have its revision written in "
-             "while it is built, so it can still say which commit it is."),
+             "Player cards have a Generate Pace button: one press projects the season over 17 "
+             "games — yards, carries or catches, touchdowns, turnovers, points and PPG."),
         ],
     },
     {
@@ -83,49 +63,24 @@ RELEASES = [
         "title": "Ask AI knows who was on the other side",
         "entries": [
             ("performance",
-             "Ask AI answers in seconds again instead of minutes: the model it asked was taking "
-             "27–76 seconds over a single call when it was measured, so a question that took "
-             "three lookups was a four-minute wait. The model it asks now answers the same call "
-             "in about a second."),
+             "Ask AI answers in about a second instead of a minute or more."),
             ("functionality",
-             "Ask AI can answer how one player has done against one NFL team — \"what does he "
-             "average against the Texans\" comes back with every game he has played against "
-             "them, the seasons they fall in, and the average. Asked without a team, it adds him "
-             "up against every team he has faced."),
+             "Ask AI can say how one player has done against any NFL team — every game, and the "
+             "average."),
             ("also",
-             "Those games reach back further than this league does, and the points are this "
-             "league's own scoring applied to Sleeper's official game stats — the same numbers "
-             "the weeks it did score him are scored with."),
-            ("also",
-             "A model that is too busy to answer is passed over for a second one instead of "
-             "failing the question, and a call that stays quiet for 25 seconds counts as too "
-             "busy."),
-            ("also",
-             "The health check says which commit the running copy was built from, so a copy "
-             "that has fallen behind says so rather than looking like the newest one."),
+             "A model that is too busy to answer is passed over for another instead of failing "
+             "the question."),
         ],
     },
     {
         "date": "2026-10-11",
-        "title": "History kept instead of re-read, and a changelog",
+        "title": "Faster History, and a notebook of what changed",
         "entries": [
-            ("performance",
-             "History opens in about 5s instead of 13 — finished seasons are added up once and "
-             "kept, so the page reads ~60 things from Sleeper instead of 311 for the same page."),
-            ("performance",
-             "Sleeper calls share one open connection: 15 ms each instead of 57."),
-            ("performance",
-             "History keeps 16 reads in flight instead of 8 — about a quarter off the wait on a "
-             "fast connection, nothing on a slow machine."),
-            ("visual", "A notebook to the right of Ask AI opens this list."),
+            ("performance", "History opens in about 5s instead of 13."),
+            ("performance", "Pages that read a lot from Sleeper load faster too."),
+            ("visual", "A notebook beside Ask AI opens this list."),
             ("functionality",
-             "It opens from any page and closes with Escape, a click outside it, or the button."),
-            ("also",
-             "A finished season's summary travels inside the app: a free host discards its own "
-             "files whenever it sleeps."),
-            ("also",
-             "Every copy reports the reads it keeps in flight, so a measurement can tell which "
-             "build it measured."),
+             "It opens from any page, and closes with Escape or a click away."),
         ],
     },
     {
@@ -134,15 +89,12 @@ RELEASES = [
         "entries": [
             ("performance", "The logo is 284 KB instead of 840 KB — the same picture."),
             ("performance",
-             "Stylesheets and scripts are kept for a year, at an address that changes whenever "
-             "the file does."),
+             "Repeat visits load faster: stylesheets and scripts are kept until they change."),
             ("functionality",
              "On a hosted copy your connection is remembered by your browser, never by the host."),
             ("functionality",
-             "That address asks search engines out and slows anyone asking for far too much."),
-            ("also",
-             "Team logos are relayed through the app's own address, so a saved screenshot can "
-             "include them."),
+             "A public copy turns search engines away and slows anyone asking for far too much."),
+            ("also", "Saved screenshots include team logos."),
             ("also", "A refused request says how long the wait is."),
         ],
     },
@@ -153,14 +105,11 @@ RELEASES = [
             ("functionality",
              "DeepThreat runs on a host: connect with your Sleeper username and every page works "
              "in a browser."),
-            ("functionality", "Nothing to set up beside it — no database, no storage, no inbound port."),
+            ("functionality", "Nothing to set up beside it."),
             ("functionality",
              "League switcher, season chips, colour themes and Preload Data all came across "
              "unchanged."),
-            ("also",
-             "Preload Data fills that copy's memory for a while, which is what makes the pages "
-             "after it instant."),
-            ("also", "A health check answers without waiting on Sleeper."),
+            ("also", "Preload Data makes the pages after it instant."),
         ],
     },
     {
@@ -180,9 +129,8 @@ RELEASES = [
              "Six colour themes besides the default, player cards, your team marked YOU, and a "
              "camera button that saves a matchup or a table as a picture."),
             ("also",
-             "The Impact Players tab is built but hidden for now — its pages still open at their "
-             "own address."),
-            ("also", "Pages are read from Sleeper as you open them, not from a snapshot."),
+             "Impact Players is built but hidden for now — its page still opens at its own "
+             "address."),
         ],
     },
 ]

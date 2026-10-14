@@ -104,14 +104,21 @@ Rules, in order of importance:
    write "significantly", "much", "greatly" or "dramatically" in place of a number the messages
    already contain.
 5. One line per change, a few words and never more than one sentence — about twenty words. Two
-   changes a reader would experience as one change are one line.
+   changes a reader would experience as one change are one line. Summarize rather than narrate:
+   the one thing a reader would say to a league mate, not the story of why it happened.
 6. Give every line one of these four kinds:
    - performance: something that was slow or heavy and is not any more.
    - visual: something that looks different, or something new to look at.
    - functionality: something the app can do now that it could not before, or does differently.
-   - also: a change nobody outside would notice, worth one quiet line and no more.
-7. Between two and eight lines: the changes a reader would care about first, the quibbles last.
-8. Do not greet, do not explain yourself, and do not mention commits, branches or messages.
+   - also: a smaller thing the reader would still notice, worth one quiet line and no more.
+7. **Say nothing at all about work the reader does not experience.** A commit about which commit a
+   copy is running, a deploy, a host, a build, a health check, a log, a test or a refactor is not
+   a line about anything a reader sees, so leave it out entirely rather than writing it up. There
+   is no kind for it and no place for it: a notebook of what changed for the reader has nothing to
+   say about how the app is built. A new feature a reader can reach is the opposite case — name
+   what it does and what it gives them, concretely.
+8. Between two and eight lines: the changes a reader would care about first, the quibbles last.
+9. Do not greet, do not explain yourself, and do not mention commits, branches or messages.
 
 Answer with the title and then the lines, in exactly this form and nothing else:
 
