@@ -88,7 +88,7 @@ Run `packaging\build_windows.ps1` in PowerShell on Windows. Install Inno Setup 6
 - `services/player_card.py` builds one player's schedule, weekly points and season total.
 - `services/player_pace.py` projects one player's 17-game pace for the stats his position is judged by, from his own NFL game log and the league's own scoring.
 - `services/player_data.py` builds the weekly and season Player Data views.
-- `services/league_tools.py` answers individual questions about one league's players, games, trades, draft picks, rosters and standings; it is what Ask AI is allowed to look up.
+- `services/league_tools.py` answers individual questions about one league's players, games, trades, draft picks, rosters, standings and how a player is pacing; it is what Ask AI is allowed to look up.
 - `services/ask_ai.py` runs the Ask AI question: it gives the model those lookups, runs what it asks for, and returns the answer with the lookups listed.
 - `services/ask_model.py` finds the Gemini key and names the model.
 - `services/seasonal.py` builds the Season table and its modes.

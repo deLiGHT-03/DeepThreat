@@ -33,6 +33,7 @@ from services import pick_query
 from services import trades as trades_service
 from services.matchups import _number
 from services.player_card import _appearances
+from services.player_pace import get_player_pace
 from services.sleeper import (FIRST_GAME_LOG_SEASON, MAX_NFL_WEEK, SleeperError,
                               get_json, get_league_dashboard, get_league_season_history,
                               get_player_index, get_player_season_games)
@@ -673,6 +674,86 @@ def player_vs_opponent(league_id: str, player: str, opponent: str = "",
         "listed_lines": [f"{row['opponent']}: {row['games']} games, "
                          f"{row['average_points']} points a game" for row in listed],
         "match_count": len(games),
+        "note": note,
+    }
+
+
+def _pace_display(value: float, decimals: int) -> str:
+    """A pace figure the way a player card prints it: whole numbers grouped, decimals as they are."""
+    return f"{float(value):,.{int(decimals)}f}"
+
+
+def player_pace(league_id: str, player: str, season: str = "") -> dict:
+    """How one player is pacing over a full season, in the stats his position is judged by.
+
+    This is the projection a player card's own Generate Pace button draws, put into words
+    instead: each of the season's figures averaged over the games he has actually played and
+    stretched over seventeen of them. What counts as a game is the card's rule as well -- a week
+    the league scored and that Sleeper recorded him taking the field in -- so a bye, a week he
+    was inactive and a week still to come are none of them a game, and a player who has missed
+    time is not quietly averaged down by weeks he never played.
+
+    The points are this league's own scoring rather than Sleeper's default, which is what lets a
+    projection be read beside the weeks it was earned in. A pace the season is too young to have
+    -- a player with no game yet -- is said in the note rather than returned as a failure.
+    """
+    matched, nearest, _ = _resolve_player(league_id, player)
+    if not matched:
+        return {"rows": [], "note": (f"No player in this league matches \"{player}\"."
+                                      + (f" Closest names: {', '.join(nearest)}." if nearest else ""))}
+    if len(matched) > 1:
+        return {
+            "rows": [],
+            "matches": [{"name": p["name"], "position": p["position"]} for p in matched[:8]],
+            "note": f"\"{player}\" matches more than one player; ask again with the full name.",
+        }
+    who = matched[0]
+    entries, problem = _season_entries(league_id, season)
+    if problem:
+        return {"rows": [], "note": problem}
+    # Those arrive oldest first, so the newest season -- the one a question with no season in it
+    # means -- is the last of them.
+    entry = entries[-1]
+    played = str(entry["season"])
+    try:
+        pace = get_player_pace(str(entry["league_id"]), who["id"])
+    except SleeperError as exc:
+        # Nothing to project, or a position this app has no pace table for. Either way it is an
+        # answer about this player, not a lookup that broke.
+        return {
+            "player": {"name": who["name"], "position": who["position"]},
+            "season": played,
+            "rows": [],
+            "note": f"{who['name']} ({who['position']}) in {played}: {exc}",
+        }
+
+    rows = [{
+        "stat": row["label"],
+        "abbr": row["abbr"],
+        "pace": row["pace"],
+        "figure": _pace_display(row["pace"], row["decimals"]),
+        "is_rate": bool(row.get("rate")),
+    } for row in pace["rows"]]
+    games = pace["games"]
+    over = pace["season_games"]
+    projected = ", ".join(f"{row['figure']} {row['abbr']}" for row in rows if not row["is_rate"])
+    rate = next((row for row in rows if row["is_rate"]), None)
+    note = (f"{who['name']} ({who['position']}, {who['nfl_team']}) is on pace over {over} games, "
+            f"from the {games} game{'s' if games != 1 else ''} he has played in {played}, for "
+            f"{projected}.")
+    if rate:
+        note += (f" His {rate['stat'].lower()} is {rate['figure']}, which is a rate rather than a "
+                 f"projection of one.")
+    note += (" Points are this league's own scoring. Only weeks this league scored and that "
+             "Sleeper recorded him on the field for are counted, so byes and weeks he sat out "
+             "are not games.")
+    return {
+        "player": {"name": who["name"], "position": who["position"], "nfl_team": who["nfl_team"]},
+        "season": played,
+        "games_played": games,
+        "season_games": over,
+        "rows": rows,
+        "listed_lines": [f"{row['stat']} ({row['abbr']}) | {row['figure']}" for row in rows],
         "note": note,
     }
 
@@ -1522,6 +1603,30 @@ TOOL_SPECS = [
         },
     },
     {
+        "name": "player_pace",
+        "description": ("What one player in this league is on pace for over a full 17-game "
+                        "season, stat by stat: his season figures averaged over the games he "
+                        "has actually played and stretched over the season, plus his points and "
+                        "points a game. Call this for any question about a pace, a projection or "
+                        "what a player is on course for -- 'what is Bucky Irving on pace for', "
+                        "'is he on pace for 2,000 yards', 'what is he averaging'. The stats are "
+                        "the ones his position is judged by: carries, catches, rushing, "
+                        "receiving and passing yards, touchdowns, turnovers and points, all "
+                        "scored by this league's own rules. Name a season that has already "
+                        "been played to project that one; leave it out for the season being "
+                        "played."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "player": {"type": "string", "description": "Player name."},
+                "season": {"type": "string",
+                           "description": ("The season to project, e.g. 2024. Leave it out for "
+                                           "the season being played.")},
+            },
+            "required": ["player"],
+        },
+    },
+    {
         "name": "find_trades",
         "description": ("Trades in this league's history, and what each side received in players "
                         "and draft picks. Call this for any question about a trade, who traded "
@@ -1692,6 +1797,7 @@ TOOLS = {
     "find_players": find_players,
     "player_game_log": player_game_log,
     "player_vs_opponent": player_vs_opponent,
+    "player_pace": player_pace,
     "find_trades": find_trades,
     "trace_draft_pick": trace_draft_pick,
     "draft_board": draft_board,

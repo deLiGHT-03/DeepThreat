@@ -50,6 +50,15 @@ COVERED_THROUGH = "69bd9fc"
 #: Every release, newest first. See the module docstring for what belongs in one.
 RELEASES = [
     {
+        "date": "2026-10-14",
+        "title": "Ask AI can say what a player is on pace for",
+        "entries": [
+            ("functionality",
+             "Ask AI knows what a player is on pace for: ask it and it projects his season over "
+             "17 games, stat by stat, scoring the points the same way this league does."),
+        ],
+    },
+    {
         "date": "2026-10-13",
         "title": "A card can say what a player is on pace for",
         "entries": [
