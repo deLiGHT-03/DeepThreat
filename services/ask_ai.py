@@ -143,7 +143,7 @@ points this season" and its siblings, the most rushing yards, the most reception
 touchdowns, a position's pace leaders -- is answered with pace_ranking, which projects the season \
 being played rather than a season already played; best_player_seasons ranks the best season \
 anyone has already had and is the wrong tool for it. Rank by the stat the question names -- PTS, \
-PASY, RATT, RUSY, REC, RECY, TTD, TOT or PPG, and PTS when it names none -- and only the \
+PASY, RUSY, REC, RECY, SCRIM, TTD, TOT or PPG, and PTS when it names none -- and only the \
 positions that stat is measured by come back, which is why a question about a stat one position \
 does not have is answered by saying so rather than by an empty table. A pace is primarily \
 points, and that is what it is ranked by, but it is also the stats as a whole: lay out the whole \

@@ -455,7 +455,7 @@ def main(argv: list[str] | None = None) -> int:
 
             variants = discover(page, seeds)
             # Two toggles are forms rather than links, and each has its own description, so
-            # follow() cannot find them: the Defense toggle, and the Broad View checkbox.
+            # follow() cannot find them: the Defense toggle, and the Group View checkbox.
             variants.append(seed(seed_paths[1], {"defense": "1"}))
             variants.append(seed(seed_paths[0], dict(weekly, broad="1")))
             variants.append(seed(seed_paths[1], {"broad": "1"}))

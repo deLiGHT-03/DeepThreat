@@ -34,7 +34,7 @@ to know that the ground moved.
 ## The checks this repository has
 
 - `python tools/check_lineup_slots.py --league-id <id>` is the repository's own check: every
-  starter lands in a slot, each team's columns sum to its score, Broad View is the slot view
+  starter lands in a slot, each team's columns sum to its score, Group View is the slot view
   collapsed, and the Season tab's slot averages and the Player Data season tables are the same
   weekly numbers added up. It reads Sleeper directly, needs no browser and no account, and takes
   one finished season committed under `data/history/`.

@@ -16,18 +16,23 @@
 <div class="matchups-heading"><div>{% include "_season_switcher.html" %}<h1 class="section-title">Pace Board</h1><p class="muted">What every player in {{ league_name }} is on pace for over a full {{ board.season_games }}-game season, in the stats his position is judged by.</p></div></div>
 <div class="feature-toolbar"><div class="mode-switch"><a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, username=username, manager_id=manager_id) }}">Matchups</a>{% if show_impact_players %}<a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, impact='1', username=username, manager_id=manager_id) }}">Impact Players</a>{% endif %}<a class="mode-button" href="{{ url_for('player_data', league_id=current_league_id, seasonal='1', username=username, manager_id=manager_id) }}">Player Data</a><span class="mode-button active" aria-current="page">Pace</span>{% if show_trades %}<a class="mode-button" href="{{ url_for('trades', league_id=current_league_id, username=username, manager_id=manager_id) }}">Trades</a>{% endif %}{% if show_history %}<a class="mode-button" href="{{ url_for('history', league_id=current_league_id, username=username, manager_id=manager_id) }}">History</a>{% endif %}{% if show_ask_ai %}<a class="mode-button" href="{{ url_for('ask', league_id=current_league_id, username=username, manager_id=manager_id) }}">Ask AI</a>{% endif %}</div>{% include "_changelog.html" %}{% include "_league_switcher.html" %}</div>
 
-{# Compare, folded into the board it is read beside. The comparison was a page of its own; it is
-   now the two boxes above the table and the card under them, opened by a search and folded back
-   by the reader. The figures are the ones Ask AI answers with and the ones the pace button draws
-   on a card -- all three read one lookup -- so the panel, an answer and a card cannot disagree.
-   It starts folded because the board is what a reader is usually here for: a search is what
-   opens it, and the card is what it opens onto. #}
-<section class="compare-panel{% if first or second %} is-open{% endif %}" id="compare-panel">
+{# Compare, read on the board it is asked from. The comparison was a page of its own; it is now
+   the two boxes on this panel and the card under them, drawn by a search -- and nothing is put
+   away or folded back, because the boxes are how a comparison is asked for at all. The figures are the ones Ask AI
+   answers with and the ones the pace button draws on a card -- all three read one lookup -- so the
+   panel, an answer and a card cannot disagree.
+
+   Where the panel is read is the board's own business. A board narrowed to a position is a table
+   of figures and needs only the width its columns do, so it leaves a column free down its right
+   and the panel is read there -- beside the figures it is about rather than pushing them down the
+   page. The board of every position is the page's width already, with no room left beside it, so
+   the panel sits above that one instead. The box wrapped around both is what says which of the
+   two a page is. #}
+{% set compare_side = board.position %}
+<div class="pace-layout{% if compare_side %} pace-layout-side{% endif %}">
+<section class="compare-panel">
   <header class="compare-panel-head">
     <h2 class="compare-panel-title">Compare two players</h2>
-    {% if first or second %}
-    <button class="compare-fold" type="button" data-compare-fold aria-expanded="true" aria-controls="compare-results">Hide</button>
-    {% endif %}
   </header>
   {# The board being read travels with the comparison: a search is not a move, so the position
      chip and the column in force are carried along and the reader comes back to the board, not
@@ -47,7 +52,7 @@
            data-player-suggest value="{{ second }}" placeholder="Second player">
     <button type="submit">Compare</button>
   </form>
-  <div class="compare-results" id="compare-results" data-compare-results>
+  <div class="compare-results">
 {% if comparison and comparison.compared %}
 {% set left = comparison.players[0] %}
 {% set right = comparison.players[1] %}
@@ -128,6 +133,11 @@
   </div>
 </section>
 
+{# The board's own column: on a board of one position it is the left of the two, and it is
+   whatever width the page has left once the panel has taken its column -- which is what puts a
+   board and a comparison on one page without the page itself getting any wider. A board wider
+   than that column scrolls inside it, the way it scrolls inside the page when the page is small. #}
+<div class="pace-main">
 {% if board.note %}
 {# Nothing to project: no week of this season has been scored, or no player at this position has
    played one. The lookup's own sentence is the answer, and an empty table is not. #}
@@ -148,9 +158,17 @@
    without the script having an opinion about what it says. #}
 {% set opening_phrase = "Ranked by points pace" %}
 {% set sorted_prefix = "Sorted by " %}
+{# The two columns a pace is chiefly read by: points, and points a game. They wear the dark cell
+   the app gives a score everywhere else, so what a player is worth is found on this board the way
+   it is found on a Player Data table or on a card. #}
+{% set score_columns = ("PTS", "PPG") %}
 <p class="season-games"><span class="pace-read-by">{{ opening_phrase if board.opening else sorted_prefix ~ board.saying|lower }}</span>, from the {{ board.weeks_read }} weeks of the {{ board.season }} season this league has scored: {% if board.position %}{{ board.rows|length }} of the {{ board.players_total }} players it has scored, at {{ board.position }}.{% else %}{{ board.rows|length }} players, every one it has scored.{% endif %} Click any column to sort by it — a pace is chiefly points, but it is the stats as a whole, so every stat a player's position is measured by is a column here. GP is the games he has actually played, which is what his pace is built from. The column and the position are both in the address, so the board you are reading can be pasted into a league chat and open as it is.</p>
 {% if board.unread %}<p class="season-warning">Week{{ 's' if board.unread|length != 1 }} {{ board.unread|join(', ') }} could not be read from Sleeper, so {{ 'they are' if board.unread|length != 1 else 'it is' }} counted in nobody's games.</p>{% endif %}
 
+{# The board and the button that saves it are one box, so the camera sits at the edge of the
+   picture it takes however wide the board comes out: a board only as wide as its columns need
+   would leave the button at the page's edge looking at nothing. #}
+<div class="pace-board">
 <div class="season-table-actions"><button class="screenshot-button" type="button" aria-label="Save this pace board as an image" title="Save this pace board as an image" data-screenshot-target="pace-table" data-screenshot-ignore><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.2 5.5 9.5 4h5l1.3 1.5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2h3.2ZM12 8a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0 2a3 3 0 1 1 0 6 3 3 0 0 1-3-3Z"/></svg></button></div>
 
 {# One row per player, one column per stat. The board opens on its first stat column (points,
@@ -178,16 +196,22 @@
       <td data-sort-value="{{ row.games }}">{{ row.games }}</td>
       {# One cell per column, in the header's own order. A dash is a stat this player's position
          is not measured by: it keeps its column and sorts to the end of it, because he has none
-         of it rather than none of it so far. #}
-      {% for cell in row.cells %}<td class="{% if cell.blank %}pace-blank{% endif %}" data-sort-value="{% if not cell.blank %}{{ cell.pace }}{% endif %}">{% if cell.blank %}&mdash;{% else %}{{ cell.figure }}{% endif %}</td>{% endfor %}
+         of it rather than none of it so far. The row's cells and the board's columns are two
+         readings of one list -- the columns the server worked out for this board, in the order it
+         worked them out in -- so a cell can be asked which stat it is, which is how the score
+         columns are picked out for the styling they share with the rest of the app. #}
+      {% for cell in row.cells %}{% set column = board.columns[loop.index0] %}<td class="{{ ['pace-score' if column.abbr in score_columns, 'pace-blank' if cell.blank]|select|join(' ') }}" data-sort-value="{% if not cell.blank %}{{ cell.pace }}{% endif %}">{% if cell.blank %}&mdash;{% else %}{{ cell.figure }}{% endif %}</td>{% endfor %}
     </tr>
     {% endfor %}
   </tbody>
 </table></div>
+</div>
 
 <p class="pace-footnote">Points are this league's own scoring; every other stat is Sleeper's official weekly figure. A pace counts only the weeks this league scored and that Sleeper recorded the player on the field for, so a bye and a week he sat out are neither of them a game — the same count the pace button on a player's card makes, because it is the same projection.</p>
 {% endif %}
+</div>
 
+</div>
 </div>
 {% endblock %}
 

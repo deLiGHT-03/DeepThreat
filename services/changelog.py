@@ -51,6 +51,99 @@ COVERED_THROUGH = "d239a5f"
 RELEASES = [
     {
         "date": "2026-10-14",
+        "title": "A back's pace reads in scrimmage yards",
+        "entries": [
+            ("visual",
+             "A running back's pace now carries scrimmage yards — his rushing and receiving yards "
+             "in one figure — in the place his rushing attempts used to hold, at the right of his "
+             "receiving yards. On the board of every position it is a column of its own for backs "
+             "and a dash for everyone else, and it sorts like any other column."),
+            ("also",
+             "The pace button on a back's card and an Ask AI answer about him show the same "
+             "figure, so scrimmage yards is what they carry in place of attempts too."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "One Group View switch, standing over the week's matchups",
+        "entries": [
+            ("visual",
+             "On a matchup week the switch that widens the lineup slots into position groups has "
+             "moved down to sit over the matchups it changes, instead of up among the page tabs -- "
+             "it is the one control over the whole week and now reads as one."),
+            ("also",
+             "Broad View is called Group View everywhere now: the same view, under the name that "
+             "says what it does."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "A comparison is read beside the board it is about",
+        "entries": [
+            ("visual",
+             "Compare is now a column down the right of a Pace board that is narrowed to a position, "
+             "so the two players and the board they are read against are in view at once. The page "
+             "is no wider for it: the board and the comparison share the width the page already "
+             "had, and the board, not the page, is what scrolls sideways when the two of them need "
+             "more room than there is."),
+            ("visual",
+             "The comparison's two boxes are stacked rather than set side by side, which is what "
+             "leaves the column narrow enough for a full board to fit beside it -- the compromise "
+             "is made on the panel's width rather than the board's."),
+            ("also",
+             "Compare is always shown now: there is nothing left to fold away and open again."),
+            ("also",
+             "The board of every position has no room left beside it, so on that one -- and on any "
+             "page too narrow for both -- Compare stays above the board, where it was."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "A Pace board is as wide as its columns need",
+        "entries": [
+            ("visual",
+             "The Pace board is now only as wide as the columns on it, instead of stretching to the "
+             "page's width and sharing out the room its figures did not need: a board of a few "
+             "positions is a small board with its numbers close together, and a board of every "
+             "position the league has scored still reaches the page's edge, and scrolls sideways "
+             "when the page is narrower than it is."),
+            ("visual",
+             "Games played is the width of its own two letters and a figure or two, so a wide "
+             "board reads as figures rather than as a column of empty space with a digit at one "
+             "end of it."),
+            ("visual",
+             "The column of names is capped at the width a name can be read at, so the longest "
+             "name on a board ends in an ellipsis instead of widening it, and the whole of that "
+             "name is there when the pointer rests on it."),
+            ("also",
+             "The button that saves a Pace board as an image follows the board's edge rather than "
+             "staying at the page's, and the note under the board is set from the board's own left "
+             "edge."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "A Pace board marks what a player is worth",
+        "entries": [
+            ("visual",
+             "The points and points-a-game columns on the Pace board are drawn in the same dark "
+             "cell the rest of the app gives a score — the box around a Player Data table's points "
+             "per game, and the one around a player's card total — so the two columns that say "
+             "what a player is worth are the two the eye lands on."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "A Pace board takes its position as its title",
+        "entries": [
+            ("visual",
+             "A Pace board narrowed to a position now names it as the table's own title — "
+             "centered over the columns and set large enough to read as what the board below it "
+             "is — rather than as a small label tucked into the top corner of it."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
         "title": "A player comparison is the table and nothing said twice",
         "entries": [
             ("visual",
@@ -82,10 +175,10 @@ RELEASES = [
     },
     {
         "date": "2026-10-14",
-        "title": "Broad View and Defense are one choice on the Season table",
+        "title": "Group View and Defense are one choice on the Season table",
         "entries": [
             ("visual",
-             "The Broad View checkbox now sits beside Defense, over the Season table, instead "
+             "The Group View checkbox now sits beside Defense, over the Season table, instead "
              "of up among the tabs — and the two are one choice: turning one on dims the other, "
              "so the table can no longer be asked to be both at once."),
         ],
@@ -162,7 +255,7 @@ RELEASES = [
             ("functionality",
              "A Pace tab: every player the league has scored, and what each is on pace for over "
              "a full season in the stats his position is judged by — points and points a game, "
-             "passing and rushing yards, carries, catches, touchdowns and turnovers."),
+             "yards, catches, scrimmage yards, touchdowns and turnovers."),
             ("visual",
              "Click any column to sort by it and any position chip to narrow it, with a dash "
              "where a stat is not one that position is measured by."),
@@ -244,7 +337,7 @@ RELEASES = [
         "entries": [
             ("functionality",
              "Player cards have a Generate Pace button: one press projects the season over 17 "
-             "games — yards, carries or catches, touchdowns, turnovers, points and PPG."),
+             "games — yards, catches, scrimmage yards, touchdowns, turnovers, points and PPG."),
         ],
     },
     {
@@ -306,7 +399,7 @@ RELEASES = [
         "title": "Where it started",
         "entries": [
             ("functionality",
-             "Matchups by slot or Broad View, Season records with True Record and luck, Player "
+             "Matchups by slot or Group View, Season records with True Record and luck, Player "
              "Data by week or season, Trades, History — every season the league has played."),
             ("functionality",
              "Trades searches every season by player, team, manager or pick; a pick opens what "

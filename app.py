@@ -407,9 +407,11 @@ def create_app() -> Flask:
         history_id, history = season_history_for(league_id, username, manager_id)
         session["season_history_league_id"] = history_id
         session.update(league_id=league_id, username=username, manager_id=manager_id)
-        # The week view opens on slot-level rows; the Broad View toggle merges those same
-        # normalized slots into wider position groups. Impact is measured per slot, so it keeps
-        # that grouping either way.
+        # The week view opens on slot-level rows; the Group View switch over the matchups merges
+        # those same normalized slots into wider position groups. Impact is measured per slot, so
+        # it keeps that grouping either way. The address parameter keeps its old name -- it was
+        # `broad` when the control was called Broad View -- because these addresses are pasted
+        # into league chats and an old one still has to open the view it was shared for.
         broad = request.args.get("broad") == "1"
         impact = request.args.get("impact") == "1"
         normalized = not broad or impact
@@ -540,7 +542,7 @@ def create_app() -> Flask:
         ppg = False
         impact = request.args.get("impact") == "1"
         # Same two views as the week page, and the same default: slot-level rows unless the
-        # Broad View toggle asks for the normalized slots merged into position groups. Defense
+        # Group View switch asks for the normalized slots merged into position groups. Defense
         # and impact are slot views.
         broad = request.args.get("broad") == "1" and not defense and not impact
         normalized = not broad or defense or impact
@@ -767,7 +769,7 @@ def create_app() -> Flask:
 
     @app.get("/league/<league_id>/compare")
     def compare(league_id: str):
-        """The old Compare address, which is now the panel above the Pace board.
+        """The old Compare address, which is now the panel on the Pace board.
 
         Two names were the whole of what the page took, and the board takes them the same way,
         so this address still lands on the comparison it names -- the board rather than a page,
@@ -827,9 +829,11 @@ def create_app() -> Flask:
         root = str(history[0]["league_id"]) if history else league_id
         board = get_pace_board(root, season=str(league.get("season") or ""), position=position,
                                sort=sort, direction=direction)
-        # Two players' paces, asked for above the board they are read beside. The comparison used
-        # to be a page of its own; it is now folded into this one, and read from the same lookup
-        # the old page and Ask AI drew, so the panel, an answer and a card cannot disagree. Two
+        # Two players' paces, asked for from the panel this board is read with -- beside it where
+        # the board is one position's, above it where the board is every position's. The
+        # comparison used to be a page of its own; it is now folded into this one, and read from
+        # the same lookup the old page and Ask AI drew, so the panel, an answer and a card cannot
+        # disagree. Two
         # names, each typed by itself: one alone is not a comparison, so it is shown back in the
         # box that asked for it rather than answered as though it were half of one.
         first = request.args.get("player", "").strip()

@@ -23,6 +23,12 @@
    is read by is the same words the server would have drawn, so the sentence stays true after a
    click instead of describing the board the reader arrived with.
 
+   A name is capped at the width the column keeps on every board, so the longest names in a league
+   are clipped rather than holding a column open for themselves, and the part of one that is not
+   shown is left on it as the element's title: a pointer resting on a clipped name says the whole
+   of it. Which names those are is measured rather than assumed, and measured again when the
+   window changes, because whether a name fits depends on the font and on the room it is given.
+
    A figure a player's position is not measured by is a dash, and a dash is not a zero: it sorts
    after every player who has the stat, whichever way the column is read, because he has none of
    it rather than none of it so far. Two players level on a column are read by name, in either
@@ -37,6 +43,30 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!table) return;
   const body = table.tBodies[0];
   const buttons = [...table.querySelectorAll("thead .sort-button")];
+
+  // A name is capped at a width the column keeps whatever names it holds, so a long one ends in an
+  // ellipsis rather than the whole column being widened for it. The whole name is handed back on
+  // hover -- as the element's own title, which is where a browser looks for the rest of something
+  // it was only shown part of -- and only on the rows where the browser is really clipping it.
+  // That is measured here rather than guessed: whether a name fits depends on the webfont having
+  // arrived, and on the window it is read in, so the answer is taken again whenever either
+  // changes. A name with no box of its own is left alone: an inline span is never clipped, and
+  // reading its scroll width would call every name on the board a clipped one.
+  const names = [...table.querySelectorAll("tbody td:first-child .player-card-target")];
+  const revealClippedNames = () => {
+    names.forEach((name) => {
+      if (name.clientWidth > 0 && name.scrollWidth > name.clientWidth) {
+        name.title = name.textContent.trim();
+      } else {
+        name.removeAttribute("title");
+      }
+    });
+  };
+  if (names.length) {
+    document.fonts.ready.then(revealClippedNames);
+    window.addEventListener("resize", revealClippedNames);
+  }
+
   if (!buttons.length) return;
 
   const openKey = table.dataset.openSort || "";

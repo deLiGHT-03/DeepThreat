@@ -59,6 +59,7 @@ body[data-skin="deepthreat"] .matchup-card:not(.my-matchup):not(.impact-matchup)
 body[data-skin="deepthreat"] .season-table th,body[data-skin="deepthreat"] .player-data-table th,body[data-skin="deepthreat"] .player-data-position-card h2,body[data-skin="deepthreat"] .season-impact-team{background:#1b231c;color:#a7b8a2}
 body[data-skin="deepthreat"] .season-table th,body[data-skin="deepthreat"] .season-table td,body[data-skin="deepthreat"] .player-data-table th,body[data-skin="deepthreat"] .player-data-table td{border-color:#2b3528}
 body[data-skin="deepthreat"] .player-data-table td.player-data-ppg{background:#0b100d;border-color:#2a3828}
+body[data-skin="deepthreat"] .pace-page .pace-table tbody td.pace-score:not(.pace-blank){background:#0b100d;border-color:#2a3828}
 body[data-skin="deepthreat"] .season-my-team th:first-child{background:#1a2815}
 body[data-skin="deepthreat"] .league-switcher select,body[data-skin="deepthreat"] .skin-picker-trigger,body[data-skin="deepthreat"] .preload-button{background:#121713;border-color:#3a4a35}
 body[data-skin="deepthreat"] .changelog-button,body[data-skin="deepthreat"] .changelog-panel{background:#121713;border-color:#3a4a35}
@@ -80,6 +81,7 @@ body[data-skin="arctic"] .my-matchup .matchup-scoreline{background:#1c3936}
 body[data-skin="arctic"] .matchup-card:not(.my-matchup):not(.impact-matchup) .matchup-scoreline{background:#1b3041;border-color:#294152}
 body[data-skin="arctic"] .season-table th,body[data-skin="arctic"] .player-data-table th{background:#1b2d38;color:#a6bec9}
 body[data-skin="arctic"] .season-table th,body[data-skin="arctic"] .season-table td,body[data-skin="arctic"] .player-data-table th,body[data-skin="arctic"] .player-data-table td{border-color:#294152}
+body[data-skin="arctic"] .pace-page .pace-table tbody td.pace-score:not(.pace-blank){border-color:#294152}
 body[data-skin="arctic"] .league-switcher select,body[data-skin="arctic"] .skin-picker-trigger{background:#14232d;border-color:#355268}
 body[data-skin="arctic"] .changelog-button,body[data-skin="arctic"] .changelog-panel{background:#14232d;border-color:#355268}
 body[data-skin="arctic"] .changelog-button:hover,body[data-skin="arctic"] .changelog-button:focus-visible,body[data-skin="arctic"] .changelog-button[aria-expanded="true"]{border-color:#83d8e7;color:#83d8e7}
@@ -95,6 +97,7 @@ body[data-skin="ember"] .my-matchup .matchup-scoreline{background:#34301d}
 body[data-skin="ember"] .matchup-card:not(.my-matchup):not(.impact-matchup) .matchup-scoreline{background:#30221f;border-color:#553a31}
 body[data-skin="ember"] .season-table th,body[data-skin="ember"] .player-data-table th{background:#30211d;color:#c7a99c}
 body[data-skin="ember"] .season-table th,body[data-skin="ember"] .season-table td,body[data-skin="ember"] .player-data-table th,body[data-skin="ember"] .player-data-table td{border-color:#4b3029}
+body[data-skin="ember"] .pace-page .pace-table tbody td.pace-score:not(.pace-blank){border-color:#4b3029}
 body[data-skin="ember"] .league-switcher select,body[data-skin="ember"] .skin-picker-trigger{background:#241916;border-color:#654337}
 body[data-skin="ember"] .changelog-button,body[data-skin="ember"] .changelog-panel{background:#241916;border-color:#654337}
 body[data-skin="ember"] .changelog-button:hover,body[data-skin="ember"] .changelog-button:focus-visible,body[data-skin="ember"] .changelog-button[aria-expanded="true"]{border-color:#f2a767;color:#f2a767}
@@ -110,6 +113,7 @@ body[data-skin="forest"] .my-matchup .matchup-scoreline{background:#2b3c2a}
 body[data-skin="forest"] .matchup-card:not(.my-matchup):not(.impact-matchup) .matchup-scoreline{background:#21352e;border-color:#3b5748}
 body[data-skin="forest"] .season-table th,body[data-skin="forest"] .player-data-table th{background:#223129;color:#aabdac}
 body[data-skin="forest"] .season-table th,body[data-skin="forest"] .season-table td,body[data-skin="forest"] .player-data-table th,body[data-skin="forest"] .player-data-table td{border-color:#344a3b}
+body[data-skin="forest"] .pace-page .pace-table tbody td.pace-score:not(.pace-blank){border-color:#344a3b}
 body[data-skin="forest"] .league-switcher select,body[data-skin="forest"] .skin-picker-trigger{background:#19251d;border-color:#45604d}
 body[data-skin="forest"] .changelog-button,body[data-skin="forest"] .changelog-panel{background:#19251d;border-color:#45604d}
 body[data-skin="forest"] .changelog-button:hover,body[data-skin="forest"] .changelog-button:focus-visible,body[data-skin="forest"] .changelog-button[aria-expanded="true"]{border-color:#a8ca79;color:#a8ca79}
@@ -125,6 +129,7 @@ body[data-skin="royal"] .my-matchup .matchup-scoreline{background:#2c3028}
 body[data-skin="royal"] .matchup-card:not(.my-matchup):not(.impact-matchup) .matchup-scoreline{background:#29243d;border-color:#493d63}
 body[data-skin="royal"] .season-table th,body[data-skin="royal"] .player-data-table th{background:#29243a;color:#b9afce}
 body[data-skin="royal"] .season-table th,body[data-skin="royal"] .season-table td,body[data-skin="royal"] .player-data-table th,body[data-skin="royal"] .player-data-table td{border-color:#3d3454}
+body[data-skin="royal"] .pace-page .pace-table tbody td.pace-score:not(.pace-blank){border-color:#3d3454}
 body[data-skin="royal"] .league-switcher select,body[data-skin="royal"] .skin-picker-trigger{background:#1d192b;border-color:#51456e}
 body[data-skin="royal"] .changelog-button,body[data-skin="royal"] .changelog-panel{background:#1d192b;border-color:#51456e}
 body[data-skin="royal"] .changelog-button:hover,body[data-skin="royal"] .changelog-button:focus-visible,body[data-skin="royal"] .changelog-button[aria-expanded="true"]{border-color:#bea6ff;color:#bea6ff}
@@ -141,6 +146,7 @@ body[data-skin="copper"] .matchup-card:not(.my-matchup):not(.impact-matchup) .ma
 body[data-skin="copper"] .season-table th,body[data-skin="copper"] .player-data-table th{background:#30241c;color:#d1b6a0}
 body[data-skin="copper"] .season-table th,body[data-skin="copper"] .season-table td,body[data-skin="copper"] .player-data-table th,body[data-skin="copper"] .player-data-table td{border-color:#4a382d}
 body[data-skin="copper"] .player-data-table td.player-data-ppg{background:#17120f;border-color:#4a382d}
+body[data-skin="copper"] .pace-page .pace-table tbody td.pace-score:not(.pace-blank){background:#17120f;border-color:#4a382d}
 body[data-skin="copper"] .league-switcher select,body[data-skin="copper"] .skin-picker-trigger{background:#241c17;border-color:#694c36}
 body[data-skin="copper"] .changelog-button,body[data-skin="copper"] .changelog-panel{background:#241c17;border-color:#694c36}
 body[data-skin="copper"] .changelog-button:hover,body[data-skin="copper"] .changelog-button:focus-visible,body[data-skin="copper"] .changelog-button[aria-expanded="true"]{border-color:#eda15f;color:#eda15f}

@@ -11,8 +11,8 @@ reader can see:
 * **The columns add up to the team's official score.** The sum of a team's slot buckets has to
   equal the score the matchup records, or the page is quietly showing a different game than the
   one that was played.
-* **Broad View is the slot view collapsed.** Broad View merges the same assignment one level
-  wider, so collapsing its slot labels to wide positions has to reproduce Broad View exactly: the
+* **Group View is the slot view collapsed.** Group View merges the same assignment one level
+  wider, so collapsing its slot labels to wide positions has to reproduce Group View exactly: the
   same players, in the same groups, for the same points. If it ever re-derives its own answer,
   the two views disagree about the same week.
 
@@ -172,7 +172,7 @@ def check_team_week(row: dict, player_index: dict, lineup_slots: list[str]) -> l
                              "detail": f"the slots add up to {total:.4f} but the team scored "
                                        f"{official:.4f}"})
 
-    # C. Broad View is the slot view collapsed.
+    # C. Group View is the slot view collapsed.
     broad_groups, _ = get_team_position_groups(row, player_index, lineup_slots, False)
     collapsed: dict[str, dict] = defaultdict(lambda: {"points": 0.0, "ids": []})
     for label, group in slot_groups.items():
@@ -185,17 +185,17 @@ def check_team_week(row: dict, player_index: dict, lineup_slots: list[str]) -> l
         if slot_side is None or broad_side is None:
             problems.append({"promise": "broad",
                              "detail": f"{position} appears in "
-                                       f"{'Broad View only' if slot_side is None else 'the slot view only'}"})
+                                       f"{'Group View only' if slot_side is None else 'the slot view only'}"})
             continue
         difference = (broad_side["points"] or 0) - slot_side["points"]
         if abs(difference) > TOLERANCE:
             problems.append({"promise": "broad",
-                             "detail": f"{position} is {broad_side['points'] or 0:.4f} in Broad View "
+                             "detail": f"{position} is {broad_side['points'] or 0:.4f} in Group View "
                                        f"but {slot_side['points']:.4f} collapsed from the slots"})
         broad_ids = sorted(player["id"] for player in broad_side["players"])
         if broad_ids != sorted(slot_side["ids"]):
             problems.append({"promise": "broad",
-                             "detail": f"{position} holds different players in Broad View than "
+                             "detail": f"{position} holds different players in Group View than "
                                        f"the collapsed slots do"})
     return problems
 
@@ -418,7 +418,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Could not read week {failed_week} of this league from Sleeper.", file=sys.stderr)
         return 2
 
-    print("Lineup slot check — every starter placed, columns summed, Broad View collapsed")
+    print("Lineup slot check — every starter placed, columns summed, Group View collapsed")
     print(f"  league   {league_id}   season {league.get('season', '?')}")
     print(f"  slots    {', '.join(get_normalized_slot_order(lineup_slots))}")
     print(f"  weeks    {', '.join(str(week) for week in weeks) or '(none)'}")
@@ -542,7 +542,7 @@ def main(argv: list[str] | None = None) -> int:
         print("\nA promise broken here is a page showing a figure the league did not play.")
     else:
         held = ["every starter is in a slot", "every team's columns sum to its score",
-                "Broad View is the slot view collapsed"]
+                "Group View is the slot view collapsed"]
         if not args.weekly_only:
             held += ["the Season tab is the weekly slot view added up",
                      "the Player Data season tables are the weekly records added up"]

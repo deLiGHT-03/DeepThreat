@@ -1,8 +1,16 @@
 /* Pace: the whole league's board, one row a player and one column a stat he is on pace for. */
 
-/* The board shows a dozen columns where the Season table shows seven, so its table takes the
-   page's full width instead of the narrower column the other tables sit in. */
-.pace-page .season-table-wrap{width:100%;max-width:none}
+/* The board is as wide as its columns need and no wider, capped at the page. A table 100% wide
+   shares the room its contents do not need out over every column, which on a board of four
+   columns is a hand's width of nothing around each figure and on a board of twelve is not enough
+   for them all at once; asking instead for the width its contents need leaves a short board short
+   and lets a long one reach the page's edge -- and past it, where the wrapper scrolls it. The
+   board and the button that saves it are one box, so a narrower board takes the camera with it
+   rather than leaving it at the page's edge looking at nothing; and the note under the board is
+   set from the left edge the board is read from instead of centered under a middle that moves. */
+.pace-page .pace-board{width:max-content;max-width:100%}
+.pace-page .pace-board .season-table-wrap{width:100%;max-width:none}
+.pace-page .pace-board .season-table{width:max-content}
 /* A position is a chip here rather than a tab, because the board is meant to be flipped through:
    one click asks the same question of a narrower set. */
 .pace-page .pace-filters{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 12px}
@@ -24,24 +32,44 @@
    put back here, at the sides only -- a label is not a figure, and padding above and below would
    make every row of a 340-player board taller for it. */
 .pace-page .pace-table tbody td .position{padding-left:7px;padding-right:7px}
-/* The position's own column is given only the width its contents need -- the two-letter label,
-   and the heading a reader clicks to sort by it -- so the board's figures take the rest of the
-   table instead of a narrow label holding a column as broad as a column of numbers. Its pads are
-   set here as well: 12px on either side of two letters is the rest of what made it look empty.
-   Nothing is said about a board narrowed to one position, where that column is gone and the
-   second cell of a row is a figure like any other. */
-.pace-page .pace-table:not(.pace-one-position) th:nth-child(2),.pace-page .pace-table:not(.pace-one-position) td:nth-child(2){width:1%;padding-left:9px;padding-right:9px}
+/* The position's own column takes the pads the shared table style does not give it: 12px on
+   either side of two letters is most of what made a column of labels look empty, and a label is
+   not a figure. Nothing is said about a board narrowed to one position, where that column is gone
+   and the second cell of a row is a figure like any other. */
+.pace-page .pace-table:not(.pace-one-position) th:nth-child(2),.pace-page .pace-table:not(.pace-one-position) td:nth-child(2){padding-left:9px;padding-right:9px}
+/* A column of names is as wide as the longest name in the league, and a name is mostly shorter
+   than that, so the names are capped instead: the width a name can be read at rather than the
+   longest one written down. Capped, a name of any length leaves the board the width it had -- no
+   column of names widens it -- and a name longer than the cap ends in an ellipsis. The page's own
+   script puts the whole of that name on hover, and only on the rows the browser is really
+   clipping. Another league's names are longer or shorter and the cap is the same. */
+.pace-page .pace-table tbody td:first-child .player-card-target{
+  display:inline-block;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  vertical-align:bottom;
+}
 /* The position a board is narrowed to, named once at the head of the table. It is the table's own
    caption rather than a bar above the box: the camera saves the table, and a board that arrived
-   as a picture without the position it was showing would be a picture of anonymous figures. */
-.pace-page .pace-table caption{width:100%;padding:8px 12px;background:#202a23;border-bottom:1px solid #303b33;text-align:left}
+   as a picture without the position it was showing would be a picture of anonymous figures. The
+   name is the table's title, so it is set as one -- centered over the columns rather than tucked
+   into the left edge where a label sits, and larger than the labels and figures beneath it, so
+   the board below reads as that position's board rather than as a table that happens to start
+   with a chip. It keeps the position's own colour, which is what tells the reader at a glance
+   which of the chips above the board they are looking at. */
+.pace-page .pace-table caption{width:100%;padding:13px 12px;background:#202a23;border-bottom:1px solid #303b33;text-align:center}
 .pace-page .pace-table caption .position{
-  display:inline-block;width:auto;min-width:36px;padding:4px 7px;border-radius:5px;
-  font-size:9px;text-align:center;
+  display:inline-block;width:auto;min-width:0;padding:7px 18px;border-radius:7px;
+  font-size:14px;letter-spacing:.05em;text-align:center;
 }
 /* A dash is the absence of a figure rather than a zero: it keeps its column and is set quieter
    than the figures beside it. */
 .pace-page .pace-table tbody td.pace-blank{color:#748178}
+/* Points and points a game are the two columns a pace is chiefly read by, and they wear the darker
+   cell the app gives a score everywhere else: the same dark box a Player Data table draws around
+   its PPG column and the one a player's card puts around his points, so a reader looking for what
+   a player is worth finds it the same way on this board as on the pages it is read beside. A dash
+   is left the plain colour on purpose -- an empty cell is the absence of a figure, and boxing it
+   would dress it as one. */
+.pace-page .pace-table tbody td.pace-score:not(.pace-blank){background:#121915;border:1px solid #26332b;border-radius:4px}
 .pace-page .pace-table tbody tr:hover{background:#232c26}
-.pace-page .pace-footnote{max-width:820px;margin:14px auto 0;color:#75837b;font-size:11px;line-height:1.65}
+.pace-page .pace-footnote{max-width:820px;margin:14px 0 0;color:#75837b;font-size:11px;line-height:1.65}
 @media(max-width:640px){.pace-page .pace-filter{padding:7px 9px;font-size:10px}}

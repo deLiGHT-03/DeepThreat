@@ -126,10 +126,10 @@ def get_team_position_groups(row: dict, player_index: dict, lineup_slots: list[s
                              normalized: bool = False) -> tuple[dict, bool]:
     """Return points by lineup group: by slot when normalized, by wide position when not.
 
-    Broad View is not a second reading of the week: it is the same best-ball assignment merged
+    Group View is not a second reading of the week: it is the same best-ball assignment merged
     one level wider, so a starter's points belong to the slot his score earned him rather than
     the one he was named in. Without that, a wide receiver started in a flex slot would count
-    as flex production in Broad View and as wide receiver production in the slot view, and the
+    as flex production in Group View and as wide receiver production in the slot view, and the
     two pages would disagree about the same week.
     """
     grouped: dict[str, list[dict]] = defaultdict(list)
@@ -214,7 +214,7 @@ def get_team_position_groups(row: dict, player_index: dict, lineup_slots: list[s
             if eligible:
                 assign(slot, eligible, "FLEX")
     else:
-        # Broad View reads the slot view's own answer instead of re-deriving a second one, so
+        # Group View reads the slot view's own answer instead of re-deriving a second one, so
         # the two cannot disagree about which group a starter's points belong to.
         slot_labels = get_normalized_slot_order(lineup_slots)
         slot_groups, score_data_available = get_team_position_groups(

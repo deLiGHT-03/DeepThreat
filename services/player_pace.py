@@ -5,8 +5,8 @@ his position is judged by, the season's figure is averaged over the games he act
 projected over a full 17-game season, so a player who has missed time can be read beside one who
 has not.
 
-Two sources, each used for the only thing it can be trusted with. The counting stats -- passing
-and rushing yards, attempts, receptions, touchdowns and turnovers -- come from Sleeper's own game
+Two sources, each used for the only thing it can be trusted with. The counting stats -- passing,
+rushing and receiving yards, receptions, touchdowns and turnovers -- come from Sleeper's own game
 log for the player, which is one request and carries his official stat line for every week he
 played. The points come from this league's own weekly records, the same figure his card totals, so
 a pace here is on the same scale as the numbers around the card rather than on Sleeper's default
@@ -29,9 +29,10 @@ from services.sleeper import (SleeperError, get_league_dashboard, get_player_ind
 SEASON_GAMES = 17
 
 #: Which stats each position is measured by, in the order the table reads them. Each is a label,
-#: the abbreviation the table prints, the stat keys it adds up (one for most, several for a
-#: touchdown and a turnover, which are not single columns in Sleeper's line), and how many
-#: decimals it is printed to -- yards, attempts and scores are whole numbers, points are not.
+#: the abbreviation the table prints, the stat keys it adds up (one for most, several wherever the
+#: stat is not a column of Sleeper's own line -- a touchdown, a turnover, or scrimmage yards, a
+#: back's rushing and receiving yards added up), and how many decimals it is printed to: yards,
+#: catches and scores are whole numbers, points are not.
 POSITION_STATS: dict[str, tuple[tuple[str, str, tuple[str, ...], int], ...]] = {
     "QB": (
         ("Passing Yards", "PASY", ("pass_yd",), 0),
@@ -39,11 +40,15 @@ POSITION_STATS: dict[str, tuple[tuple[str, str, tuple[str, ...], int], ...]] = {
         ("Turnovers", "TOT", ("pass_int", "fum_lost"), 0),
         ("Rushing Yards", "RUSY", ("rush_yd",), 0),
     ),
+    # A back is read by what he does with the ball in his hands, whether he was handed it or
+    # caught it, so his rushing attempts are not a column here: scrimmage yards is his rushing
+    # and receiving yards added up and projected from the season's totals, rather than a reader's
+    # sum of the two rounded figures printed beside it.
     "RB": (
-        ("Rushing Attempts", "RATT", ("rush_att",), 0),
         ("Rushing Yards", "RUSY", ("rush_yd",), 0),
         ("Receptions", "REC", ("rec",), 0),
         ("Receiving Yards", "RECY", ("rec_yd",), 0),
+        ("Scrimmage Yards", "SCRIM", ("rush_yd", "rec_yd"), 0),
         ("Total Touchdowns", "TTD", ("pass_td", "rush_td", "rec_td"), 0),
     ),
     "WR": (

@@ -1,10 +1,10 @@
-/* Compare, as it is read now: a panel above the Pace board rather than a page of its own.
+/* Compare, as it is read now: the panel on the Pace board rather than a page of its own.
 
-   The two search boxes are the panel's face and are always there, because they are how a
-   comparison is asked for; the card under them is what folds away, so a board being read is not
-   pushed down by a comparison that is not being read. The panel opens itself on the address that
-   a search produces -- the two names and, folded in with them, the board in view -- and the reader
-   folds it back with the button beside its title.
+   The two search boxes are the panel's face and the card under them is what those two names
+   produce; both are always there, because asking for a comparison is what the panel is for. Where
+   the panel is read is the board's business: beside a board narrowed to a position, which leaves
+   a column free down its right, and above the board of every position, which has none. Either way
+   it is the same panel -- two boxes, a card, and the address of the page carrying both.
 
    The card has one job the rest of the app does not: whatever is in it has to survive being
    pasted into a league chat, so it is self-contained -- names, both columns and every figure
@@ -14,14 +14,9 @@
 .compare-panel{max-width:440px;margin:0 0 20px;padding:12px 14px 14px;border:1px solid #303b33;border-radius:12px;background:#151b17}
 .compare-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 9px}
 .compare-panel-title{margin:0;color:#c2cec6;font:700 10.5px Manrope,sans-serif;letter-spacing:.12em;text-transform:uppercase}
-.compare-fold{height:24px;padding:0 10px;border:1px solid #435144;border-radius:6px;background:#1d2620;color:#c8d5cb;font:600 10px 'DM Sans',sans-serif;cursor:pointer}
-.compare-fold:hover,.compare-fold:focus-visible{border-color:#b7f56d;color:#b7f56d}
-
-/* The card is what folds. It is drawn into the page for a search and kept out of it until then,
-   which is the whole of the folding: a reader who folds it back has the same board, with the
-   comparison kept out of the way rather than thrown away. */
-.compare-panel .compare-results{display:none;margin:13px 0 0}
-.compare-panel.is-open .compare-results{display:block}
+/* The card, under the boxes that asked for it. Nothing here is folded away: the panel is as much
+   of the page as the board is. */
+.compare-panel .compare-results{margin:13px 0 0}
 
 .compare-panel .compare-form{display:flex;align-items:center;gap:7px}
 .compare-panel .compare-form input[type="search"]{
@@ -141,4 +136,57 @@
   .compare-panel .compare-table thead th{font-size:8px;letter-spacing:.08em}
   .compare-panel .compare-table tbody th{font-size:10px}
   .compare-panel .compare-abbr{display:none}
+}
+
+/* A board of one position leaves a column free down its right -- it is a table of figures, and it
+   asks for the width of its own columns rather than the page's -- so the panel is read there, as
+   a column of the same page: a comparison beside the figures it is about rather than above them,
+   and both of them read at once.
+
+   The page does not get wider for it. The panel takes a column of the width the page already has
+   and the board keeps what is left of it, and a board wider than that scrolls inside its column
+   exactly as it scrolls inside the page. The compromise is the panel, not the board: its two
+   boxes are stacked rather than set side by side, which is what leaves the column narrow enough
+   for the widest board the league can be read at to still fit beside it.
+
+   Only where the page is at its full width. Narrower than that, the two columns together would
+   squeeze the board, so the panel returns to where it is on the board of every position: above
+   it, at the width the page has. */
+@media(min-width:1080px){
+  .pace-layout-side{display:flex;align-items:flex-start;gap:18px}
+  .pace-layout-side .pace-main{flex:1 1 auto;min-width:0}
+  .pace-layout-side .compare-panel{order:2;flex:0 0 320px;max-width:320px;margin:0}
+  .pace-layout-side .compare-panel-head{margin:0 0 10px}
+  .pace-layout-side .compare-form{flex-direction:column;align-items:stretch;gap:6px}
+  .pace-layout-side .compare-form input[type="search"]{flex:none;width:100%}
+  .pace-layout-side .compare-form-vs{text-align:center}
+  .pace-layout-side .compare-form button{width:100%}
+
+  /* The card is as narrow as the column it is in, so its two players stand one above the other
+     the way they do on a phone rather than either side of a middle the column has no room for,
+     and its table gives its width to the stat's own name instead of holding the figures out at
+     arm's length: the label may wrap, and the two figure columns come in to the room a pace
+     needs. The card is the thing that gets saved, so nothing may spill out of it. */
+  .pace-layout-side .compare-card{padding:11px 12px 9px}
+  .pace-layout-side .compare-card-head{grid-template-columns:minmax(0,1fr);gap:6px}
+  .pace-layout-side .compare-side.right{align-items:flex-start;text-align:left}
+  .pace-layout-side .compare-side.right .compare-meta{flex-direction:row}
+  .pace-layout-side .compare-card-vs{display:none}
+  .pace-layout-side .compare-table{table-layout:fixed}
+  .pace-layout-side .compare-table th,.pace-layout-side .compare-table td{padding:4px 7px;font-size:11.5px}
+  /* With the columns fixed, the stat's name takes what the two figures do not need and the figures
+     are given the room a pace actually takes. Left to size itself, a table shares the card's spare
+     width out over every column, which on a card this narrow is width the figures do not want and
+     the name of the stat is short of -- the one thing on the card that is a word and not a
+     number. */
+  .pace-layout-side .compare-table thead th:first-child,
+  .pace-layout-side .compare-table tbody th{width:auto;white-space:normal}
+  .pace-layout-side .compare-table th:nth-child(2),.pace-layout-side .compare-table td:nth-child(2),
+  .pace-layout-side .compare-table th:nth-child(3),.pace-layout-side .compare-table td:nth-child(3){width:52px}
+  /* The blank column down the right of a wide card is what keeps the three columns of a row
+     together instead of spread across it. A card this narrow has no room to spread anything: the
+     room it was holding goes to the stat's own name, which is then written on one line and the
+     figures move back under their headings. */
+  .pace-layout-side .compare-table .compare-gap{display:none}
+  .pace-layout-side .compare-actions{flex-wrap:wrap}
 }
