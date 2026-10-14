@@ -49,6 +49,21 @@ COVERED_THROUGH = "a9b56a0"
 RELEASES = [
     {
         "date": "2026-10-13",
+        "title": "A card can say what a player is on pace for",
+        "entries": [
+            ("functionality",
+             "A quarterback's, running back's, receiver's or tight end's card has a Generate Pace "
+             "button. It projects his season over seventeen games for the stats his position is "
+             "measured by -- yardage, carries or catches, touchdowns and turnovers, points and "
+             "points per game -- from the games he has actually played."),
+            ("also",
+             "A pace counts the same games a card's season total does, and its points are scored "
+             "by this league rather than by Sleeper's default, so a projection and the number it "
+             "sits under read on one scale."),
+        ],
+    },
+    {
+        "date": "2026-10-13",
         "title": "Every copy can say which commit it is",
         "entries": [
             ("also",

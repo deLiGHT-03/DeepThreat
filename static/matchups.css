@@ -141,6 +141,26 @@
 .broad-view-toggle input{accent-color:#a8f32f;margin:0}
 @media(max-width:640px){.broad-view-toggle{margin-left:2px}.broad-view-toggle label{gap:5px;padding:6px 7px;font-size:9px}}
 @media(max-width:640px){.player-card{width:min(300px,calc(100vw - 20px))}}
+/* A card grows when its pace is generated, so the last thing in it - whichever section that is -
+   carries the panel's bottom corners, and the week list gives up some of its own room so the whole
+   card still fits the window it was placed in. */
+.player-card>*:last-child{border-radius:0 0 9px 9px}
+.player-card.has-pace .player-card-weeks{max-height:150px}
+/* The same inset the header and the total carry, so the pace values line up with the weekly
+   scores above them even when the week list's scrollbar sits over its own column. */
+.player-card-pace{padding:8px calc(10px + var(--player-card-gutter,0px)) 9px 10px;background:#202922;border-top:1px solid #29322d}
+.player-card-pace-button{display:block;width:100%;padding:7px 9px;background:#29362d;border:1px solid #435144;border-radius:6px;color:#dce7dd;font:600 10px 'DM Sans',sans-serif;cursor:pointer}
+.player-card-pace-button:hover{border-color:#b7f56d;color:#b7f56d}
+.player-card-pace-button:disabled{border-color:#354138;color:#89978f;cursor:default}
+.player-card-pace-title{margin:1px 0 7px;color:#89978f;font-size:9px;font-weight:700;letter-spacing:.1em;text-align:center;text-transform:uppercase}
+.player-card-pace-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.player-card-pace-table thead th{padding:0 0 4px;border-bottom:1px solid #3a493d;color:#89978f;font-size:8px;font-weight:700;letter-spacing:.08em;text-align:left}
+.player-card-pace-table thead th:last-child{text-align:right}
+.player-card-pace-table tbody th,.player-card-pace-table tbody td{padding:3px 0;font-size:11px}
+.player-card-pace-table tbody th{color:#b7c3ba;font-weight:500;text-align:left}
+.player-card-pace-table tbody td{color:#b7f56d;font-weight:700;text-align:right}
+.player-card-pace-table tbody tr+tr th,.player-card-pace-table tbody tr+tr td{border-top:1px solid #29322d}
+.player-card-pace-note{margin-top:7px;color:#89978f;font-size:9px;text-align:center}
 @media(max-width:640px){.slot-player-name{max-width:46%;font-size:8px}}
 
 /* A playoff round's cards name the bracket they belong to, so a playoff match reads apart from

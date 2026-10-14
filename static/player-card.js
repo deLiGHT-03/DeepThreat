@@ -17,7 +17,12 @@
   const leagueId = (window.location.pathname.match(/^\/league\/([^/]+)\//) || [])[1];
   if (!leagueId) return;
 
+  // The positions a pace table says something about. A kicker and a defense are scored by
+  // things this app does not project, so their cards carry no button rather than an empty one.
+  const PACE_POSITIONS = new Set(["QB", "RB", "WR", "TE"]);
+
   const requests = new Map(); // player id -> in-flight or settled card request
+  const paces = new Map(); // player id -> in-flight or settled pace request
   let open = null; // the card element on screen
   let anchor = null; // the name it belongs to
   let pending = null; // the name being loaded for
@@ -35,6 +40,8 @@
 
   const cardUrl = (playerId) =>
     `/league/${encodeURIComponent(leagueId)}/player/${encodeURIComponent(playerId)}/card`;
+  const paceUrl = (playerId) =>
+    `/league/${encodeURIComponent(leagueId)}/player/${encodeURIComponent(playerId)}/pace`;
 
   function load(playerId) {
     const known = requests.get(playerId);
@@ -45,6 +52,23 @@
     requests.set(playerId, request);
     // A failure is not an answer: let the next click try again.
     request.then((card) => { if (!card) requests.delete(playerId); });
+    return request;
+  }
+
+  // A pace the server declined to compute comes back as an error with a sentence in it --
+  // "no games to project yet" -- and that sentence is the answer to show. Only a request that
+  // never arrived is treated as no answer at all, so a later press asks again.
+  function loadPace(playerId) {
+    const known = paces.get(playerId);
+    if (known) return known;
+    const missing = "This player's pace could not be computed.";
+    const request = fetch(paceUrl(playerId), { headers: { Accept: "application/json" } })
+      .then((response) => response.json().then(
+        (body) => (response.ok && body ? body : { error: (body && body.error) || missing }),
+        () => (response.ok ? null : { error: missing })))
+      .catch(() => null);
+    paces.set(playerId, request);
+    request.then((pace) => { if (!pace) paces.delete(playerId); });
     return request;
   }
 
@@ -82,6 +106,91 @@
 
     row.append(label, opponent, score);
     return row;
+  }
+
+  // A pace is one figure per stat, so the table is one value column: the stat, and what a full
+  // season of it would read. A whole figure is grouped the way a yardage total is read (4,767),
+  // and a decimal one is left as it is, because one decimal is already the whole of it.
+  function paceValue(row) {
+    const value = Number(row.pace);
+    if (!Number.isFinite(value)) return "\u2014";
+    const fixed = value.toFixed(row.decimals);
+    return row.decimals ? fixed : Number(fixed).toLocaleString("en-US");
+  }
+
+  function paceTable(pace) {
+    const table = document.createElement("table");
+    table.className = "player-card-pace-table";
+    const head = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    const statHead = document.createElement("th");
+    statHead.scope = "col";
+    statHead.textContent = "Stat";
+    const paceHead = document.createElement("th");
+    paceHead.scope = "col";
+    paceHead.textContent = `${pace.season_games} GM`;
+    headRow.append(statHead, paceHead);
+    head.append(headRow);
+
+    const body = document.createElement("tbody");
+    pace.rows.forEach((row) => {
+      const line = document.createElement("tr");
+      const label = document.createElement("th");
+      label.scope = "row";
+      label.textContent = row.label;
+      const value = document.createElement("td");
+      value.textContent = paceValue(row);
+      // Points per game is already a rate, so its "pace" is the same figure rather than a
+      // projection of it. Say so where the number is, because the column does not.
+      if (row.rate) value.title = "Already a per-game rate";
+      line.append(label, value);
+      body.append(line);
+    });
+    table.append(head, body);
+    return table;
+  }
+
+  // The button at the foot of a card. Nothing is asked for until it is pressed, because most
+  // cards are read and closed without anyone wanting a projection from them.
+  function paceSection(card) {
+    const section = document.createElement("div");
+    section.className = "player-card-pace";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "player-card-pace-button";
+    button.textContent = "Generate Pace";
+    button.addEventListener("click", () => generatePace(section, button, card));
+    section.append(button);
+    return section;
+  }
+
+  async function generatePace(section, button, card) {
+    button.disabled = true;
+    button.textContent = "Generating\u2026";
+    const pace = await loadPace(card.id);
+    const panel = section.closest(".player-card");
+    // The card may have been put away while the pace was on its way.
+    if (!panel || !section.isConnected) return;
+    section.replaceChildren();
+    if (pace && !pace.error) {
+      const title = document.createElement("div");
+      title.className = "player-card-pace-title";
+      title.textContent = `${pace.season_games}-Game Pace`;
+      const note = document.createElement("div");
+      note.className = "player-card-pace-note";
+      note.textContent = `From ${pace.games} ${pace.games === 1 ? "game" : "games"} played`;
+      section.append(title, paceTable(pace), note);
+    } else {
+      const note = document.createElement("div");
+      note.className = "player-card-pace-note";
+      note.textContent = (pace && pace.error) || "This player's pace could not be computed.";
+      section.append(note);
+    }
+    // The table makes the card taller than it was when it was placed, and a panel that grows
+    // off the bottom of the window is a panel that cannot be read. The weekly list gives up
+    // some of its own room to keep the whole card in view.
+    panel.classList.add("has-pace");
+    if (anchor) place(panel, anchor);
   }
 
   function build(card) {
@@ -167,6 +276,9 @@
     }
 
     panel.append(head, weeks, total);
+    if (PACE_POSITIONS.has(String(card.position).toUpperCase())) {
+      panel.append(paceSection(card));
+    }
     return panel;
   }
 

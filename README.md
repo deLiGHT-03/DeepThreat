@@ -86,12 +86,13 @@ Run `packaging\build_windows.ps1` in PowerShell on Windows. Install Inno Setup 6
 - `services/sleeper.py` handles Sleeper data: the league's own records, the NFL schedule, and Sleeper's per-player NFL game log, which is the one place it says which team a player played for in a week and who he faced.
 - `services/matchups.py` builds weekly position-group score comparisons.
 - `services/player_card.py` builds one player's schedule, weekly points and season total.
+- `services/player_pace.py` projects one player's 17-game pace for the stats his position is judged by, from his own NFL game log and the league's own scoring.
 - `services/player_data.py` builds the weekly and season Player Data views.
 - `services/league_tools.py` answers individual questions about one league's players, games, trades, draft picks, rosters and standings; it is what Ask AI is allowed to look up.
 - `services/ask_ai.py` runs the Ask AI question: it gives the model those lookups, runs what it asks for, and returns the answer with the lookups listed.
 - `services/ask_model.py` finds the Gemini key and names the model.
 - `services/seasonal.py` builds the Season table and its modes.
-- `static/player-card.js` opens the player card from any player name, on a click.
+- `static/player-card.js` opens the player card from any player name, on a click, and generates the card's 17-game pace table when its button is pressed.
 - `templates/` contains the pages; `static/style.css` contains the visual styling.
 - `tools/check_layout.py` measures the heading text against the brand logo in a real browser.
 - `tools/check_lineup_slots.py` proves the slot assignment places every starter, sums to each team's official score, and keeps Broad View equal to the collapsed slot view, and reconciles the Season tab's slot averages and the Player Data season tables against the same weekly numbers.

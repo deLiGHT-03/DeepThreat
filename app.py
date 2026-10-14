@@ -19,6 +19,7 @@ from services.matchups import (get_default_week,
 from services.seasonal import get_seasonal_impact_summary, get_seasonal_summary
 from services.player_data import get_player_data
 from services.player_card import get_player_card
+from services.player_pace import get_player_pace
 from services.trades import get_trades_summary
 from services import build_info
 from services import draft_picks
@@ -214,6 +215,7 @@ def create_app() -> Flask:
         "media": "media",
         "week_status": "data",
         "player_card": "data",
+        "player_pace": "data",
         "pick_detail": "data",
     }
 
@@ -474,6 +476,17 @@ def create_app() -> Flask:
         except SleeperError as exc:
             return jsonify(error=str(exc)), 404
         response = jsonify(card)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.get("/league/<league_id>/player/<player_id>/pace")
+    def player_pace(league_id: str, player_id: str):
+        """Serve one player's 17-game pace, asked for only when the card's button is pressed."""
+        try:
+            pace = get_player_pace(league_id, player_id)
+        except SleeperError as exc:
+            return jsonify(error=str(exc)), 404
+        response = jsonify(pace)
         response.headers["Cache-Control"] = "no-store"
         return response
 
