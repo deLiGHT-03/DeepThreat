@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="{{ asset_url('history.css') }}">
   <link rel="stylesheet" href="{{ asset_url('ask.css') }}">
   <link rel="stylesheet" href="{{ asset_url('compare.css') }}">
+  <link rel="stylesheet" href="{{ asset_url('pace.css') }}">
   <link rel="stylesheet" href="{{ asset_url('changelog.css') }}">
   <link rel="stylesheet" href="{{ asset_url('themes.css') }}">
 </head>
@@ -36,5 +37,10 @@
   {# The notebook's list is written into every page that shows the button, so this only opens
      and closes it; a page without the include leaves the script with nothing to do. #}
   <script src="{{ asset_url('changelog.js') }}" defer></script>
+  {# The compare boxes do not live on one page -- the two a comparison is asked in, and the box a
+     player card builds for itself wherever a card is shown -- so this watches their markup
+     rather than their page: an input carrying data-player-suggest takes part, and a page without
+     one leaves the script with nothing to do. #}
+  <script src="{{ asset_url('player-suggest.js') }}" defer></script>
 </body>
 </html>

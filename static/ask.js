@@ -47,6 +47,11 @@
   const DASHES = /^:?-{2,}:?$/;
   const NUMBERISH = /^-?[\d][\d,.]*(%|\$)?$/;
 
+  //: The mark a table uses for a stat a player's position is not measured by. It is the absence
+  //: of a figure rather than a word, so it does not turn a column of figures into a column of
+  //: text -- but it is still set quieter than the figures beside it.
+  const BLANK = /^[\u2014\u2013]$/;
+
   //: The positions every other page puts in a badge. The short codes only: a position written
   //: out long is prose, and a single letter is how a name is spelled ("D.K. Metcalf").
   const POSITION_TOKEN = /\b(QB|RB|WR|TE|DEF|DST)\b/g;
@@ -87,7 +92,13 @@
       const named = PICK_COLUMN.test(head ? (head[column] || '') : '');
       flags.push(rows.length > 0 && rows.every(function (cells) {
         const cell = (cells[column] || '').trim();
-        if (cell === '' || !NUMBERISH.test(cell)) {
+        if (cell === '') {
+          return false;
+        }
+        if (BLANK.test(cell)) {
+          return true;
+        }
+        if (!NUMBERISH.test(cell)) {
           return false;
         }
         return !(named && SLOTISH.test(cell));
@@ -187,8 +198,18 @@
       } else {
         decorate(node, text, { bare: picks[column] });
       }
+      // A figure is lined up so a column of them reads down; the mark for a stat this player's
+      // position has none of is the same column, set as the nothing it is.
+      const nothing = !header && BLANK.test(String(text || '').trim());
+      const classes = [];
       if (!header && numeric[column]) {
-        node.className = 'ask-cell-number';
+        classes.push('ask-cell-number');
+      }
+      if (nothing) {
+        classes.push('ask-cell-blank');
+      }
+      if (classes.length) {
+        node.className = classes.join(' ');
       }
       return node;
     };

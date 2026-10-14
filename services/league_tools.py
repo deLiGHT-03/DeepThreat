@@ -33,7 +33,8 @@ from services import pick_query
 from services import trades as trades_service
 from services.matchups import _number
 from services.player_card import _appearances, _weekly_stats
-from services.player_pace import SEASON_GAMES, get_player_pace, stat_table
+from services.player_pace import (SEASON_GAMES, SCORED_STATS, _STAT_KEYS, get_player_pace,
+                                  pace_figure, pace_rows, stat_order, stat_table)
 from services.sleeper import (FIRST_GAME_LOG_SEASON, MAX_NFL_WEEK, SleeperError,
                               get_json, get_league_dashboard, get_league_season_history,
                               get_player_index, get_player_season_games, season_week_count)
@@ -47,6 +48,10 @@ MAX_ROWS = 60
 
 #: How many trades a search will return before it says how many more there were.
 MAX_TRADES = 40
+
+#: The figures every position carries whatever it is measured by, in the order a pace table leads
+#: with them: points, then points a game. Read from the pace module so the two cannot drift.
+SCORED_ABBRS = tuple(abbreviation for abbreviation, _label, _decimals in SCORED_STATS)
 
 #: Every NFL club a game log can name: the code Sleeper writes for it now, its full name, its
 #: nickname, and the codes an older season writes for the same club. A club that moved also
@@ -678,12 +683,7 @@ def player_vs_opponent(league_id: str, player: str, opponent: str = "",
     }
 
 
-def _pace_display(value: float, decimals: int) -> str:
-    """A pace figure the way a player card prints it: whole numbers grouped, decimals as they are."""
-    return f"{float(value):,.{int(decimals)}f}"
-
-
-def player_pace(league_id: str, player: str, season: str = "") -> dict:
+def player_pace(league_id: str, player: str, season: str = "", player_id: str = "") -> dict:
     """How one player is pacing over a full season, in the stats his position is judged by.
 
     This is the projection a player card's own Generate Pace button draws, put into words
@@ -696,11 +696,23 @@ def player_pace(league_id: str, player: str, season: str = "") -> dict:
     The points are this league's own scoring rather than Sleeper's default, which is what lets a
     projection be read beside the weeks it was earned in. A pace the season is too young to have
     -- a player with no game yet -- is said in the note rather than returned as a failure.
+
+    ``player_id`` names the player outright instead of by his name, which is how a card asks
+    about the player it is already showing: this league may well hold two players who read the
+    same, and which of them the card belongs to is not something a lookup should have to guess.
     """
-    matched, nearest, _ = _resolve_player(league_id, player)
+    # A card knows its own player's id, so his name is never resolved -- and never mistaken for
+    # somebody else's.
+    given_id = str(player_id or "").strip()
+    if given_id:
+        record = _universe(league_id).get(given_id)
+        matched, nearest = ([record] if record else []), []
+    else:
+        matched, nearest, _ = _resolve_player(league_id, player)
     if not matched:
-        return {"rows": [], "note": (f"No player in this league matches \"{player}\"."
-                                      + (f" Closest names: {', '.join(nearest)}." if nearest else ""))}
+        return {"rows": [], "note": (
+            f"No player in this league matches \"{player or given_id}\"."
+            + (f" Closest names: {', '.join(nearest)}." if nearest else ""))}
     if len(matched) > 1:
         return {
             "rows": [],
@@ -731,7 +743,7 @@ def player_pace(league_id: str, player: str, season: str = "") -> dict:
         "stat": row["label"],
         "abbr": row["abbr"],
         "pace": row["pace"],
-        "figure": _pace_display(row["pace"], row["decimals"]),
+        "figure": pace_figure(row["pace"], row["decimals"]),
         "is_rate": bool(row.get("rate")),
     } for row in pace["rows"]]
     games = pace["games"]
@@ -759,7 +771,8 @@ def player_pace(league_id: str, player: str, season: str = "") -> dict:
     }
 
 
-def compare_paces(league_id: str, player: str, other: str, season: str = "") -> dict:
+def compare_paces(league_id: str, player: str, other: str, season: str = "",
+                  player_id: str = "") -> dict:
     """Two players' 17-game paces beside each other, for weighing one against the other.
 
     This is the trade question: not how each of them has scored, but what each is on course for,
@@ -773,7 +786,8 @@ def compare_paces(league_id: str, player: str, other: str, season: str = "") -> 
     are reported beside the comparison rather than left out of it. Every figure already exists in
     both halves, so nothing here is derived, averaged or combined.
     """
-    sides = [player_pace(league_id, player, season), player_pace(league_id, other, season)]
+    sides = [player_pace(league_id, player, season, player_id),
+             player_pace(league_id, other, season)]
     projected = [side for side in sides if side.get("rows")]
     if len(projected) < len(sides):
         # One side has nothing to project, or a name that matched nothing or more than one
@@ -1618,6 +1632,126 @@ def _name_positions(positions) -> str:
     return ", ".join(places[:-1]) + f" and {places[-1]}"
 
 
+def pace_lines(league_id: str, season: str = "") -> dict:
+    """Every player this league has scored in one season, and what each is on pace for.
+
+    One season's weeks are read once -- the league's own scored points, and Sleeper's official
+    stats for the week, which say both who took the field and what he did with it -- and every
+    player's whole pace line is worked out from them by
+    :func:`services.player_pace.pace_rows`. That is the same arithmetic, on the same games, as
+    the pace button on a player's card, so the two cannot disagree about a figure.
+
+    This is the read behind both the pace ranking Ask AI answers by and the Pace board page:
+    a player's line is the whole of what he is on course for in the stats his position is judged
+    by, and each caller decides what to do with it -- rank it by one stat, or lay it all out.
+    The totals behind the lines are returned as well, because a caller that ranks by a stat needs
+    the season's own figure for it, which a projected one cannot be turned back into.
+
+    A week whose official stats could not be read is named in ``unread`` and counted in no
+    player's games, because a pace built on the wrong number of games is worse than one that
+    says which week is missing. Raises :class:`~services.sleeper.SleeperError` when there is no
+    season to read at all.
+    """
+    entries, problem = _season_entries(league_id, season)
+    if problem:
+        raise SleeperError(problem)
+    # The chain arrives oldest first, so the season being played is the newest of them -- the one
+    # a read with no season in it means.
+    entry = entries[-1]
+    played = str(entry["season"])
+    try:
+        dashboard = get_league_dashboard(entry["league_id"])
+    except SleeperError as exc:
+        raise SleeperError(f"The {played} season could not be read: {exc}") from exc
+    weeks = season_week_count(dashboard["league"])
+    if weeks < 1:
+        raise SleeperError(f"No game of this league's {played} season has been played yet.")
+
+    scored = _read_scores(entry["league_id"], weeks)
+    weekly = _weekly_stats(played, list(range(1, weeks + 1)))
+    unread = sorted(week for week, lines in weekly.items() if lines is None)
+
+    index = get_player_index()
+    # Every stat a pace line can hold is summed for every player, because a line is the whole of
+    # what a pace is and not only the one stat a caller happens to rank by.
+    totals: dict[str, dict[str, float]] = {}
+    points: dict[str, float] = {}
+    games: dict[str, int] = {}
+    places: dict[str, str] = {}
+    for week in range(1, weeks + 1):
+        lines = weekly.get(week)
+        if lines is None:
+            continue
+        for player_id, (_roster_id, scored_week) in (scored.get(week) or {}).items():
+            line = lines.get(player_id)
+            # ``gp`` is what says he took the field: a bye and an inactive week both record none,
+            # and the league recording him is the other half of what makes a week a game.
+            if not isinstance(line, dict) or not (_number(line.get("gp")) or 0.0) > 0:
+                continue
+            ran_up = totals.setdefault(player_id, {})
+            for key in _STAT_KEYS:
+                value = _number(line.get(key))
+                if value is not None:
+                    ran_up[key] = ran_up.get(key, 0.0) + value
+            points[player_id] = points.get(player_id, 0.0) + scored_week
+            games[player_id] = games.get(player_id, 0) + 1
+            places[player_id] = str((index.get(player_id) or {}).get("position") or "-")
+
+    players: list[dict] = []
+    for player_id, ran_up in totals.items():
+        played_games = games.get(player_id, 0)
+        if played_games < 1:
+            continue
+        who = index.get(player_id) or {}
+        place = places.get(player_id) or "-"
+        scored_points = points.get(player_id, 0.0)
+        players.append({
+            "id": player_id,
+            "name": (f"{who.get('first_name', '')} {who.get('last_name', '')}".strip()
+                     or player_id),
+            "position": place,
+            "games": played_games,
+            "totals": ran_up,
+            "points": scored_points,
+            "line": pace_rows(place, ran_up, scored_points, played_games),
+        })
+    return {
+        "season": played,
+        "season_games": SEASON_GAMES,
+        "weeks": weeks,
+        "weeks_read": weeks - len(unread),
+        "unread": unread,
+        "players": players,
+    }
+
+
+def player_names(league_id: str) -> list[str]:
+    """Every player this league has held, ordered for a search box to complete names from.
+
+    The names a box can be answered with are the players this league's own seasons resolved to --
+    exactly the set :func:`player_pace` looks a typed name up in -- so a name completed from this
+    list is always one the lookup can answer for, and never one it has never heard of. It is the
+    same reasoning the Compare page's own matching follows: only the players this league has
+    actually held can be found.
+
+    They are ordered by what each player is on pace for in the season being played, highest
+    first, because the name a reader is typing is far more often the one who matters now than the
+    one that happens to be alphabetically first; a player the league has not scored this season
+    follows in name order. A season that cannot be read costs the ordering and nothing else.
+    """
+    names = {str(who.get("name") or "").strip()
+             for who in _universe(league_id).values()
+             if str(who.get("name") or "").strip()}
+    if not names:
+        return []
+    scored: dict[str, float] = {}
+    try:
+        scored = {who["name"]: who["points"] for who in pace_lines(league_id)["players"]}
+    except SleeperError:
+        pass
+    return sorted(names, key=lambda name: (-scored.get(name, 0.0), name))
+
+
 def pace_ranking(league_id: str, season: str = "", position: str = "", limit: int = 10,
                  stat: str = "PTS") -> dict:
     """Rank this league's players by what each is on pace for in one season, in one stat.
@@ -1629,6 +1763,12 @@ def pace_ranking(league_id: str, season: str = "", position: str = "", limit: in
     he has earned it at, and that whole ranking is the answer, because a handful of game logs
     cannot say who leads a league.
 
+    A ranking is not one column, though: a pace line is the whole of what a player is on course
+    for, so each row carries every stat his own position is measured by as well, and the returned
+    table can be read across the stats rather than only down the one that was ranked by. The
+    columns are what the listed players between them have, and a stat a position is not measured
+    by is a dash in his row rather than a zero.
+
     The games counted are a player card's games, so a row here reads beside the pace button on the
     card it names: a week this league scored and that Sleeper recorded him taking the field in. A
     bye, an inactive week and a week still to come are none of them a game, which is what stops a
@@ -1639,26 +1779,11 @@ def pace_ranking(league_id: str, season: str = "", position: str = "", limit: in
     season to project (empty is the one being played); ``position`` narrows the ranking to a
     single position; ``limit`` is how many rows come back.
     """
-    entries, problem = _season_entries(league_id, season)
-    if problem:
-        return {"players": [], "note": problem}
     chosen = stat_table().get(str(stat or "PTS").strip().upper() or "PTS")
     if chosen is None:
         return {"players": [], "note": (
             f'"{stat}" is not a stat this app can rank a pace by. Ask for one of: '
             + _stat_choices() + ".")}
-    # The chain arrives oldest first, so the season being played is the newest of them -- the one
-    # a question with no season in it means.
-    entry = entries[-1]
-    played = str(entry["season"])
-    try:
-        dashboard = get_league_dashboard(entry["league_id"])
-    except SleeperError as exc:
-        return {"players": [], "note": f"The {played} season could not be read: {exc}"}
-    weeks = season_week_count(dashboard["league"])
-    if weeks < 1:
-        return {"players": [], "note":
-                f"No game of this league's {played} season has been played yet."}
     wanted_position = str(position or "").strip().upper()
     # A position this stat is not measured by has nothing to rank, and saying that is a better
     # answer than an empty table the reader has to work out for himself.
@@ -1672,71 +1797,72 @@ def pace_ranking(league_id: str, season: str = "", position: str = "", limit: in
     except (TypeError, ValueError):
         wanted_rows = 10
 
-    scored = _read_scores(entry["league_id"], weeks)
-    weekly = _weekly_stats(played, list(range(1, weeks + 1)))
-    # A week whose official stats could not be read cannot say who took the field or what he did
-    # with it, so it is left out of every player's games rather than counted on the league's
-    # record alone -- and said so, because a pace built on the wrong games is worse than one that
-    # names the gap.
-    unread = sorted(week for week, lines in weekly.items() if lines is None)
-
-    index = get_player_index()
-    totals: dict[str, float] = {}
-    games: dict[str, int] = {}
-    places: dict[str, str] = {}
-    for week in range(1, weeks + 1):
-        lines = weekly.get(week)
-        if lines is None:
-            continue
-        for player_id, (_roster_id, scored_week) in (scored.get(week) or {}).items():
-            line = lines.get(player_id)
-            # ``gp`` is what says he took the field: a bye and an inactive week both record none,
-            # and the league recording him is the other half of what makes a week a game.
-            if not isinstance(line, dict) or not (_number(line.get("gp")) or 0.0) > 0:
-                continue
-            who = index.get(player_id) or {}
-            place = str(who.get("position") or "-")
-            if chosen["positions"] is not None and place not in chosen["positions"]:
-                continue
-            if wanted_position and place.upper() != wanted_position:
-                continue
-            # A figure the league scores is his own points for that week; anything else is the
-            # stat's own keys in Sleeper's line added up, which is where the card's stats come
-            # from as well.
-            value = (scored_week if chosen["scored"]
-                     else sum(_number(line.get(key)) or 0.0 for key in chosen["keys"]))
-            totals[player_id] = totals.get(player_id, 0.0) + value
-            games[player_id] = games.get(player_id, 0) + 1
-            places[player_id] = place
+    try:
+        board = pace_lines(league_id, season)
+    except SleeperError as exc:
+        # A season this league never played, or one with no game scored yet: that is an answer
+        # about the league rather than a lookup that broke.
+        return {"players": [], "note": str(exc)}
+    played, weeks = board["season"], board["weeks"]
+    unread, weeks_read = board["unread"], board["weeks_read"]
 
     decimals = chosen["decimals"]
     rows: list[dict] = []
-    for player_id, total in totals.items():
-        played_games = games.get(player_id, 0)
-        if played_games < 1:
+    figures: dict[str, dict[str, str]] = {}
+    for who in board["players"]:
+        place = who["position"]
+        # Only the positions a stat is measured by are ranked by it, and a position can be asked
+        # for on its own; either way this player is not in this ranking at all.
+        if chosen["positions"] is not None and place not in chosen["positions"]:
             continue
-        who = index.get(player_id) or {}
-        name = f"{who.get('first_name', '')} {who.get('last_name', '')}".strip() or player_id
-        rate = total / played_games
+        if wanted_position and place.upper() != wanted_position:
+            continue
+        line = {row["abbr"]: row for row in who["line"]}
+        ranked = line.get(chosen["abbr"])
+        if ranked is None:
+            continue  # a stat this position is not measured by is not a row for him
+        total = (who["points"] if chosen["scored"]
+                 else sum(who["totals"].get(key, 0.0) for key in chosen["keys"]))
         rows.append({
-            "player": name,
-            "position": places.get(player_id) or str(who.get("position") or "-"),
-            "games": played_games,
+            "player_id": who["id"],
+            "player": who["name"],
+            "position": place,
+            "games": who["games"],
             "stat": chosen["label"],
             "abbr": chosen["abbr"],
             # A whole-number stat is a whole number of it, and points are the league's own and
             # carry the hundredths his card prints; a pace is read at the stat's own precision.
             "total": round(total, 2 if chosen["scored"] else decimals),
-            "per_game": round(rate, decimals),
+            "per_game": round(total / who["games"], decimals),
             # A rate is already a per-game figure, so a full season does not change it: the pace
             # of one is that figure.
-            "pace": (round(rate, decimals) if chosen["rate"]
-                     else round(rate * SEASON_GAMES, decimals)),
+            "pace": ranked["pace"],
         })
+        # The printed figures are kept beside the rows, so the table a reader is shown and the
+        # rows the model is handed are one set of numbers rather than two readings of them.
+        figures[who["id"]] = {row["abbr"]: pace_figure(row["pace"], row["decimals"])
+                              for row in who["line"]}
     rows.sort(key=lambda item: (-item["pace"], item["player"].casefold()))
     listed = rows[:wanted_rows]
 
-    weeks_read = weeks - len(unread)
+    # The table's columns are the stats the listed players between them carry, so every row shows
+    # the stats its own position is measured by, and no column is drawn for a stat nobody here
+    # has. The stat that was ranked by leads it and points follow, because those are what a pace
+    # chiefly means.
+    carried = [abbr for abbr in stat_order()
+               if abbr != chosen["abbr"]
+               and any(abbr in figures[row["player_id"]] for row in listed)]
+    columns = (["Player", "Pos", "GP", chosen["abbr"]]
+               + [abbr for abbr in carried if abbr in SCORED_ABBRS]
+               + [abbr for abbr in carried if abbr not in SCORED_ABBRS])
+    # A stat a position is not measured by is nothing at all for him rather than a zero, and the
+    # table says so instead of reading as a figure he scored.
+    blank = "—"
+    listed_lines = [" | ".join(
+        [row["player"], row["position"], str(row["games"])]
+        + [figures[row["player_id"]].get(abbr, blank) for abbr in columns[3:]])
+        for row in listed]
+
     stat_label = chosen["label"].lower()
     what = "every player this league has scored" + (
         f" at {wanted_position}" if wanted_position else "")
@@ -1744,19 +1870,25 @@ def pace_ranking(league_id: str, season: str = "", position: str = "", limit: in
         if wanted_position:
             return {"players": [], "note": (
                 f"Read {weeks_read} scored weeks of {played} and counted no {wanted_position} "
-                f"with a {stat_label} to project from.")}
+                f"with a {stat_label} pace to project from.")}
         return {"players": [], "note": (
             f"Read {weeks_read} scored weeks of {played}, but no player this league has scored "
-            f"has a {stat_label} to project from yet.")}
+            f"has a {stat_label} pace to project from yet.")}
 
     def _figure(row: dict) -> str:
-        detail = (f"{row['games']} games" if chosen["rate"]
-                  else f"{row['per_game']} a game, {row['games']} games")
+        count = f"{row['games']} game{'s' if row['games'] != 1 else ''}"
+        detail = count if chosen["rate"] else f"{row['per_game']} a game, {count}"
         return f"{row['player']} {row['pace']} ({detail})"
 
     note = (f"Projected {len(rows)} players ({what}) over {SEASON_GAMES} games from the "
             f"{weeks_read} weeks of {played} this league has scored, ranked by {stat_label}, "
             "highest first: " + "; ".join(_figure(row) for row in listed[:5]) + ".")
+    if listed:
+        note += (" Every row is that player's whole pace line, in the columns '"
+                 + ", ".join(columns) + "' -- the stats his position is measured by as well as "
+                 "the one this ranking is by -- so the ranking is one stat but the table can be "
+                 f"read across the others, and a stat a position is not measured by is shown "
+                 f"as {blank} rather than as a figure.")
     if len(rows) > len(listed):
         note += f" {len(rows) - len(listed)} more were ranked below these."
     if unread:
@@ -1770,6 +1902,7 @@ def pace_ranking(league_id: str, season: str = "", position: str = "", limit: in
              "the player on the field for.")
     return {"players": listed, "ranked": len(rows), "stat": chosen["label"],
             "abbr": chosen["abbr"], "season": played, "season_games": SEASON_GAMES,
+            "columns": columns, "listed_lines": listed_lines,
             "note": note}
 
 
@@ -2034,7 +2167,12 @@ TOOL_SPECS = [
                         "positions the stat is measured by are ranked by it. Filter to one "
                         "position; leave the season out for the one being played. It returns "
                         "the whole ranking, which is a table; never answer such a question from "
-                        "a few players' game logs."),
+                        "a few players' game logs. Each row is that player's whole pace line, "
+                        "not only the stat ranked by: 'columns' names the table's columns in "
+                        "order -- his position's stats, his points and his points a game -- and "
+                        "'listed_lines' is its rows, one player per line, with a dash in a "
+                        "column his position is not measured by. Print that table, header and "
+                        "all, rather than only the ranked stat."),
         "parameters": {
             "type": "object",
             "properties": {

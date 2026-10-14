@@ -178,3 +178,21 @@
 .matchup-card.super-bowl-card .matchup-card-heading{background:#2b2317}
 .matchup-card.super-bowl-card .matchup-versus{color:#d8bd83}
 @media(max-width:640px){.matchup-card-meta{gap:4px}.matchup-stage{padding:3px 5px;font-size:7px;letter-spacing:.06em}}
+
+/* The comparison a card's own box adds: two players where its pace table had one. A third column
+   of numbers does not fit in the width one column did, so the panel widens for it, and the weekly
+   list below gives up some of its own room to keep the whole card in view. */
+.player-card.has-compare{width:min(340px,calc(100vw - 20px))}
+.player-card.has-compare .player-card-weeks{max-height:110px}
+.player-card-compare-table thead th:not(:first-child){max-width:84px;overflow:hidden;text-align:right;text-overflow:ellipsis;white-space:nowrap}
+.player-card-compare-table tbody td{padding-left:7px;color:#96a58a}
+.player-card-compare-table tbody td.is-ahead{color:#dff3c8}
+.player-card-pace-note.is-left{margin-top:4px;text-align:left}
+.player-card-pace-note.is-problem{color:#ff9d88;text-align:left}
+.player-card-pace.is-busy{opacity:.6}
+.player-card-compare-form{display:flex;gap:5px;margin-top:8px}
+.player-card-compare-form input{flex:1;min-width:0;padding:5px 7px;background:#141a16;border:1px solid #3a4940;border-radius:5px;color:#eaf0ee;font:500 10px 'DM Sans',sans-serif}
+.player-card-compare-form input::placeholder{color:#6f7d74}
+.player-card-compare-form input:focus{border-color:#b7f56d;outline:none}
+.player-card-compare-form button{flex:none;padding:5px 9px;background:#29362d;border:1px solid #435144;border-radius:5px;color:#dce7dd;font:600 9px 'DM Sans',sans-serif;cursor:pointer}
+.player-card-compare-form button:hover{border-color:#b7f56d;color:#b7f56d}

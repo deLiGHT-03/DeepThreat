@@ -57,6 +57,10 @@
 }
 .ask-page .ask-table tbody tr:last-child td{border-bottom:none}
 .ask-page .ask-table .ask-cell-number{text-align:right;font-variant-numeric:tabular-nums}
+/* A pace table says a stat a player's position is not measured by with a dash, because it is the
+   absence of a figure rather than a zero: it keeps its column but is set quieter than the
+   figures beside it. */
+.ask-page .ask-table .ask-cell-blank{color:#748178}
 .ask-page .ask-answer-body strong{color:#dff3c8;font-weight:700}
 /* A position in an answer wears the same badge a roster row wears, and a draft pick the same
    gold the Trades page gives one -- both drawn around the answer's own text, never as markup.

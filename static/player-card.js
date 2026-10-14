@@ -42,6 +42,10 @@
     `/league/${encodeURIComponent(leagueId)}/player/${encodeURIComponent(playerId)}/card`;
   const paceUrl = (playerId) =>
     `/league/${encodeURIComponent(leagueId)}/player/${encodeURIComponent(playerId)}/pace`;
+  // The card's own player goes by id, and only the second one is typed as a name.
+  const compareUrl = (playerId, other) =>
+    `/league/${encodeURIComponent(leagueId)}/player/${encodeURIComponent(playerId)}`
+    + `/compare?other=${encodeURIComponent(other)}`;
 
   function load(playerId) {
     const known = requests.get(playerId);
@@ -156,6 +160,167 @@
     return table;
   }
 
+  // The last name, for a column head too narrow for the whole of one: a card sets two players
+  // beside each other in 300-odd pixels, and the full names are in the cells' own titles.
+  function surname(name) {
+    const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+    return words.length ? words[words.length - 1] : String(name || "");
+  }
+
+  // Two players, one row per stat they share. The row is labelled by the abbreviation these
+  // columns wear everywhere else in the app, because there is no room in front of two numbers
+  // for "Receiving Yards"; the stat's own name is in the cell's title.
+  function comparisonTable(comparison) {
+    const [left, right] = comparison.players;
+    const table = document.createElement("table");
+    table.className = "player-card-pace-table player-card-compare-table";
+
+    const head = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    ["Stat", surname(left.name), surname(right.name)].forEach((text, index) => {
+      const cell = document.createElement("th");
+      cell.scope = "col";
+      cell.textContent = text;
+      if (index > 0) cell.title = index === 1 ? left.name : right.name;
+      headRow.append(cell);
+    });
+    head.append(headRow);
+
+    const body = document.createElement("tbody");
+    comparison.compared.forEach((row) => {
+      const line = document.createElement("tr");
+      const label = document.createElement("th");
+      label.scope = "row";
+      label.textContent = row.abbr;
+      label.title = row.stat;
+      const here = document.createElement("td");
+      here.textContent = row.values[0];
+      const there = document.createElement("td");
+      there.textContent = row.values[1];
+      // Whoever the lookup says leads the stat, which is as far as the records go: nothing on
+      // this card works out a winner of its own.
+      if (row.leads === left.name) here.classList.add("is-ahead");
+      if (row.leads === right.name) there.classList.add("is-ahead");
+      line.append(label, here, there);
+      body.append(line);
+    });
+    table.append(head, body);
+    return table;
+  }
+
+  // The stats only one of the two carries -- an RB's carries beside a WR's -- kept under the
+  // table rather than dropped from it, so the two columns are not read as the whole of both.
+  function oneSidedStats(comparison) {
+    const [left, right] = comparison.players;
+    const box = document.createElement("div");
+    [[left, comparison.only[0]], [right, comparison.only[1]]].forEach(([player, rows]) => {
+      if (!rows || !rows.length) return;
+      const line = document.createElement("div");
+      line.className = "player-card-pace-note is-left";
+      line.textContent = `${surname(player.name)} alone: `
+        + rows.map((row) => `${row.abbr} ${row.figure}`).join(", ");
+      line.title = rows.map((row) => `${row.stat} (${row.abbr}): ${row.figure}`).join("\n");
+      box.append(line);
+    });
+    return box.childElementCount ? box : null;
+  }
+
+  // A card is a few hundred pixels wide, so the lookup's full note belongs on the compare page;
+  // what a card can carry is the season and how many games each column is drawn from.
+  function summaryLine(comparison) {
+    const [left, right] = comparison.players;
+    return `${comparison.season} \u00b7 ${surname(left.name)} from ${comparison.games_played[0]} GP`
+      + `, ${surname(right.name)} from ${comparison.games_played[1]} GP`;
+  }
+
+  // The box under a generated pace: name a second player and he is set beside the first. It is
+  // the lookup the compare page and Ask AI draw, so a card cannot state a figure either of them
+  // states differently.
+  function comparisonForm(card, section, against) {
+    const form = document.createElement("form");
+    form.className = "player-card-compare-form";
+    const input = document.createElement("input");
+    input.type = "search";
+    input.autocomplete = "off";
+    input.maxLength = 60;
+    input.placeholder = "Compare with\u2026";
+    // The same name completion the Compare page's own boxes get: a card asks for a player by name
+    // exactly as that page does, so it is finished the same way wherever the card is opened.
+    input.setAttribute("data-player-suggest", "");
+    input.setAttribute("aria-label", "Compare with another player");
+    input.value = against || "";
+    const button = document.createElement("button");
+    button.type = "submit";
+    button.textContent = against ? "Change" : "Compare";
+    form.append(input, button);
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const other = input.value.trim();
+      if (other) runComparison(card, section, other);
+    });
+    return form;
+  }
+
+  // Draw the panel from the pace and whatever comparison it currently holds, so a name that
+  // matched nothing is reported without throwing away the pace the reader just generated.
+  function renderPace(section, card, pace, comparison, against) {
+    section.replaceChildren();
+    if (!pace || pace.error) {
+      const problem = document.createElement("div");
+      problem.className = "player-card-pace-note is-problem";
+      problem.textContent = (pace && pace.error) || "This player's pace could not be computed.";
+      section.append(problem);
+      return;
+    }
+    const title = document.createElement("div");
+    title.className = "player-card-pace-title";
+    const note = document.createElement("div");
+    note.className = "player-card-pace-note";
+
+    if (comparison && comparison.compared && comparison.compared.length) {
+      title.textContent = `${pace.season_games}-Game Pace \u00b7 Two Players`;
+      section.append(title, comparisonTable(comparison));
+      const oneSided = oneSidedStats(comparison);
+      if (oneSided) section.append(oneSided);
+      note.textContent = summaryLine(comparison);
+      note.title = comparison.note || "";
+      section.append(note, comparisonForm(card, section, against));
+      return;
+    }
+
+    title.textContent = `${pace.season_games}-Game Pace`;
+    section.append(title, paceTable(pace));
+    note.textContent = `From ${pace.games} ${pace.games === 1 ? "game" : "games"} played`;
+    section.append(note);
+    if (comparison && comparison.note) {
+      const problem = document.createElement("div");
+      problem.className = "player-card-pace-note is-problem";
+      problem.textContent = comparison.note;
+      section.append(problem);
+    }
+    section.append(comparisonForm(card, section, against));
+  }
+
+  async function runComparison(card, section, other) {
+    const panel = section.closest(".player-card");
+    section.classList.add("is-busy");
+    // The pace is already in hand -- this only reads the cached copy of it.
+    const pace = await loadPace(card.id);
+    const comparison = await fetch(compareUrl(card.id, other),
+                                  { headers: { Accept: "application/json" } })
+      .then((response) => response.json().then(
+        (body) => body || { note: "That comparison could not be read." },
+        () => ({ note: "That comparison could not be read." })))
+      .catch(() => ({ note: "That comparison could not be read." }));
+    // The card may have been put away while the second player was on his way.
+    if (!panel || !section.isConnected) return;
+    section.classList.remove("is-busy");
+    renderPace(section, card, pace, comparison, other);
+    // Two columns need more room than one, and a panel that grows off the window cannot be read.
+    panel.classList.add("has-compare");
+    if (anchor) place(panel, anchor);
+  }
+
   // The button at the foot of a card. Nothing is asked for until it is pressed, because most
   // cards are read and closed without anyone wanting a projection from them.
   function paceSection(card) {
@@ -177,21 +342,7 @@
     const panel = section.closest(".player-card");
     // The card may have been put away while the pace was on its way.
     if (!panel || !section.isConnected) return;
-    section.replaceChildren();
-    if (pace && !pace.error) {
-      const title = document.createElement("div");
-      title.className = "player-card-pace-title";
-      title.textContent = `${pace.season_games}-Game Pace`;
-      const note = document.createElement("div");
-      note.className = "player-card-pace-note";
-      note.textContent = `From ${pace.games} ${pace.games === 1 ? "game" : "games"} played`;
-      section.append(title, paceTable(pace), note);
-    } else {
-      const note = document.createElement("div");
-      note.className = "player-card-pace-note";
-      note.textContent = (pace && pace.error) || "This player's pace could not be computed.";
-      section.append(note);
-    }
+    renderPace(section, card, pace, null, "");
     // The table makes the card taller than it was when it was placed, and a panel that grows
     // off the bottom of the window is a panel that cannot be read. The weekly list gives up
     // some of its own room to keep the whole card in view.

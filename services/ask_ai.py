@@ -32,8 +32,11 @@ from services.ask_model import MODEL, MODEL_CHAIN, AiUnavailable, client
 MAX_TOOL_ROUNDS = 10
 
 #: A tool result is passed back whole unless it is bigger than this, which no tool's own limits
-#: should allow; the cut is a backstop against an unexpectedly wide read, not a normal path.
-MAX_RESULT_CHARS = 12000
+#: should allow; the cut is a backstop against an unexpectedly wide read, not a normal path. The
+#: widest a tool goes is a full pace ranking -- sixty players with every stat a pace line holds,
+#: which is 16k characters -- and a cut through one of those would take the table rather than the
+#: ends of it, so the backstop sits above it rather than inside it.
+MAX_RESULT_CHARS = 20000
 
 #: Low, because a question about a specific league has a right answer and no reason to wander.
 TEMPERATURE = 0.2
@@ -142,11 +145,17 @@ being played rather than a season already played; best_player_seasons ranks the 
 anyone has already had and is the wrong tool for it. Rank by the stat the question names -- PTS, \
 PASY, RATT, RUSY, REC, RECY, TTD, TOT or PPG, and PTS when it names none -- and only the \
 positions that stat is measured by come back, which is why a question about a stat one position \
-does not have is answered by saying so rather than by an empty table. Lay out the whole ranking \
-the tool returned as a table of player, position, games, the stat's pace and its per-game figure, \
-in the order it returned, every figure exactly as the tool gave it, and say which stat and season \
-it projects and from how many weeks. Never rank the players yourself, and never answer such a \
-question from a few players' game logs.
+does not have is answered by saying so rather than by an empty table. A pace is primarily \
+points, and that is what it is ranked by, but it is also the stats as a whole: lay out the whole \
+ranking the tool returned as a table of every player it listed, in the order it returned them, \
+with the tool's "columns" as the header line in that order, the dashes line under it, and the \
+tool's "listed_lines" one row per player below -- so each player's row carries the stats his \
+own position is measured by as well as the one the ranking is by. Keep a dash as a dash: a \
+stat a position is not measured by is nothing at all for that player, not a zero. Never narrow \
+the table to the one stat the question named, because the other columns are the point of it, \
+and never leave a player out. Say which stat and season it projects and from how many weeks. \
+Never rank the players yourself, and never answer such a question from a few players' game \
+logs.
 
 You are told which league you are in by the tool results themselves. Before answering about a \
 team, a player or a pick you are unsure of, look it up rather than assuming.

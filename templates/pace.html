@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Pace · {{ league_name }}{% endblock %}
+
+{# The whole league's pace board, on a page of its own.
+
+   Every figure is read once for the league by the same lookup Ask AI ranks a pace question
+   from, and worked out by the same arithmetic behind the pace button on a player's card, so the
+   page, an answer and a card cannot disagree about one. What a page adds is what a question
+   cannot: every player at once, each with the stats his own position is measured by, in a table
+   that can be reordered by whichever of them the reader is thinking about. The column it is read
+   by and the position it is narrowed to live in the address rather than only in the page, so a
+   board can be pasted into a league chat and arrive as the board it was. #}
+{% block content %}
+<div class="seasonal-page pace-page">
+
+<div class="matchups-heading"><div>{% include "_season_switcher.html" %}<h1 class="section-title">Pace Board</h1><p class="muted">What every player in {{ league_name }} is on pace for over a full {{ board.season_games }}-game season, in the stats his position is judged by.</p></div></div>
+<div class="feature-toolbar"><div class="mode-switch"><a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, username=username, manager_id=manager_id) }}">Matchups</a>{% if show_impact_players %}<a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, impact='1', username=username, manager_id=manager_id) }}">Impact Players</a>{% endif %}<a class="mode-button" href="{{ url_for('player_data', league_id=current_league_id, seasonal='1', username=username, manager_id=manager_id) }}">Player Data</a>{% if show_trades %}<a class="mode-button" href="{{ url_for('trades', league_id=current_league_id, username=username, manager_id=manager_id) }}">Trades</a>{% endif %}{% if show_history %}<a class="mode-button" href="{{ url_for('history', league_id=current_league_id, username=username, manager_id=manager_id) }}">History</a>{% endif %}{% if show_ask_ai %}<a class="mode-button" href="{{ url_for('ask', league_id=current_league_id, username=username, manager_id=manager_id) }}">Ask AI</a>{% endif %}<a class="mode-button" href="{{ url_for('compare', league_id=current_league_id, username=username, manager_id=manager_id) }}">Compare</a><span class="mode-button active" aria-current="page">Pace</span></div>{% include "_changelog.html" %}{% include "_league_switcher.html" %}</div>
+
+{% if board.note %}
+{# Nothing to project: no week of this season has been scored, or no player at this position has
+   played one. The lookup's own sentence is the answer, and an empty table is not. #}
+<div class="empty-state">{{ board.note }}</div>
+{% else %}
+
+{# A position is a chip rather than a dropdown, because the board is meant to be flipped through:
+   one click asks the same question about a narrower set, and the address it lands on can be
+   pasted anywhere. The count on each chip is how many players that chip would show. A chip
+   carries the sort with it, so narrowing a board read by a stat keeps it read by that stat --
+   unless the board is already in its own opening order, which a link leaves unsaid. #}
+<nav class="pace-filters" aria-label="Choose a position">{% for chip in board.chips %}<a class="pace-filter{% if chip.code == board.position %} active{% endif %}" href="{{ url_for('pace', league_id=current_league_id, position=chip.code or none, username=username, manager_id=manager_id, history_id=history_league_id, sort=none if board.opening else board.sort, dir=none if board.opening else board.direction) }}"{% if chip.code == board.position %} aria-current="true"{% endif %}>{{ chip.label }}<small>{{ chip.count }}</small></a>{% endfor %}</nav>
+
+{# What the board is read by is said here, because a sorted board looks like any other board
+   otherwise: the reader who opened a pasted link is told why the rows are in this order, and the
+   one who clicked a heading can read back what that did. The words are the page's, and each
+   column's own copy of them rides on its heading, so the sentence can be kept true after a click
+   without the script having an opinion about what it says. #}
+{% set opening_phrase = "Ranked by points pace" %}
+{% set sorted_prefix = "Sorted by " %}
+<p class="season-games"><span class="pace-read-by">{{ opening_phrase if board.opening else sorted_prefix ~ board.saying|lower }}</span>, from the {{ board.weeks_read }} weeks of the {{ board.season }} season this league has scored: {% if board.position %}{{ board.rows|length }} of the {{ board.players_total }} players it has scored, at {{ board.position }}.{% else %}{{ board.rows|length }} players, every one it has scored.{% endif %} Click any column to sort by it — a pace is chiefly points, but it is the stats as a whole, so every stat a player's position is measured by is a column here. GP is the games he has actually played, which is what his pace is built from. The column and the position are both in the address, so the board you are reading can be pasted into a league chat and open as it is.</p>
+{% if board.unread %}<p class="season-warning">Week{{ 's' if board.unread|length != 1 }} {{ board.unread|join(', ') }} could not be read from Sleeper, so {{ 'they are' if board.unread|length != 1 else 'it is' }} counted in nobody's games.</p>{% endif %}
+
+<div class="season-table-actions"><button class="screenshot-button" type="button" aria-label="Save this pace board as an image" title="Save this pace board as an image" data-screenshot-target="pace-table" data-screenshot-ignore><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.2 5.5 9.5 4h5l1.3 1.5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2h3.2ZM12 8a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0 2a3 3 0 1 1 0 6 3 3 0 0 1-3-3Z"/></svg></button></div>
+
+{# One row per player, one column per stat. The board opens on its first stat column (points,
+   newest-first of what a pace is), every column head is a button -- sorting is the page's whole
+   point beyond showing the numbers -- and each head is named in the address by the abbreviation
+   it prints, which is what the browser writes back once a reader has clicked one. The column in
+   force is the one the server marked: it arrives sorted, so a pasted board is read the same way
+   in the first frame it is drawn in. The two openings are on the table for the browser, which
+   leaves them out of the address rather than writing down what a page already does. #}
+<div class="season-table-wrap"><table class="season-table pace-table" id="pace-table" data-screenshot-name="pace-{{ board.season }}{{ '-' ~ board.position if board.position else '' }}" data-open-sort="{{ board.open_sort }}" data-open-direction="{{ board.open_direction }}" data-open-phrase="{{ opening_phrase }}">
+  <thead><tr>
+    {% for head in board.heads %}<th scope="col" aria-sort="{{ head.aria }}"{% if head.title %} title="{{ head.title }}"{% endif %}><button class="sort-button" type="button" data-sort-key="{{ head.key }}" data-sort-type="{{ head.type }}" data-sort-phrase="{{ sorted_prefix ~ head.saying|lower }}">{{ head.label }} <span>{{ head.arrow }}</span></button></th>{% endfor %}
+  </tr></thead>
+  <tbody>
+    {% for row in board.rows %}
+    <tr>
+      <td><span class="player-card-target" data-player-id="{{ row.id }}">{{ row.name }}</span></td>
+      <td><span class="position pos-{{ row.position|lower }}">{{ row.position }}</span></td>
+      <td data-sort-value="{{ row.games }}">{{ row.games }}</td>
+      {# One cell per column, in the header's own order. A dash is a stat this player's position
+         is not measured by: it keeps its column and sorts to the end of it, because he has none
+         of it rather than none of it so far. #}
+      {% for cell in row.cells %}<td class="{% if cell.blank %}pace-blank{% endif %}" data-sort-value="{% if not cell.blank %}{{ cell.pace }}{% endif %}">{% if cell.blank %}&mdash;{% else %}{{ cell.figure }}{% endif %}</td>{% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table></div>
+
+<p class="pace-footnote">Points are this league's own scoring; every other stat is Sleeper's official weekly figure. A pace counts only the weeks this league scored and that Sleeper recorded the player on the field for, so a bye and a week he sat out are neither of them a game — the same count the pace button on a player's card makes, because it is the same projection.</p>
+{% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}<script src="{{ asset_url('pace.js') }}" defer></script><script src="{{ asset_url('player-card.js') }}" defer></script><script src="{{ asset_url('screenshot.js') }}" defer></script>{% endblock %}

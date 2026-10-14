@@ -20,6 +20,7 @@ from services.seasonal import get_seasonal_impact_summary, get_seasonal_summary
 from services.player_data import get_player_data
 from services.player_card import get_player_card
 from services.player_pace import get_player_pace
+from services.pace_board import get_pace_board
 from services.trades import get_trades_summary
 from services import build_info
 from services import draft_picks
@@ -217,7 +218,9 @@ def create_app() -> Flask:
         "week_status": "data",
         "player_card": "data",
         "player_pace": "data",
+        "compare_player": "data",
         "pick_detail": "data",
+        "league_players": "data",
     }
 
     @app.before_request
@@ -491,6 +494,30 @@ def create_app() -> Flask:
         response.headers["Cache-Control"] = "no-store"
         return response
 
+    @app.get("/league/<league_id>/player/<player_id>/compare")
+    def compare_player(league_id: str, player_id: str):
+        """Set a second player beside the one on a card, for the box under his pace.
+
+        The card's own player is named by id rather than by the name printed on it, because a
+        league can hold two players who read the same and the card is not in doubt about which
+        one it belongs to. Everything else is the comparison Ask AI and the compare page draw,
+        read from the one lookup the three of them share, so a card cannot disagree with either.
+        """
+        other = request.args.get("other", "").strip()
+        if not other:
+            return jsonify(error="Name a player to compare with."), 400
+        # A card is always about one season, so the comparison projects the season the card is
+        # showing rather than whichever season the league has reached since.
+        try:
+            season = str(get_league_dashboard(league_id)["league"].get("season") or "")
+            result = league_tools.compare_paces(league_id, "", other,
+                                                season=season, player_id=player_id)
+        except SleeperError as exc:
+            return jsonify(error=str(exc)), 503
+        response = jsonify(result)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
     @app.get("/league/<league_id>/seasonal")
     def seasonal(league_id: str):
         username = request.args.get("username", "").strip() or session.get("username", "")
@@ -588,6 +615,10 @@ def create_app() -> Flask:
         With no season asked for, the page answers for the whole chain. A season asks for that
         year on its own -- the same book, its leaders drawn from that season -- and is read from
         the chain's newest season either way, because that is what describes the whole history.
+
+        A year is a look at the book rather than a move to that year's league: the tabs above it,
+        the league switcher beside them, the All-Time chip and the address itself all stay on the
+        season the reader is in, and the scope changes under them and nothing else.
         """
         username = request.args.get("username", "").strip() or session.get("username", "")
         manager_id = request.args.get("manager_id", "").strip() or session.get("manager_id", "")
@@ -600,17 +631,22 @@ def create_app() -> Flask:
                                           username, manager_id=manager_id, season=season)
         except SleeperError as exc:
             return render_template("index.html", error=str(exc)), 400
-        save_connection(username, manager_id, league_id, history_id)
+        # The league the reader is in is the newest season of the chain -- the one every other tab
+        # opens on -- and it is the newest entry of the chain that names it, so nothing here has to
+        # read the scope to find out where the reader is. The summary describes the season in view
+        # (its book, and the name the page is titled with); these describe the reader.
+        current_league_id = str(history[0]["league_id"]) if history else str(league_id)
+        current_season = str(history[0]["season"]) if history else str(summary["season"])
+        current_league_name = str(history[0].get("name") or summary["league"].get("name", ""))
+        save_connection(username, manager_id, current_league_id, history_id)
         return render_template("history.html", summary=summary, username=username,
-                               manager_id=manager_id, season=summary["season"],
-                               current_league_id=summary["league"]["league_id"],
+                               manager_id=manager_id, season=current_season,
+                               current_league_id=current_league_id,
                                switch_page="history",
                                season_options=history, history_league_id=history_id,
-                               current_league_name=str(summary["league"].get("name", "")),
+                               current_league_name=current_league_name,
                                league_options=league_switcher_data(
-                                   username, manager_id,
-                                   str(summary["league"].get("season", "")),
-                                   summary["league"]["league_id"]))
+                                   username, manager_id, current_season, current_league_id))
 
     @app.get("/league/<league_id>/pick")
     def pick_detail(league_id: str):
@@ -755,6 +791,78 @@ def create_app() -> Flask:
                 history[0]["season"] if history else str(league.get("season") or ""),
                 league["league_id"]),
             first=first, second=second, comparison=comparison,
+        )
+
+    @app.get("/league/<league_id>/players")
+    def league_players(league_id: str):
+        """The names a search box in this league completes to, as JSON.
+
+        A compare box asks for this the first time one of them is used: the set is the players
+        this league has actually held, so a name completed from it is one the lookup behind the
+        box can answer for -- and a reader who never types in one of those boxes fetches none of
+        it. Ordered by what each player is on pace for, so the suggestion is the name this league
+        would answer about first.
+        """
+        response = jsonify(names=league_tools.player_names(league_id))
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.get("/league/<league_id>/pace")
+    def pace(league_id: str):
+        """The Pace board: what every player this league has is on pace for, by any stat.
+
+        This is the ranking Ask AI answers a pace question with, given a page of its own: both
+        read :func:`services.league_tools.pace_lines`, so a figure here and the same figure in
+        an answer are one projection of one set of games. What the page adds is the whole board
+        -- every player the league has scored, each with the stats his own position is measured
+        by -- in a table that can be reordered by whichever of those stats the reader is
+        thinking about, with the column it is reordered by and the position chip it is narrowed
+        to both read off the address, so a board can be pasted into a league chat and arrive as
+        the board it was.
+        """
+        username = request.args.get("username", "").strip() or session.get("username", "")
+        manager_id = request.args.get("manager_id", "").strip() or session.get("manager_id", "")
+        position = request.args.get("position", "").strip().upper()
+        # The column and the way round, as a pasted address spells them. Both are handed to the
+        # lookup rather than applied to the markup afterwards, so the rows arrive in the order a
+        # shared link asked for and the board reads that way before any script has run.
+        sort = request.args.get("sort", "").strip()
+        direction = request.args.get("dir", "").strip()
+        history_id, history = season_history_for(league_id, username, manager_id)
+        session["season_history_league_id"] = history_id
+        session.update(league_id=league_id, username=username, manager_id=manager_id)
+        try:
+            dashboard = get_league_dashboard(league_id)
+        except SleeperError as exc:
+            return render_template("index.html", error=str(exc)), 400
+        league = dashboard["league"]
+        # The read is anchored on the newest season of the chain -- the same anchoring an Ask AI
+        # question uses -- and told which season to project, so the page opened from an older
+        # season projects that season and the switcher reads what it says.
+        root = str(history[0]["league_id"]) if history else league_id
+        board = get_pace_board(root, season=str(league.get("season") or ""), position=position,
+                               sort=sort, direction=direction)
+        save_connection(username, manager_id, league_id, history_id)
+        seasons = sorted(str(item["season"]) for item in history) or [str(league.get("season") or "")]
+        # What the switches to another season or another league carry: the board in view, sort and
+        # all. Its own opening order is left unsaid, which is how this app spells a default.
+        switch_sort = "" if board["opening"] else board["sort"]
+        switch_dir = "" if board["opening"] else board["direction"]
+        return render_template(
+            "pace.html", username=username, manager_id=manager_id,
+            league_name=str(league.get("name") or ""),
+            current_league_id=league["league_id"],
+            current_league_name=str(league.get("name") or ""),
+            season=str(league.get("season") or ""),
+            seasons_label=(seasons[0] if len(seasons) == 1 else f"{seasons[0]}\u2013{seasons[-1]}"),
+            switch_page="pace", switch_position=position,
+            switch_sort=switch_sort, switch_dir=switch_dir,
+            season_options=history, history_league_id=history_id,
+            league_options=league_switcher_data(
+                username, manager_id,
+                history[0]["season"] if history else str(league.get("season") or ""),
+                league["league_id"]),
+            board=board,
         )
 
     @app.get("/league/<league_id>/player-data")

@@ -11,7 +11,7 @@
 <div class="seasonal-page compare-page">
 
 <div class="matchups-heading"><div>{% include "_season_switcher.html" %}<h1 class="section-title">Compare Players</h1></div></div>
-<div class="feature-toolbar"><div class="mode-switch"><a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, username=username, manager_id=manager_id) }}">Matchups</a>{% if show_impact_players %}<a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, impact='1', username=username, manager_id=manager_id) }}">Impact Players</a>{% endif %}<a class="mode-button" href="{{ url_for('player_data', league_id=current_league_id, seasonal='1', username=username, manager_id=manager_id) }}">Player Data</a>{% if show_trades %}<a class="mode-button" href="{{ url_for('trades', league_id=current_league_id, username=username, manager_id=manager_id) }}">Trades</a>{% endif %}{% if show_history %}<a class="mode-button" href="{{ url_for('history', league_id=current_league_id, username=username, manager_id=manager_id) }}">History</a>{% endif %}{% if show_ask_ai %}<a class="mode-button" href="{{ url_for('ask', league_id=current_league_id, username=username, manager_id=manager_id) }}">Ask AI</a>{% endif %}<span class="mode-button active" aria-current="page">Compare</span></div>{% include "_changelog.html" %}{% include "_league_switcher.html" %}</div>
+<div class="feature-toolbar"><div class="mode-switch"><a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, username=username, manager_id=manager_id) }}">Matchups</a>{% if show_impact_players %}<a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, impact='1', username=username, manager_id=manager_id) }}">Impact Players</a>{% endif %}<a class="mode-button" href="{{ url_for('player_data', league_id=current_league_id, seasonal='1', username=username, manager_id=manager_id) }}">Player Data</a>{% if show_trades %}<a class="mode-button" href="{{ url_for('trades', league_id=current_league_id, username=username, manager_id=manager_id) }}">Trades</a>{% endif %}{% if show_history %}<a class="mode-button" href="{{ url_for('history', league_id=current_league_id, username=username, manager_id=manager_id) }}">History</a>{% endif %}{% if show_ask_ai %}<a class="mode-button" href="{{ url_for('ask', league_id=current_league_id, username=username, manager_id=manager_id) }}">Ask AI</a>{% endif %}<span class="mode-button active" aria-current="page">Compare</span><a class="mode-button" href="{{ url_for('pace', league_id=current_league_id, username=username, manager_id=manager_id) }}">Pace</a></div>{% include "_changelog.html" %}{% include "_league_switcher.html" %}</div>
 
 {# Two names, each in its own box: a comparison is a question about a pair, and asking for the
    pair in the order it reads is what makes the table's two columns predictable. #}
@@ -20,11 +20,11 @@
   <input type="hidden" name="manager_id" value="{{ manager_id }}">
   <label class="visually-hidden" for="compare-first">First player</label>
   <input id="compare-first" name="player" type="search" autocomplete="off" maxlength="80" required
-         value="{{ first }}" placeholder="First player">
+         data-player-suggest value="{{ first }}" placeholder="First player">
   <span class="compare-form-vs" aria-hidden="true">vs</span>
   <label class="visually-hidden" for="compare-second">Second player</label>
   <input id="compare-second" name="other" type="search" autocomplete="off" maxlength="80" required
-         value="{{ second }}" placeholder="Second player">
+         data-player-suggest value="{{ second }}" placeholder="Second player">
   <button type="submit">Compare</button>
 </form>
 
@@ -99,7 +99,7 @@
 <p class="compare-scope">Name two players and this page projects each over a full {{ season }} season, side by side, on the stats they share — points, points a game and total touchdowns always — with the stats only one of them carries listed underneath. It is the same projection the <strong>Generate Pace</strong> button draws on a player's card, so a figure here and a figure there are the same figure. Save it as an image with the camera, or copy the address and paste it into a league chat.</p>
 {% endif %}
 
-<p class="compare-footnote">Names are matched loosely — part of a surname is enough — but only against the players <strong>{{ league_name }}</strong> has held. Points are this league's own scoring, and a pace counts only the weeks this league scored and that Sleeper recorded the player on the field for.</p>
+<p class="compare-footnote">Names are matched loosely — part of a surname is enough, and a name you start typing is finished for you — but only against the players <strong>{{ league_name }}</strong> has held. Points are this league's own scoring, and a pace counts only the weeks this league scored and that Sleeper recorded the player on the field for.</p>
 
 </div>
 {% endblock %}

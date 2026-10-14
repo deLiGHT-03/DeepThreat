@@ -98,9 +98,71 @@ def stat_table() -> dict[str, dict]:
     return table
 
 
+def pace_figure(value: float, decimals: int) -> str:
+    """A pace figure the way a player card prints it: whole numbers grouped, decimals as they are."""
+    return f"{float(value):,.{int(decimals)}f}"
+
+
+def stat_order() -> tuple[str, ...]:
+    """Every stat a pace line can hold, in the order a table reads them.
+
+    Built from :data:`POSITION_STATS` for the same reason :func:`stat_table` is: a stat's place
+    in a table is the place its position gives it, so the columns of a ranking and the rows of
+    one player's pace are one order rather than two that can drift apart. The two scored stats
+    come last, because they are every position's rather than one position's.
+    """
+    order: list[str] = []
+    for stats in POSITION_STATS.values():
+        for _label, abbreviation, _keys, _decimals in stats:
+            if abbreviation not in order:
+                order.append(abbreviation)
+    order.extend(abbreviation for abbreviation, _label, _decimals in SCORED_STATS)
+    return tuple(order)
+
+
 def _pace(total: float, games: int) -> float:
     """One season figure, projected over a full season at the rate it was earned at."""
     return total / games * SEASON_GAMES
+
+
+def pace_rows(position: str, totals: dict[str, float], points: float, games: int) -> list[dict]:
+    """One player's pace line: the stats his position is measured by, then his points.
+
+    This is the only place a pace is worked out. ``totals`` is his own summed stat keys and
+    ``points`` the league's own scoring for the same games, so the caller decides what a game is
+    and this decides only how a season's figure projects over a full one -- which is what makes a
+    row of a ranking and the row under the same player's card the same figure, on the same games,
+    rather than two calculations that happen to agree today.
+
+    A position with no table of its own -- a kicker, a defense -- gets the two scored stats and
+    nothing else, because the league scores whoever it likes and measures only some of them by
+    the rest.
+    """
+    if games < 1:
+        return []
+    rows = [{
+        "label": label,
+        "abbr": abbreviation,
+        "pace": round(_pace(sum(totals.get(key, 0.0) for key in keys), games), decimals),
+        "decimals": decimals,
+    } for label, abbreviation, keys, decimals in POSITION_STATS.get(position or "", ())]
+    rows.append({
+        "label": "Points",
+        "abbr": "PTS",
+        "pace": round(_pace(points, games), 1),
+        "decimals": 1,
+    })
+    # Points per game is already a rate, so a full season does not change it: the pace of a
+    # per-game figure is that figure. It is kept as a row of its own because it is how two
+    # players are actually compared.
+    rows.append({
+        "label": "Points Per Game",
+        "abbr": "PPG",
+        "pace": round(points / games, 1),
+        "decimals": 1,
+        "rate": True,
+    })
+    return rows
 
 
 def get_player_pace(league_id: str, player_id: str) -> dict:
@@ -163,31 +225,7 @@ def get_player_pace(league_id: str, player_id: str) -> dict:
     # above are read from, so a pace's points and its stats describe one season, not two.
     scored = sum(_number(scored_weeks.get(week)) or 0.0 for week in counted)
 
-    rows = []
-    for label, abbreviation, keys, decimals in stats:
-        total = sum(totals.get(key, 0.0) for key in keys)
-        rows.append({
-            "label": label,
-            "abbr": abbreviation,
-            "pace": round(_pace(total, games), decimals),
-            "decimals": decimals,
-        })
-    rows.append({
-        "label": "Points",
-        "abbr": "PTS",
-        "pace": round(_pace(scored, games), 1),
-        "decimals": 1,
-    })
-    # Points per game is already a rate, so a full season does not change it: the pace of a
-    # per-game figure is that figure. It is kept as a row of its own because it is how the two
-    # players in a trade are actually compared.
-    rows.append({
-        "label": "Points Per Game",
-        "abbr": "PPG",
-        "pace": round(scored / games, 1),
-        "decimals": 1,
-        "rate": True,
-    })
+    rows = pace_rows(position, totals, scored, games)
 
     name, _ = _player_display_names(player, player_id)
     return {

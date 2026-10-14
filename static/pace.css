@@ -1,0 +1,37 @@
+/* Pace: the whole league's board, one row a player and one column a stat he is on pace for. */
+
+/* The board shows a dozen columns where the Season table shows seven, so its table takes the
+   page's full width instead of the narrower column the other tables sit in. */
+.pace-page .season-table-wrap{width:100%;max-width:none}
+/* A position is a chip here rather than a tab, because the board is meant to be flipped through:
+   one click asks the same question of a narrower set. */
+.pace-page .pace-filters{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 12px}
+.pace-page .pace-filter{
+  display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+  padding:8px 11px;border:1px solid #303b33;border-radius:7px;background:#1b221e;
+  color:#aab7ae;text-decoration:none;font-size:11px;
+}
+.pace-page .pace-filter small{color:#748178;font-size:9px;font-variant-numeric:tabular-nums}
+.pace-page .pace-filter:hover,.pace-page .pace-filter:focus-visible{color:#b7f56d;border-color:#435144}
+.pace-page .pace-filter.active{background:#b7f56d;border-color:#b7f56d;color:#14200f;font-weight:700}
+.pace-page .pace-filter.active small{color:#45601f}
+/* Every column head is a button, so the label's own spacing is kept small enough for a column
+   head that a reader might click. */
+.pace-page .pace-table thead th .sort-button{font-size:9px;letter-spacing:.07em}
+.pace-page .pace-table tbody td:first-child{color:#e4ece6;font-weight:600}
+/* A position is a label with a background of its own, and the shared style around one leaves it
+   no room left or right: two letters sit right up against the edges of their own box. The room is
+   put back here, at the sides only -- a label is not a figure, and padding above and below would
+   make every row of a 340-player board taller for it. */
+.pace-page .pace-table tbody td .position{padding-left:7px;padding-right:7px}
+/* The position's own column is given only the width its contents need -- the two-letter label,
+   and the heading a reader clicks to sort by it -- so the board's figures take the rest of the
+   table instead of a narrow label holding a column as broad as a column of numbers. Its pads are
+   set here as well: 12px on either side of two letters is the rest of what made it look empty. */
+.pace-page .pace-table th:nth-child(2),.pace-page .pace-table td:nth-child(2){width:1%;padding-left:9px;padding-right:9px}
+/* A dash is the absence of a figure rather than a zero: it keeps its column and is set quieter
+   than the figures beside it. */
+.pace-page .pace-table tbody td.pace-blank{color:#748178}
+.pace-page .pace-table tbody tr:hover{background:#232c26}
+.pace-page .pace-footnote{max-width:820px;margin:14px auto 0;color:#75837b;font-size:11px;line-height:1.65}
+@media(max-width:640px){.pace-page .pace-filter{padding:7px 9px;font-size:10px}}

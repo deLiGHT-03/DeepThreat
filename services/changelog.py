@@ -51,6 +51,76 @@ COVERED_THROUGH = "1a6e65d"
 RELEASES = [
     {
         "date": "2026-10-14",
+        "title": "A year in History is a look, not a move",
+        "entries": [
+            ("functionality",
+             "Choosing a year in History now changes only the record book you are reading: the "
+             "tabs beside it, the league switcher and the address all stay on the season you are "
+             "in, so a look back at an older year no longer opens the rest of the app in that "
+             "year's league."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "A Pace board remembers how it was read",
+        "entries": [
+            ("functionality",
+             "Sort a Pace board by any column and narrow it to a position, and the address says "
+             "so: paste it into a league chat and it opens as the board you were reading — the "
+             "same rows in the same order, with the column it is read by named above the table."),
+            ("also",
+             "Changing season or league keeps both, because it is the same board on another "
+             "set of games."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "Compare boxes finish the name for you",
+        "entries": [
+            ("functionality",
+             "Start typing a player's name in a compare box and the rest of it appears faintly "
+             "after what you have typed; Tab, Enter or a click on the faint part takes it, so a "
+             "name does not have to be typed out in full."),
+            ("also",
+             "The suggestion is always a player your own league has held — the same names the "
+             "comparison can answer for — the ones on pace for the most suggested first."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "A Pace board for the whole league",
+        "entries": [
+            ("functionality",
+             "A Pace tab: every player the league has scored, and what each is on pace for over "
+             "a full season in the stats his position is judged by — points and points a game, "
+             "passing and rushing yards, carries, catches, touchdowns and turnovers."),
+            ("visual",
+             "Click any column to sort by it and any position chip to narrow it, with a dash "
+             "where a stat is not one that position is measured by."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "Pace rankings show a player's whole line",
+        "entries": [
+            ("functionality",
+             "Ask who is on pace for the most of something and the table now carries each "
+             "player's whole line — the yards, catches and touchdowns his own position is "
+             "measured by, beside his points — so it can be read across as well as down."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
+        "title": "Compare a player from his own card",
+        "entries": [
+            ("functionality",
+             "A generated pace now has a box under it: name a second player and his pace is "
+             "set beside the first, on the stats they share, with whoever is ahead on each one "
+             "marked."),
+        ],
+    },
+    {
+        "date": "2026-10-14",
         "title": "Pace rankings cover every stat a position has",
         "entries": [
             ("functionality",
