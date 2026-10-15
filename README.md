@@ -28,6 +28,62 @@ header ask crawlers to stay out, and `services/rate_limit.py` counts every reque
 and across the whole instance, so a walker or a loop is refused with a `429` instead of spending
 the instance and the Gemini quota. DEPLOY.md has the counts and how to change them.
 
+## Check everything before a commit
+
+`python tools/preflight.py` runs every check this repository has and answers with one verdict, in
+the order that fails fastest and cheapest first: the project's Python compiles, the app builds —
+every template compiles and the notebook's releases are a list this app can serve, which is what
+stops the app at startup otherwise — every script in `static/` parses (asked only where `node` is
+installed, since the app itself needs no Node anywhere), every style sheet and script is fetched at
+a URL made of the file's own bytes, the lineup slots reconcile with Sleeper's own weekly figures,
+and every page mode the app links to is measured in a real browser at nine widths. It prints one
+line per check carrying that check's own closing sentence, and one verdict at the end: exit 0 when
+every check that was asked ran and passed, 1 when one failed — with the end of its own output
+printed under the verdict — and 2 when nothing failed but something could not be asked, which is a
+check that ended 2 for its own reasons (no league to read, no browser installed, an upstream that
+did not answer) or one that ran out of the time it was given. A check nobody could run is never a
+pass.
+
+The two checks that read a league take the same `--league-id`, `--username` and `--manager-id` the
+other tools take and read the saved connection when they are not given one, so a machine with no
+connection saved is told those two could not be asked rather than being told they passed. `--fast`
+leaves out the browser pass, which is the slow one. `--only` and `--skip` name checks by hand —
+`syntax`, `app`, `javascript`, `stamps`, `slots`, `layout` — and a check left out because it was
+asked for is named in the verdict and does not change the exit code, because leaving it out was
+the request. `--base-url http://127.0.0.1:PORT` points the two checks that accept one at an app
+already running instead of starting their own, and `--json out.json` keeps every check's exit
+code, its time and the whole of its output. `tools/check_deployed_revisions.py` is deliberately
+not one of the steps: it asks the hosts which revision they are serving, which is a question about
+a deploy rather than about a commit.
+
+## Check what the push is serving
+
+`python tools/postflight.py` is the preflight's sibling at the other end of a commit: one verdict
+on whether the deployed copies are serving the revision that was pushed. A copy that is behind
+answers exactly like one that is not, and a copy can name the pushed commit while handing somebody
+yesterday's stylesheet — an edge cache, or a build that shipped half of what it claimed — so it
+asks four things rather than one. **The revision** each host says it runs, through
+`tools/check_deployed_revisions.py`, which is where the hosts are known and the answer is judged:
+current, behind, unknown, blocked or unreachable, with a copy that could not be asked never counted
+as one that is current. **The page**, from every copy that answered as the pushed revision: it must
+answer 200, and every style sheet and script on it must be named at a URL carrying a stamp. **The
+bytes**, fetched from that copy and compared with the file in the pushed commit byte for byte —
+against the commit rather than against this checkout, which holds the same files with different
+line endings on Windows — together with the stamp in each URL checked against the bytes it served
+and the year of caching that stamp is what makes safe. And **the words**: the newest release in the
+notebook must be on that page, because the words of a release exist only in the revision that wrote
+them. A copy that says it is behind, or that could not be asked at all, is not asked the rest — it
+has already answered.
+
+Exit 0 means every copy is the push and served its own page and bytes; 1 means a copy is behind, or
+answered as the pushed revision and then served something that is not it; 2 means a copy could not
+be asked, which is never a copy that is serving. `--wait 600` keeps asking while a build lands,
+`--host NAME=URL` asks a host that has been added since, or only that one, and `--league-id`,
+`--username` and `--manager-id` say which league's page to ask for — a served copy holds no
+connection of its own and a league page needs none, since the league is in the address. `--json`
+keeps every answer. With no league to name it asks for the connection page, which carries no
+release words, and the run says so rather than counting the copy as current on that alone.
+
 ## Check the page layout
 
 Every page opens with the brand logo standing where its own title used to, in a head band that holds nothing else, with the season and league switchers down the right of the toolbar below it. Everything below that logo stands on the page's canvas: one raised sheet with a hairline edge, a corner and a shadow under it, and the background with its glow showing as a margin around it, so the head band, the toolbar and the tables under them are one surface rather than several objects an equal distance from nothing. The sheet's colour is the palette's own — `themes.css` sets it per skin, a step above the background it stands over and a step below the cards and tables that sit on it — and the shape it keeps is in `.page`: a wash of light across its top edge, a twenty-two pixel corner, and a shadow underneath. It is deliberately not a clipping box and not a positioning context, because what a page opens over itself still has to read above it: the player card, the changelog and a sticky comparison are all drawn over the sheet rather than trapped inside it. A phone keeps the same sheet with a gutter down either side rather than a column's margin, and the gutter plus the room inside it add up to the padding a page was read at before there was a sheet at all, so a phone's toolbar still fits the row it was measured for. Narrowed, that toolbar is two rows rather than the six it stacks into on its own: the tabs keep a row of their own and scroll across it, and every control below them — the notebook, the season, the key to the saved account, loading the league, the league switcher and the theme — is placed on one line (`display:contents` on the two boxes the controls are stacked in, so that a box the row would place as a whole is not a column inside it). The league switcher takes a row of its own under the rest on a phone, where it is wider than what is left beside them. `python tools/check_layout.py` drives a real browser over every page mode the app links to, at nine widths either side of the 981px breakpoint, and fails if anything is drawn through the logo, if a page runs off its own width, or if a narrow toolbar stacks the notebook, the season, loading the league and the theme instead of reading them on one line. It starts its own server and checks the league already saved in your settings; install the extra tooling first with `python -m pip install -r requirements-dev.txt`.
@@ -111,6 +167,8 @@ Run `packaging\build_windows.ps1` in PowerShell on Windows. Install Inno Setup 6
 - `static/player-card.js` opens the player card from any player name, on a click, generates the card's 17-game pace table when its button is pressed — the line with the work behind a figure faded above it, which is the row a card reads where the board draws a column — and sets a second player beside it from the box underneath.
 - `templates/pace.html`, `static/pace.js` and `static/compare.js` are the Pace board: every player's pace line in one table, sorted by any column in the browser and narrowed by a position chip, with the compare panel on it — down the right of the page, and above the board and folded to its own head on a window too narrow for the two columns — two players' paces side by side, the camera button that saves the card and the button that copies its address.
 - `templates/` contains the pages; `static/style.css` contains the visual styling.
+- `tools/preflight.py` runs every check here in the order that fails fastest and answers with one verdict, and `--only`/`--skip` name them by hand.
+- `tools/postflight.py` answers whether the deployed copies are serving the pushed revision: what each host says it runs, and what each copy that claims to be current actually serves.
 - `tools/check_asset_stamps.py` proves every style sheet and script is fetched at a URL made of the file's own bytes, which is what the year of caching they carry is safe on.
 - `tools/check_layout.py` measures what shares the brand logo's row against the logo in a real browser, and checks that no page is wider than its window.
 - `tools/check_lineup_slots.py` proves the slot assignment places every starter, sums to each team's official score, and keeps Group View equal to the collapsed slot view, and reconciles the Season tab's slot averages and the Player Data season tables against the same weekly numbers.

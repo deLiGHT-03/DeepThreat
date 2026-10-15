@@ -184,6 +184,16 @@ a host that names only the SHA. Nothing is read from Sleeper and nothing is cach
 platform's sense: the answer is worked out once, when the first health check asks, and cannot
 change while the process lives. Compare it against `git rev-parse HEAD` on the branch you pushed.
 
+`python tools/check_deployed_revisions.py` asks every copy that question and says what each answer
+amounts to — current, behind, unknown, blocked or unreachable, with a copy that could not be asked
+never counted as one that is current — and `--wait 600` keeps asking until a build lands.
+`python tools/postflight.py` is the whole of it in one command, plus the half a revision number
+cannot answer: a copy can name the pushed commit and still serve somebody else's bytes, so it also
+fetches a page from each copy that answered as the pushed revision and compares every style sheet
+and script that page names with the file in the pushed commit, byte for byte, with the stamp in
+its URL and the year of caching that stamp is what makes safe. It exits 1 for a copy that is behind
+or that answered as the push and served something else, and 2 when a copy could not be asked.
+
 ## Stamping the revision into a build
 
 A host that hands no revision over can still be named. The build runs in the checkout even when
