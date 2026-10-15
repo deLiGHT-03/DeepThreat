@@ -14,8 +14,9 @@ copies for the things a name cannot prove:
 * **the bytes** -- every asset that page names, fetched from that copy and compared with the file
   in the pushed commit, byte for byte, together with the stamp in its own URL and the year of
   caching that stamp is what makes safe;
-* **the words** -- the newest release in the notebook must be in the page a copy serves, which is
-  the one thing here that only the pushed commit's own code and templates can say.
+* **the words** -- the newest release in the notebook must be in the page a copy serves, read out
+  of the markup as a reader reads it rather than as the markup writes it, which is the one thing
+  here that only the pushed commit's own code and templates can say.
 
 A copy that is behind or that cannot be asked is not asked the rest: its answer is already "not
 this revision", and comparing its assets would only report that again as noise.
@@ -45,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
 import re
 import subprocess
@@ -193,11 +195,18 @@ def check_serving(name: str, base: str, expected: str, page_path: str, title: st
     if page is None:
         return report
     text = page.decode("utf-8", errors="replace")
-    urls = STATIC_URL.findall(text)
+    # What the page says, as a reader reads it rather than as the markup writes it: a title with
+    # an apostrophe in it arrives escaped -- "A Pace board's title" is written &#39; there -- and a
+    # test against the markup would call a copy that carries the words one that does not, which is
+    # what this said about the first release here to have an apostrophe in its headline. An asset
+    # address with more than one parameter is escaped the same way, so it is read the same way
+    # before anything is fetched at it.
+    spoken = html.unescape(text)
+    urls = [html.unescape(url) for url in STATIC_URL.findall(text)]
     if not urls:
         report["unasked"].append(f"{page_path} named no static file at all")
     if title:
-        report["words"] = title in text
+        report["words"] = title in spoken
         if not report["words"]:
             report["problems"].append(f"the page does not carry the newest release, {title!r}")
 
