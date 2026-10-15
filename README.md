@@ -61,7 +61,22 @@ the page rather than trusted to a diff:
   digest of the file's own bytes: an edited file is a new URL, so nobody is ever shown a cached
   copy of the old one, and a page view stops re-asking for files that have not changed. A
   static file asked for at a URL without a stamp keeps the revalidate-every-time header, so the
-  long cache and the stamp cannot come apart.
+  long cache and the stamp cannot come apart. `python tools/check_asset_stamps.py` asks that of
+  every file a page loads rather than trusting it: it reads each stamp out of the app and
+  compares it with the file's own bytes, moves a scratch file's contents to watch the URL move
+  with them (a longer file, a shorter one and an edit that leaves the length alone alike), and
+  rewrites a file's modification time on its own to watch the URL stay put, because a checkout
+  moves every timestamp and a deploy must not throw away a cache a visitor already has. Through
+  HTTP it then fetches a stamped URL and the same file without one: the bytes hash back to the
+  stamp in the URL, and the year arrives with that stamp or not at all. It starts its own server,
+  needs nothing installed beyond what the app needs, and ends 0 when every URL is about its
+  contents, 1 when one is not, and 2 when something could not be asked — which is never a pass.
+  One case it prints rather than passes over: the app keeps what it read against a file's size and
+  modification time, so a rewrite that leaves both exactly alone is answered from the earlier read
+  until the process is restarted — and two writes of the same length landing in the same clock tick
+  are exactly that to a file system. No editor, checkout or build leaves a modification time alone,
+  and a fresh process reads the file again, so the address a visitor is given is still made of the
+  bytes they are served.
 
 ## What's new
 
@@ -96,6 +111,7 @@ Run `packaging\build_windows.ps1` in PowerShell on Windows. Install Inno Setup 6
 - `static/player-card.js` opens the player card from any player name, on a click, generates the card's 17-game pace table when its button is pressed — the line with the work behind a figure faded above it, which is the row a card reads where the board draws a column — and sets a second player beside it from the box underneath.
 - `templates/pace.html`, `static/pace.js` and `static/compare.js` are the Pace board: every player's pace line in one table, sorted by any column in the browser and narrowed by a position chip, with the compare panel on it — down the right of the page, and above the board and folded to its own head on a window too narrow for the two columns — two players' paces side by side, the camera button that saves the card and the button that copies its address.
 - `templates/` contains the pages; `static/style.css` contains the visual styling.
+- `tools/check_asset_stamps.py` proves every style sheet and script is fetched at a URL made of the file's own bytes, which is what the year of caching they carry is safe on.
 - `tools/check_layout.py` measures what shares the brand logo's row against the logo in a real browser, and checks that no page is wider than its window.
 - `tools/check_lineup_slots.py` proves the slot assignment places every starter, sums to each team's official score, and keeps Group View equal to the collapsed slot view, and reconciles the Season tab's slot averages and the Player Data season tables against the same weekly numbers.
 - `tools/make_web_logo.py` writes the lossless WebP the pages load from the PNG the Windows icon is drawn from.

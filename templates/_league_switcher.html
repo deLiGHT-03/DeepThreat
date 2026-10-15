@@ -11,8 +11,15 @@
 <label class="league-switcher">
   <span class="visually-hidden">Switch leagues</span>
   {% set current_option = league_options | selectattr('is_current') | list | first %}
-  {# The closed select names the league you are viewing; the season stays as a header inside the open list. #}
-  {% set closed_label = ('Current · ' ~ current_league_name) if current_league_name and not current_option else (season ~ ' Season') %}
+  {# The closed select names the league you are viewing, and the open list's own selection is what
+     says which league that is: the one the menu is set to is the one being read, so nothing writes
+     "Current" beside it. A closed menu set to your choice already says what it is set to, and the
+     word cost a line of the league's own name to say what the selection had said -- this reads
+     like every other menu in the app rather than like one that has to point at itself. The season
+     stays as a header inside the open list. #}
+  {# The one option that is not a league: what is shown when the league in the address is not one
+     the saved account holds, which is the only case with nothing in the list to be chosen. #}
+  {% set closed_label = current_league_name if current_league_name and not current_option else (season ~ ' Season') %}
   <select aria-label="Switch leagues" onchange="if (this.value) window.location.assign(this.value)">
     <option value="" {% if not current_option %}selected{% endif %} disabled>{{ closed_label }}</option>
     {% for option in league_options %}
@@ -38,9 +45,7 @@
     {% else %}
     {% set destination = url_for('league', league_id=option.league_id, username=username, manager_id=manager_id, season=season, history_id=option.league_id) %}
     {% endif %}
-    <option value="{{ destination }}" {% if option.is_current %}selected disabled{% endif %}>
-      {% if option.is_current %}Current · {% endif %}{{ option.name }}
-    </option>
+    <option value="{{ destination }}" {% if option.is_current %}selected disabled{% endif %}>{{ option.name }}</option>
     {% endfor %}
   </select>
 </label>

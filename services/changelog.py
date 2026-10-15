@@ -51,6 +51,21 @@ COVERED_THROUGH = "95c5fb5"
 RELEASES = [
     {
         "date": "2026-10-15",
+        "title": "The league menu reads as the league you are on",
+        "entries": [
+            ("visual",
+             "The list of leagues no longer writes \"Current\" in front of the one you are reading: a "
+             "closed menu already shows the league it is set to, so the word was the menu saying its "
+             "own selection out loud, and the league's name is the whole of the line now."),
+            ("also",
+             "Every style sheet and script is fetched at an address made of the file's own contents, "
+             "which is what lets a browser keep one for a year without ever being shown an older copy "
+             "of a file that has changed. A check now asks the app that question about every file a "
+             "page loads rather than taking the answer for granted."),
+        ],
+    },
+    {
+        "date": "2026-10-15",
         "title": "Every page stands on its own sheet",
         "entries": [
             ("visual",
