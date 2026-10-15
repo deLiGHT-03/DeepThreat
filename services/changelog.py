@@ -45,7 +45,7 @@ KINDS = (
 #: notebook has not been told about yet, and that is what ``tools/draft_changelog.py`` drafts
 #: from; the tool moves this along when it writes a release, so it is kept honest by being written
 #: rather than remembered. Nothing reads it while the app runs -- it is a note to that tool.
-COVERED_THROUGH = "95c5fb5"
+COVERED_THROUGH = "70d19af"
 
 #: Every release, newest first. See the module docstring for what belongs in one.
 RELEASES = [
