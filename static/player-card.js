@@ -6,7 +6,8 @@
 // The card is asked for, not stumbled onto: nothing opens until a name is clicked, so moving
 // the pointer across a table of names costs nothing and never leaves a card in the way. One
 // request per player is kept for the life of the page, and the card stays put while it is read
-// and scrolled, until the reader clicks the name again or clicks away.
+// and scrolled -- scrolling never puts it away -- until the reader clicks the name again, clicks
+// anywhere else, or presses Escape.
 (() => {
   "use strict";
 
@@ -139,6 +140,14 @@
     const body = document.createElement("tbody");
     pace.rows.forEach((row) => {
       const line = document.createElement("tr");
+      // A shadowed row is the work behind a figure rather than a figure the league scores -- what
+      // the Pace board draws grey in a column beside that stat, read here as a row above it. The
+      // note the row carries is the same one the board's heading carries, so the grey means the
+      // same thing wherever a reader meets it.
+      if (row.context) {
+        line.className = "player-card-pace-context";
+        if (row.title) line.title = row.title;
+      }
       const label = document.createElement("th");
       label.scope = "row";
       label.textContent = row.label;
@@ -461,7 +470,12 @@
     const centred = name.left + name.width / 2 - box.width / 2;
     const left = Math.min(Math.max(MARGIN, centred),
                           Math.max(MARGIN, window.innerWidth - box.width - MARGIN));
-    panel.style.top = `${Math.round(Math.max(MARGIN, top))}px`;
+    // Kept inside the window at both ends: a card is as tall as the pace asked for it makes it,
+    // and a window too short for that should read the bottom of it by scrolling the card rather
+    // than have it run off the screen. The stylesheet caps the card's height at the window less
+    // these two margins, so the two ends cannot cross and the clamp is a real position.
+    const bottom = window.innerHeight - box.height - MARGIN;
+    panel.style.top = `${Math.round(Math.min(Math.max(MARGIN, top), Math.max(MARGIN, bottom)))}px`;
     panel.style.left = `${Math.round(left)}px`;
   }
 
@@ -527,13 +541,10 @@
     }
   });
 
-  // The card is pinned to the viewport, so anything that moves the page closes it. Only a card
-  // that is actually on screen, though: one still being fetched has nothing to move, and the
-  // click that asked for it may itself have scrolled its name into view - it is left to land.
-  window.addEventListener("scroll", (event) => {
-    if (insideCard(event.target)) return; // that is the card's own week list scrolling
-    if (open) hide();
-  }, true);
+  // Nothing that moves the page puts the card away: it is pinned to the viewport, so it stays
+  // exactly where it was put while the reader scrolls the table behind it and reads it against
+  // whatever has come into view -- and a pace generated on it is not thrown away by a turn of
+  // the wheel. What closes it is a click, on another name or on nothing at all, or Escape.
   window.addEventListener("resize", () => hide());
   // A press is only a request to dismiss the card when it is the primary button and it lands
   // on neither a name nor the card: pressing the wheel starts autoscroll, pressing the card is

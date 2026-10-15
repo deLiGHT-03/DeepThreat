@@ -1,24 +1,22 @@
-"""Fail when the toolbar brand logo overlaps heading text on any page.
+"""Fail when the brand logo is drawn through anything, or a page runs off its own width.
 
-The brand logo in the toolbar is absolutely positioned: it hangs off the right edge of the
-league switcher, floating above the heading band (see ``static/themes.css``). Heading text
-therefore has to stay out of the logo's lane, which is what the ``max-width`` on
-``.matchups-heading>div`` reserves. The reservation depends on two things that are easy to
-break without noticing:
+Every page used to open with its title in the largest type on it and, on some of them, a
+sentence under that. The brand logo floated above that band off the toolbar's right, so the
+two had to be kept apart: a ``max-width`` on ``.matchups-heading>div`` reserved the logo's
+lane and the heading copy stayed inside what was left. None of that is there any more -- the
+titles and their sentences are gone and the logo stands at the left of the band in flow (see
+``templates/_page_head.html``) -- but the ways a header can go wrong did not go with it, and
+none of them is loud:
 
-* the logo stays anchored to the page's right edge, which holds only while the preload
-  button sits *before* the league switcher inside ``.league-controls`` (putting it after
-  the switcher shifted the logo 124px left and ran the Season description straight
-  through it), and
-* heading copy stays short enough to fit the reserved lane. That band is now just the
-  season switcher and the page title - the description paragraphs that used to sit beside
-  them were removed - so what has to fit is a title plus a season label like
-  "2025 Season".
+* the band holds the logo alone. A page that grows a title back, or a control moved up into
+  the band, is a logo with something else in its row;
+* the toolbar's controls -- the tabs, the notebook button and the season-and-league column --
+  stay on their own row below it rather than across it; and
+* every page fits the window it is read in, with nothing hanging off the side of it.
 
-Both failures are silent: nothing 500s, no test covers it, and the one page whose heading
-copy is longest looks wrong. This check drives a real browser over every page mode the app
-links to, at widths on both sides of the 981px breakpoint, and measures the heading's
-actual line boxes against the logo's box.
+This check drives a real browser over every page mode the app links to, at nine widths either
+side of the desktop breakpoint, and measures what is drawn in the logo's row against the
+logo's own box.
 
     python tools/check_layout.py                 # starts its own server, uses your saved league
     python tools/check_layout.py --base-url http://127.0.0.1:8790
@@ -28,7 +26,7 @@ Needs Playwright (``pip install -r requirements-dev.txt``) and a Chromium-family
 it drives the installed Edge/Chrome first so no browser download is required. Measured text
 widths depend on the Google-hosted webfonts, so the report says so when they did not load.
 
-Exit codes: 0 clean, 1 overlap found, 2 something could not be measured.
+Exit codes: 0 clean, 1 something overlaps or overflows, 2 something could not be measured.
 
 Note: every page view saves the connection (that is the app's own behaviour), so run this
 against the league already in your settings, or the check will leave its own values there.
@@ -92,21 +90,25 @@ MEASURE_JS = r"""
     return style.display !== "none" && style.visibility !== "hidden" && +style.opacity > 0;
   };
 
-  const image = document.querySelector(".switcher-brand-logo");
+  const image = document.querySelector(".page-brand-logo");
   const usable = image && shown(image) && image.complete && image.naturalWidth > 0;
   const logo = usable ? image.getBoundingClientRect() : null;
 
-  const heading = document.querySelector(".matchups-heading");
+  // Everything the logo could be drawn through. The band it stands in is measured as text --
+  // the band holds the logo alone, so a line of text in it is a page's own heading come back --
+  // and the toolbar under it as the boxes of what it holds, because that is what a control
+  // moved up into the band would collide with.
   const texts = [];
-  if (heading) {
-    const walker = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT);
+  const band = document.querySelector(".page-head");
+  if (band) {
+    const walker = document.createTreeWalker(band, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       if (!node.nodeValue || !node.nodeValue.trim()) continue;
       const host = node.parentElement;
       if (!host || !shown(host)) continue;
-      // Skip labels hidden for screen readers, and the text inside a select: those are
-      // measured through the control's own box instead, because a range inside a select
-      // has no layout of its own.
+      // Skip labels hidden for screen readers and the text inside a select: those are measured
+      // through the control's own box instead, because a range inside a select has no layout
+      // of its own.
       if (host.closest('.visually-hidden, select, option, script, style, [aria-hidden="true"]')) continue;
       const range = document.createRange();
       range.selectNodeContents(node);
@@ -115,16 +117,26 @@ MEASURE_JS = r"""
         texts.push(Object.assign(rect(line), { source: describe(host) }));
       }
     }
-    for (const control of heading.querySelectorAll("select, input, button, img")) {
-      if (!shown(control)) continue;
-      const box = control.getBoundingClientRect();
+    // And the boxes of anything that is a control rather than a word -- a select, a button, a
+    // picture -- because a control moved into the band brings no text this walk would read
+    // (a select's own text has no layout) and it is the thing the logo would be drawn through.
+    for (const child of band.querySelectorAll("select, button, input, img, a")) {
+      if (child === image || child.contains(image) || !shown(child)) continue;
+      const box = child.getBoundingClientRect();
       if (box.width < 0.5 || box.height < 0.5) continue;
-      texts.push(Object.assign(rect(box), { source: describe(control) }));
+      texts.push(Object.assign(rect(box), { source: describe(child) }));
     }
   }
+  const toolbar = document.querySelector(".feature-toolbar");
+  for (const control of toolbar ? toolbar.querySelectorAll(".mode-switch, .changelog, .page-controls") : []) {
+    if (!shown(control)) continue;
+    const box = control.getBoundingClientRect();
+    if (box.width < 0.5 || box.height < 0.5) continue;
+    texts.push(Object.assign(rect(box), { source: describe(control) }));
+  }
 
-  // A gap is the horizontal distance between the logo and a text line box; a negative gap
-  // is how far they overlap. Only lines that share vertical space with the logo count.
+  // A gap is the horizontal distance between the logo and a box; a negative gap is how far the
+  // two overlap. Only boxes that share vertical space with the logo count.
   let clearance = null;
   let worst = null;
   let beside = 0;
@@ -141,23 +153,27 @@ MEASURE_JS = r"""
     }
   }
 
-  // The 374px reserve assumes the logo is flush with the content box's right edge.
+  // The logo is the first thing on the page's own left edge, so that is where it should start.
   const page = document.querySelector(".page");
   let edge_gap = null;
   if (page && image) {
-    const padding = parseFloat(getComputedStyle(page).paddingRight) || 0;
-    edge_gap = +(image.getBoundingClientRect().right - (page.getBoundingClientRect().right - padding)).toFixed(2);
+    const padding = parseFloat(getComputedStyle(page).paddingLeft) || 0;
+    edge_gap = +(image.getBoundingClientRect().left - (page.getBoundingClientRect().left + padding)).toFixed(2);
   }
+
+  // Nothing may hang off the side of the window: a table too wide for the wrapper that scrolls
+  // it is the usual way this happens, and on a phone it is the whole page that slides sideways.
+  const overflow = +(document.documentElement.scrollWidth - document.documentElement.clientWidth).toFixed(2);
 
   return {
     logo: logo && rect(logo),
     logo_src: image ? image.getAttribute("src") : null,
-    heading_width: heading ? +heading.getBoundingClientRect().width.toFixed(2) : null,
     text_count: texts.length,
     beside: beside,
     clearance: clearance,
     worst: worst,
     edge_gap: edge_gap,
+    overflow: overflow,
     web_fonts: document.fonts.status === "loaded"
       && document.fonts.check("700 38px Manrope") && document.fonts.check("400 16px 'DM Sans'"),
   };
@@ -207,9 +223,9 @@ def load(page, url: str, timeout: int) -> None:
     if status != 200:
         raise Unmeasured(f"HTTP {status}")
     try:
-        page.wait_for_selector(".matchups-heading", timeout=timeout)
-    except Exception:  # noqa: BLE001 - a page with no heading cannot be measured
-        raise Unmeasured("the page rendered without a heading") from None
+        page.wait_for_selector(".page-head", timeout=timeout)
+    except Exception:  # noqa: BLE001 - a page with no head band cannot be measured
+        raise Unmeasured("the page rendered without its head band") from None
     # Text widths are the whole measurement, so the webfonts have to be in place first.
     page.evaluate("() => document.fonts.ready.then(() => true)")
 
@@ -270,6 +286,7 @@ def render(report: list[dict], widths: list[int], slack: float) -> int:
     overlaps: list[dict] = []
     unmeasured: list[dict] = []
     warnings: list[str] = []
+    overflows: list[dict] = []
     clearances: list[tuple[float, dict]] = []
     beside_widths = 0
     total = 0
@@ -288,12 +305,17 @@ def render(report: list[dict], widths: list[int], slack: float) -> int:
             result = sample["result"]
             # A missing logo would make every page pass for the wrong reason, so it counts
             # as unmeasured rather than clean.
-            if not result["logo"] or not result["text_count"]:
+            if not result["logo"]:
                 cells.append("      ?")
                 unmeasured.append({**sample, "url": entry["url"], "error": (
                     "the brand logo did not render (it needs the account's leagues from "
-                    "Sleeper), so there was nothing to measure" if not result["logo"]
-                    else "the heading rendered with no measurable text")})
+                    "Sleeper), so there was nothing to measure")})
+                continue
+            # A page wider than its window is the other silent header failure: the tabs and the
+            # switchers share one row, and a row that cannot fit slides the whole page sideways.
+            if result["overflow"] > slack:
+                cells.append("     !!")
+                overflows.append({**sample, "url": entry["url"], "result": result})
                 continue
             if result["worst"] and -result["worst"]["gap"] > slack:
                 cells.append("     !!")
@@ -307,8 +329,8 @@ def render(report: list[dict], widths: list[int], slack: float) -> int:
             clearances.append((result["clearance"], {**sample, "url": entry["url"]}))
             if result["clearance"] < 12:
                 warnings.append(
-                    f"only {result['clearance']:.0f}px between the logo and heading text on "
-                    f"{label(entry['url'])} at {sample['width']}px"
+                    f"only {result['clearance']:.0f}px between the logo and what shares its row "
+                    f"on {label(entry['url'])} at {sample['width']}px"
                 )
             if not result["web_fonts"]:
                 warnings.append(
@@ -319,22 +341,22 @@ def render(report: list[dict], widths: list[int], slack: float) -> int:
                 warnings.append(
                     f"the logo sits {abs(result['edge_gap']):.0f}px "
                     f"{'past' if result['edge_gap'] > 0 else 'short of'} the page edge on "
-                    f"{label(entry['url'])} at {sample['width']}px, so the reserved lane no "
-                    "longer matches it"
+                    f"{label(entry['url'])} at {sample['width']}px, so the band no longer "
+                    "starts the logo on the page's own left edge"
                 )
         print("  gap(px) " + "".join(f"{cell:>7}" for cell in cells))
         print()
 
     print("-" * 72)
     print(f"{len(report)} page modes x {len(widths)} widths = {total} measurements")
-    print("  – = the logo is on its own row, with no heading text beside it")
-    print("  number = px of clear space between the heading text and the logo")
-    print("  !! = overlap, ? = could not be measured")
+    print("  – = nothing shares the logo's row: the band holds the logo alone")
+    print("  number = px of clear space between the logo and what shares its row")
+    print("  !! = something overlaps the logo or runs off the page, ? = could not be measured")
 
     if clearances:
         tightest, where = min(clearances, key=lambda item: item[0])
         print(f"  tightest clearance: {tightest:.0f}px on {label(where['url'])} at {where['width']}px")
-    print(f"  {beside_widths} widths with text beside the logo, "
+    print(f"  {beside_widths} widths with something beside the logo, "
           f"{total - beside_widths - len(unmeasured)} with the logo on its own row")
 
     if unmeasured:
@@ -353,20 +375,29 @@ def render(report: list[dict], widths: list[int], slack: float) -> int:
             print(f"  {text}")
 
     if overlaps:
-        print(f"\nOVERLAP ({len(overlaps)}) — heading text runs through the brand logo:")
+        print(f"\nOVERLAP ({len(overlaps)}) — something is drawn through the brand logo:")
         for sample in overlaps:
             worst = sample["result"]["worst"]
             print(f"  {label(sample['url'])} at {sample['width']}px: "
                   f"{worst['text']['source']} overlaps the logo by {-worst['gap']:.0f}px "
-                  f"({worst['across']:.0f}px tall); text right edge "
+                  f"({worst['across']:.0f}px tall); its right edge "
                   f"{worst['text']['right']:.0f}px vs logo left edge {worst['logo']['left']:.0f}px")
-        print("\nEither keep heading copy inside the reserved lane, or move the logo so it no "
-              "longer floats over the heading band.")
+        print("\nThe head band holds the logo alone: keep anything else on the toolbar's own "
+              "row below it, or give the band room for the two.")
+        return 1
+
+    if overflows:
+        print(f"\nOVERFLOW ({len(overflows)}) — the page is wider than the window it is read in:")
+        for sample in overflows:
+            print(f"  {label(sample['url'])} at {sample['width']}px: the document is "
+                  f"{sample['result']['overflow']:.0f}px wider than the window")
+        print("\nSomething on the page asks for more width than it has: a row that cannot wrap "
+              "is the usual one, and on a header it is the toolbar's own row.")
         return 1
 
     if unmeasured:
         return 2
-    print("\nNo heading text overlaps the brand logo.")
+    print("\nNothing is drawn through the brand logo, and no page runs off its own width.")
     return 0
 
 
@@ -440,7 +471,7 @@ def main(argv: list[str] | None = None) -> int:
         seed(seed_paths[2], weekly),
     ]
 
-    print(f"Layout check — heading text vs the toolbar brand logo")
+    print(f"Layout check — the brand logo against what is drawn beside it")
     print(f"  server   {base}{'' if args.base_url else ' (started by this check)'}")
     print(f"  league   {league_id}   username {username or '(none)'}")
     print(f"  widths   {', '.join(str(width) for width in widths)}")

@@ -3,13 +3,11 @@
 <a class="reset-username-key" href="{{ url_for('reset_username') }}" aria-label="Change saved Sleeper username" title="Change saved Sleeper username">
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 14a5.5 5.5 0 1 1 4.9-3H22v3h-2v3h-3v3h-4v-4.1l-.6-.6A5.5 5.5 0 0 1 7.5 14Zm0-3a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/></svg>
 </a>
-{# Sits left of the league list so the brand logo above it still ends flush with the page edge. #}
 <button class="preload-button" type="button" data-preload data-preload-url="{{ url_for('preload', league_id=current_league_id, username=username, manager_id=manager_id) }}" title="Load all league data now">
   <span class="preload-dot" aria-hidden="true"></span>
   <span class="preload-label" aria-live="polite">Preload Data</span>
 </button>
 <div class="league-switcher-stack">
-<a class="switcher-brand" href="/" aria-label="DeepThreat home"><img class="switcher-brand-logo" src="{{ asset_url('deepthreat-arc-logo.webp') }}" alt="DeepThreat"></a>
 <label class="league-switcher">
   <span class="visually-hidden">Switch leagues</span>
   {% set current_option = league_options | selectattr('is_current') | list | first %}

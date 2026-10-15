@@ -13,8 +13,8 @@
 {% block content %}
 <div class="seasonal-page pace-page">
 
-<div class="matchups-heading"><div>{% include "_season_switcher.html" %}<h1 class="section-title">Pace Board</h1><p class="muted">What every player in {{ league_name }} is on pace for over a full {{ board.season_games }}-game season, in the stats his position is judged by.</p></div></div>
-<div class="feature-toolbar"><div class="mode-switch"><a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, username=username, manager_id=manager_id) }}">Matchups</a>{% if show_impact_players %}<a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, impact='1', username=username, manager_id=manager_id) }}">Impact Players</a>{% endif %}<a class="mode-button" href="{{ url_for('player_data', league_id=current_league_id, seasonal='1', username=username, manager_id=manager_id) }}">Player Data</a><span class="mode-button active" aria-current="page">Pace</span>{% if show_trades %}<a class="mode-button" href="{{ url_for('trades', league_id=current_league_id, username=username, manager_id=manager_id) }}">Trades</a>{% endif %}{% if show_history %}<a class="mode-button" href="{{ url_for('history', league_id=current_league_id, username=username, manager_id=manager_id) }}">History</a>{% endif %}{% if show_ask_ai %}<a class="mode-button" href="{{ url_for('ask', league_id=current_league_id, username=username, manager_id=manager_id) }}">Ask AI</a>{% endif %}</div>{% include "_changelog.html" %}{% include "_league_switcher.html" %}</div>
+{% include "_page_head.html" %}
+<div class="feature-toolbar"><div class="mode-switch"><a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, username=username, manager_id=manager_id) }}">Matchups</a>{% if show_impact_players %}<a class="mode-button" href="{{ url_for('seasonal', league_id=current_league_id, impact='1', username=username, manager_id=manager_id) }}">Impact Players</a>{% endif %}<a class="mode-button" href="{{ url_for('player_data', league_id=current_league_id, seasonal='1', username=username, manager_id=manager_id) }}">Player Data</a><span class="mode-button active" aria-current="page">Pace</span>{% if show_trades %}<a class="mode-button" href="{{ url_for('trades', league_id=current_league_id, username=username, manager_id=manager_id) }}">Trades</a>{% endif %}{% if show_history %}<a class="mode-button" href="{{ url_for('history', league_id=current_league_id, username=username, manager_id=manager_id) }}">History</a>{% endif %}{% if show_ask_ai %}<a class="mode-button" href="{{ url_for('ask', league_id=current_league_id, username=username, manager_id=manager_id) }}">Ask AI</a>{% endif %}</div>{% include "_changelog.html" %}{% include "_page_controls.html" %}</div>
 
 {# Compare, read on the board it is asked from. The comparison was a page of its own; it is now
    the two boxes on this panel and the card under them, drawn by a search -- and nothing is put
@@ -34,6 +34,14 @@
   <header class="compare-panel-head">
     <h2 class="compare-panel-title">Compare two players</h2>
   </header>
+  {# A comparison nobody asked for is an example rather than a guess at what the reader wanted,
+     and it says so above the boxes that hold it: the two names are the backs at the top of the
+     board below, and typing over either of them asks for a comparison of the reader's own. The
+     line is only written where the example really was drawn -- a board with no two backs to
+     compare, or an address that named its own two players, has nothing to explain. #}
+  {% if comparison_is_example %}
+  <p class="compare-example">An example to start from: the two backs this league has scored the most. Type over either name to compare your own.</p>
+  {% endif %}
   {# The board being read travels with the comparison: a search is not a move, so the position
      chip and the column in force are carried along and the reader comes back to the board, not
      to a reset one. Both are left out where the board is in its own opening order, the way every
@@ -167,7 +175,7 @@
    reads the board beside a comparison puts the panel on the row the table is on, which it can
    only do while everything above the table is one thing to place above it. #}
 <div class="pace-preamble">
-<p class="season-games"><span class="pace-read-by">{{ opening_phrase if board.opening else sorted_prefix ~ board.saying|lower }}</span>, from the {{ board.weeks_read }} weeks of the {{ board.season }} season this league has scored: {% if board.position %}{{ board.rows|length }} of the {{ board.players_total }} players it has scored, at {{ board.position }}.{% else %}{{ board.rows|length }} players, every one it has scored.{% endif %} Click any column to sort by it — a pace is chiefly points, but it is the stats as a whole, so every stat a player's position is measured by is a column here. GP is the games he has actually played, which is what his pace is built from. The column and the position are both in the address, so the board you are reading can be pasted into a league chat and open as it is.</p>
+<p class="season-games"><span class="pace-read-by">{{ opening_phrase if board.opening else sorted_prefix ~ board.saying|lower }}</span>, from the {{ board.weeks_read }} weeks of the {{ board.season }} season this league has scored: {% if board.position %}{{ board.rows|length }} of the {{ board.players_total }} players it has scored, at {{ board.position }}.{% else %}{{ board.rows|length }} players, every one it has scored.{% endif %} Click any column to sort by it — a pace is chiefly points, but it is the stats as a whole, so every stat a player's position is measured by is a column here. GP is the games he has actually played, which is what his pace is built from.{% if board.position %} A faded column beside one of them is the work it was earned in rather than a figure the league scores — a back's carries, and the targets behind a back's, a receiver's or a tight end's catches — so only a board of one position draws one.{% endif %} The column and the position are both in the address, so the board you are reading can be pasted into a league chat and open as it is.</p>
 {% if board.unread %}<p class="season-warning">Week{{ 's' if board.unread|length != 1 }} {{ board.unread|join(', ') }} could not be read from Sleeper, so {{ 'they are' if board.unread|length != 1 else 'it is' }} counted in nobody's games.</p>{% endif %}
 </div>
 
@@ -190,7 +198,7 @@
      box, so the picture the camera takes carries the name of what it is a picture of. #}
   {% if board.position %}<caption class="pace-group"><span class="position pos-{{ board.position|lower|replace('/', '-') }}">{{ position_names.get(board.position, board.position) }}</span></caption>{% endif %}
   <thead><tr>
-    {% for head in board.heads %}<th scope="col" aria-sort="{{ head.aria }}"{% if head.title %} title="{{ head.title }}"{% endif %}><button class="sort-button" type="button" data-sort-key="{{ head.key }}" data-sort-type="{{ head.type }}" data-sort-phrase="{{ sorted_prefix ~ head.saying|lower }}">{{ head.label }} <span>{{ head.arrow }}</span></button></th>{% endfor %}
+    {% for head in board.heads %}<th scope="col"{% if head.context %} class="pace-context"{% endif %}{% if head.title %} title="{{ head.title }}"{% endif %} aria-sort="{{ head.aria }}"><button class="sort-button" type="button" data-sort-key="{{ head.key }}" data-sort-type="{{ head.type }}" data-sort-phrase="{{ sorted_prefix ~ head.saying|lower }}">{{ head.label }} <span>{{ head.arrow }}</span></button></th>{% endfor %}
   </tr></thead>
   <tbody>
     {% for row in board.rows %}
@@ -206,7 +214,7 @@
          readings of one list -- the columns the server worked out for this board, in the order it
          worked them out in -- so a cell can be asked which stat it is, which is how the score
          columns are picked out for the styling they share with the rest of the app. #}
-      {% for cell in row.cells %}{% set column = board.columns[loop.index0] %}<td class="{{ ['pace-score' if column.abbr in score_columns, 'pace-blank' if cell.blank]|select|join(' ') }}" data-sort-value="{% if not cell.blank %}{{ cell.pace }}{% endif %}">{% if cell.blank %}&mdash;{% else %}{{ cell.figure }}{% endif %}</td>{% endfor %}
+      {% for cell in row.cells %}{% set column = board.columns[loop.index0] %}<td class="{{ ['pace-score' if column.abbr in score_columns, 'pace-blank' if cell.blank, 'pace-context' if column.context]|select|join(' ') }}" data-sort-value="{% if not cell.blank %}{{ cell.pace }}{% endif %}">{% if cell.blank %}&mdash;{% else %}{{ cell.figure }}{% endif %}</td>{% endfor %}
     </tr>
     {% endfor %}
   </tbody>

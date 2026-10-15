@@ -2,16 +2,10 @@
    The page reuses the season tables, chips and position badges the rest of the app draws,
    so only what is new to this page lives here. */
 
-.history-page .matchups-heading{margin-bottom:18px}
-/* The heading is a title and a line of copy, and the copy keeps out of the logo's lane the way
-   every other page's heading does. Below 981px the logo is in normal flow and the copy may use the
-   full width; at and above it the same 374px lane is reserved, with the copy capped a little
-   shorter than the lane it is given. Nothing else belongs up there: the brand logo is painted over
-   the heading band, so a control placed in the heading would sit behind it. */
-@media(max-width:980px){.history-page .matchups-heading>div{max-width:none}}
-@media(min-width:981px){.history-page .matchups-heading>div{max-width:min(620px,calc(100% - 374px))}}
-.history-page .matchups-heading .section-title{margin-bottom:2px}
-.history-page .matchups-heading .muted{font-size:11px;margin:0}
+/* The head band is the page's brand now, and it is the same band as every other page's: the
+   book's own heading and the sentence under it are gone, so nothing about this page is said
+   twice, and nothing has to be kept out of the logo's way. */
+.history-page .page-head{margin-bottom:16px}
 
 .history-page .season-summary{max-width:none;margin:14px 0 16px;grid-template-columns:repeat(auto-fit,minmax(132px,1fr))}
 .history-page .season-summary strong{font-size:19px;font-variant-numeric:tabular-nums}
@@ -82,7 +76,6 @@
   .history-page .history-tables{grid-template-columns:1fr}
 }
 @media(max-width:650px){
-  .history-page .matchups-heading{align-items:flex-start;gap:10px}
   .history-page .history-record-grid{grid-template-columns:1fr 1fr}
   .history-page .history-record-value{font-size:18px}
 }

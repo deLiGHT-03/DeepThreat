@@ -3,12 +3,18 @@
 .brand-logo{display:block;width:160px;height:72px;object-fit:contain}
 .league-controls{display:flex;align-items:center;gap:8px;flex:0 0 auto;margin-left:auto}
 .league-controls .league-switcher{margin-left:0}
-.league-switcher-stack{position:relative;display:block;height:38px}
-.switcher-brand{position:absolute;right:-46px;bottom:calc(100% + 10px);display:block;width:350px;max-width:min(44vw,440px);height:auto;overflow:hidden;line-height:0}
-.switcher-brand-logo{display:block;width:100%;height:auto;object-fit:contain}
-/* The brand logo floats above the heading band, so heading text keeps out of its lane:
-   350px of logo plus a gap. Below 981px the logo is in flow and needs no reservation. */
-@media(min-width:981px){.matchups-heading>div{max-width:calc(100% - 374px)}}
+/* The band at the head of a page, holding the brand where the page's own title used to stand.
+   It is one line of the page rather than the picture over it the floating logo used to be, so
+   nothing has to be kept out of its way and the band is the logo's own height. */
+.page-head{display:flex;align-items:center;margin:7px 0 20px}
+.page-brand{display:block;width:350px;max-width:min(44vw,440px);line-height:0}
+.page-brand-logo{display:block;width:100%;height:auto;object-fit:contain}
+.league-switcher-stack{display:block;height:38px}
+/* The toolbar's right-hand column: the season being read over the league it is read in. The two
+   ask one question between them, so they are stacked and right-aligned, and the tabs to their
+   left say which page of it is being read. */
+.page-controls{display:flex;flex-direction:column;align-items:flex-end;gap:6px;margin-left:auto}
+.page-controls .league-controls{margin-left:0}
 .season-account-tools{display:inline-flex;align-items:center}
 .reset-username-key{display:grid;place-items:center;width:22px;height:22px;border:1px solid #344038;border-radius:5px;color:#a9c68b;opacity:.78;transition:color .15s,border-color .15s,opacity .15s}
 .reset-username-key:hover,.reset-username-key:focus-visible{color:#c4f487;border-color:#9bd85b;opacity:1;outline:none}
@@ -168,8 +174,10 @@ body[data-skin="copper"] .skin-picker-menu button:hover,body[data-skin="copper"]
   .feature-toolbar{align-items:stretch;flex-direction:column;gap:9px}
   .feature-toolbar .mode-switch{align-self:stretch;max-width:100%;overflow-x:auto;white-space:nowrap}
   .league-controls{display:flex;align-items:stretch;flex-direction:column;width:100%;gap:7px;margin-left:0}
-  .league-switcher-stack{display:flex;align-items:stretch;flex-direction:column;width:100%;height:auto;gap:12px}
-  .switcher-brand{position:static;width:100%;max-width:none;height:auto;aspect-ratio:1519/670;transform:none}
+  .league-switcher-stack{display:block;width:100%;height:auto}  .page-controls{align-items:stretch;width:100%}
+  /* The season stays directly over the league it is read in rather than drifting to the left
+     edge of the row: the two are one question asked in two halves at every width. */
+  .page-controls .season-account-tools{align-self:flex-end}
   .league-switcher{width:100%}
   .league-switcher select{width:100%;max-width:none}
   .league-controls .skin-picker,.league-controls .preload-button{align-self:flex-end}

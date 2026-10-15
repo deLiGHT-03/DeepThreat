@@ -69,8 +69,14 @@ ROOT = Path(__file__).resolve().parent.parent
 #: false report. The Render service `render.yaml` defines has no URL recorded anywhere in this
 #: repository, so it is named on the command line instead of guessed at from the service name:
 #: ``--host Render=https://…``. Write the URL down here once it is known.
+#: Every copy of the app that answers for itself, so a deploy that did not land is a line of
+#: output rather than a page somebody has to remember to open. The Render service is the one
+#: ``render.yaml`` builds; its URL is on its service page rather than in the blueprint, so it is
+#: written down here -- the only place a host is named -- and a hostname guessed from a service
+#: name is how a check ends up reporting on somebody else's app.
 HOSTS = (
     ("Vercel", "https://deep-threat.vercel.app"),
+    ("Render", "https://deepthreat-ev25.onrender.com"),
 )
 
 #: Where a copy says which revision it is. Answered without reading Sleeper, so asking it never

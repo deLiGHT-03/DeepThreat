@@ -41,9 +41,11 @@ POSITION_STATS: dict[str, tuple[tuple[str, str, tuple[str, ...], int], ...]] = {
         ("Rushing Yards", "RUSY", ("rush_yd",), 0),
     ),
     # A back is read by what he does with the ball in his hands, whether he was handed it or
-    # caught it, so his rushing attempts are not a column here: scrimmage yards is his rushing
-    # and receiving yards added up and projected from the season's totals, rather than a reader's
-    # sum of the two rounded figures printed beside it.
+    # caught it, so his rushing attempts are not a row of his pace line: scrimmage yards is his
+    # rushing and receiving yards added up and projected from the season's totals, rather than a
+    # reader's sum of the two rounded figures printed beside it. The attempts are not gone from
+    # the board he is read on, though -- they and his targets are drawn there beside the stat
+    # they were earned in, which is what :data:`CONTEXT_STATS` below is.
     "RB": (
         ("Rushing Yards", "RUSY", ("rush_yd",), 0),
         ("Receptions", "REC", ("rec",), 0),
@@ -63,9 +65,40 @@ POSITION_STATS: dict[str, tuple[tuple[str, str, tuple[str, ...], int], ...]] = {
     ),
 }
 
-#: Every stat key the tables above add up, gathered once so a week's line is walked once.
-_STAT_KEYS = tuple(sorted({key for stats in POSITION_STATS.values()
-                           for _, _, keys, _ in stats for key in keys}))
+#: The stats a position is read *beside* on the Pace board rather than measured by: the work a
+#: figure was earned in, which is not a figure the league scores. Each is the same four parts as a
+#: stat of :data:`POSITION_STATS` -- a label, the abbreviation a heading prints, the Sleeper keys
+#: it adds up and how many decimals it is printed to -- and then the abbreviation of the stat it
+#: is read to the left of, which is where a board puts it.
+#:
+#: They are the board's own and nobody else's. A pace line is the stats a position is measured by,
+#: so these are not rows of one: a card's pace table and an Ask AI ranking are read without them,
+#: and a board of every position at once leaves them out too -- twelve columns of what a league
+#: scores are enough to read a whole league by, and the carries and targets behind them are wanted
+#: when a reader is looking at one position rather than all of them.
+#:
+#: Every position that catches the ball carries targets, the tight end included: a target is the
+#: attempt a catch was made of whichever of them it was thrown to. Only a back is read beside his
+#: carries, because he is the one the league hands the ball to.
+CONTEXT_STATS: dict[str, tuple[tuple[str, str, tuple[str, ...], int, str], ...]] = {
+    "RB": (
+        ("Rush Attempts", "RATT", ("rush_att",), 0, "RUSY"),
+        ("Targets", "TAR", ("rec_tgt",), 0, "REC"),
+    ),
+    "WR": (
+        ("Targets", "TAR", ("rec_tgt",), 0, "REC"),
+    ),
+    "TE": (
+        ("Targets", "TAR", ("rec_tgt",), 0, "REC"),
+    ),
+}
+
+#: Every stat key the tables above add up, gathered once so a week's line is walked once. The
+#: context stats are summed with the rest of them: they are not rows of a pace line, but the board
+#: draws them out of the same totals a line is projected from, so their keys have to be in hand.
+_STAT_KEYS = tuple(sorted(
+    {key for stats in (*POSITION_STATS.values(), *CONTEXT_STATS.values())
+     for stat in stats for key in stat[2]}))
 
 #: The two figures every position carries. They are scored by the league rather than read from a
 #: key in Sleeper's line, which is why they are kept out of :data:`POSITION_STATS`: that table is
@@ -133,11 +166,12 @@ def _pace(total: float, games: int) -> float:
 def pace_rows(position: str, totals: dict[str, float], points: float, games: int) -> list[dict]:
     """One player's pace line: the stats his position is measured by, then his points.
 
-    This is the only place a pace is worked out. ``totals`` is his own summed stat keys and
-    ``points`` the league's own scoring for the same games, so the caller decides what a game is
-    and this decides only how a season's figure projects over a full one -- which is what makes a
-    row of a ranking and the row under the same player's card the same figure, on the same games,
-    rather than two calculations that happen to agree today.
+    This is the only place a pace line is worked out -- :func:`context_rows` projects the board's
+    own faded columns from the same totals by the same arithmetic -- and ``totals`` is his own
+    summed stat keys and ``points`` the league's own scoring for the same games, so the caller
+    decides what a game is and this decides only how a season's figure projects over a full one --
+    which is what makes a row of a ranking and the row under the same player's card the same
+    figure, on the same games, rather than two calculations that happen to agree today.
 
     A position with no table of its own -- a kicker, a defense -- gets the two scored stats and
     nothing else, because the league scores whoever it likes and measures only some of them by
@@ -170,12 +204,85 @@ def pace_rows(position: str, totals: dict[str, float], points: float, games: int
     return rows
 
 
-def get_player_pace(league_id: str, player_id: str) -> dict:
-    """Build one player's 17-game pace: the stats his position carries, and his points.
+def context_stats(position: str) -> list[dict]:
+    """The stats a position is read beside on the Pace board, in the order that board draws them.
 
-    Only a position the table above knows has a pace -- a kicker and a defense are not measured
-    by these stats, and quoting them as though they were would be inventing a figure rather than
-    projecting one.
+    Each is the label and abbreviation a heading prints, the keys its figure is summed from, how
+    many decimals it is printed to, and ``before``: the abbreviation of the stat it stands to the
+    left of. That last one is how the board knows where in its own columns to put one, rather
+    than keeping a second list of the columns' order somewhere else that could drift from this.
+    """
+    return [{
+        "label": label, "abbr": abbreviation, "keys": keys, "decimals": decimals,
+        "before": before,
+    } for label, abbreviation, keys, decimals, before in CONTEXT_STATS.get(position or "", ())]
+
+
+def context_rows(position: str, totals: dict[str, float], games: int) -> list[dict]:
+    """One player's context figures: the work behind the stats his position is measured by.
+
+    Read from the same ``totals`` and the same ``games`` as his pace line, and projected by the
+    same arithmetic, because the two are summed out of one week's stats in the first place: a
+    column of carries beside a column of rushing yards is the same season read twice rather than
+    two readings of it that have to be kept in step.
+    """
+    if games < 1:
+        return []
+    return [{
+        "label": stat["label"],
+        "abbr": stat["abbr"],
+        "pace": round(_pace(sum(totals.get(key, 0.0) for key in stat["keys"]), games),
+                      stat["decimals"]),
+        "decimals": stat["decimals"],
+        # Where the stat it belongs to is, carried on the row itself: a reader of these puts the
+        # figure beside that stat, and neither the board nor a card keeps a second list of where
+        # each one goes.
+        "before": stat["before"],
+    } for stat in context_stats(position)]
+
+
+def beside_note(label: str, beside: str) -> str:
+    """What a faded figure says about itself: the stat it is read beside, in one place.
+
+    A heading on the Pace board and a row on a card both say it, and a reader who meets the same
+    grey figure in both places should not have to work out whether it means the same thing.
+    """
+    return f"{label}, read beside {beside}"
+
+
+def with_context(rows: list[dict], position: str, totals: dict[str, float],
+                 games: int) -> list[dict]:
+    """A pace line with the work behind each figure read with it, marked and titled as faded.
+
+    This is the card's reading of what the Pace board says in a column: a card has no columns to
+    put a faded figure beside anything, so the row goes directly **above** the stat it was earned
+    in, which is where the eye meets it before the figure it explains. Each one is marked
+    ``context`` so a card can set it faded, and carries the note a heading on the board carries,
+    so the grey reads the same on both. A context stat whose stat is not in these rows -- one that
+    could never be drawn -- is left off rather than hung under nothing.
+    """
+    beside = context_rows(position, totals, games)
+    if not beside:
+        return rows
+    placed: list[dict] = []
+    for row in rows:
+        for stat in beside:
+            if stat["before"] == row["abbr"]:
+                placed.append({**stat, "context": True,
+                               "title": beside_note(stat["label"], row["label"])})
+        placed.append(row)
+    return placed
+
+
+def _read_season(league_id: str, player_id: str) -> dict:
+    """A player's season as a pace is read from it: who he is, what he did, and over how many games.
+
+    The one read behind a pace, whoever is asking for one -- a card's line and the same line with
+    the work behind it are two readings of this rather than two reads of the season -- so the
+    weeks counted, the games and the totals cannot differ between two callers that both project
+    from it. Raises :class:`~services.sleeper.SleeperError` for a player who cannot be projected:
+    one not in Sleeper's list, a position with no table of its own, or a season with no game of
+    his in it.
     """
     dashboard = get_league_dashboard(league_id)
     league = dashboard["league"]
@@ -230,8 +337,6 @@ def get_player_pace(league_id: str, player_id: str) -> dict:
     # above are read from, so a pace's points and its stats describe one season, not two.
     scored = sum(_number(scored_weeks.get(week)) or 0.0 for week in counted)
 
-    rows = pace_rows(position, totals, scored, games)
-
     name, _ = _player_display_names(player, player_id)
     return {
         "id": player_id,
@@ -239,6 +344,52 @@ def get_player_pace(league_id: str, player_id: str) -> dict:
         "position": position,
         "season": season,
         "games": games,
+        "totals": totals,
+        "scored": scored,
+    }
+
+
+def _pace_answer(read: dict, rows: list[dict]) -> dict:
+    """One player's pace, with the rows whoever asked for it worked out."""
+    return {
+        "id": read["id"],
+        "name": read["name"],
+        "position": read["position"],
+        "season": read["season"],
+        "games": read["games"],
         "season_games": SEASON_GAMES,
         "rows": rows,
     }
+
+
+def get_player_pace(league_id: str, player_id: str) -> dict:
+    """Build one player's 17-game pace: the stats his position carries, and his points.
+
+    The scored line and nothing else, which is what a ranking, an Ask AI answer about a player and
+    a comparison are all read from. A card draws the same line with the work behind a figure on it
+    instead -- see :func:`get_card_pace`, which is this read and those rows rather than a second
+    projection.
+
+    Only a position the table above knows has a pace -- a kicker and a defense are not measured
+    by these stats, and quoting them as though they were would be inventing a figure rather than
+    projecting one.
+    """
+    read = _read_season(league_id, player_id)
+    return _pace_answer(read, pace_rows(read["position"], read["totals"], read["scored"],
+                                        read["games"]))
+
+
+def get_card_pace(league_id: str, player_id: str) -> dict:
+    """One player's pace as his card draws it: his line, with the work behind a figure on it.
+
+    The same rows :func:`get_player_pace` returns, with a faded row above each stat that has work
+    behind it -- a back's carries above his rushing yards, his targets above his catches, and the
+    same for a receiver or a tight end. It is the reading the Pace board gives the same figures in
+    a column to the left of them, and it is deliberately the card's own: a caller that ranks
+    players, compares two of them or answers a question about one reads the scored line, where a
+    carry count has no business being ranked beside a yardage figure.
+    """
+    read = _read_season(league_id, player_id)
+    rows = with_context(pace_rows(read["position"], read["totals"], read["scored"], read["games"]),
+                        read["position"], read["totals"], read["games"])
+    return _pace_answer(read, rows)

@@ -274,12 +274,54 @@ Two of those answers are about a host rather than about a deploy:
   (the `vercel` row above), or stamp the revision in while it is built. Until one of them is done,
   that copy cannot be told from one that is months behind.
 
-The hosts it asks are the ones in `HOSTS` in the tool — the Vercel copy, which answers as this app
-— plus any named with `--host NAME=URL`. **The Render service in `render.yaml` has no URL recorded
-in this repository**, so it is passed by hand until one is written down; a hostname guessed from a
-service name is how a check ends up reporting on somebody else's app. It asks the network and not
-this repository, so it is a command you run after a deploy rather than a check CI can hold a
-commit to.
+The hosts it asks are the ones in `HOSTS` in the tool — the Vercel copy and the Render service
+`render.yaml` defines — plus any named with `--host NAME=URL`. Both are written out in full there,
+because a hostname guessed from a service name is how a check ends up reporting on somebody
+else's app; a host added somewhere else is invisible to this until it is recorded the same way.
+It asks the network and not this repository, so it is a command you run after a deploy rather
+than a check CI can hold a commit to.
+
+Two names in `HOSTS` are two builds of one commit rather than one deployment, and the same
+repository code answers on both — but only one of them is the address to hand a person.
+
+**Vercel is the one to link.** A cold copy there answers in about a second: a request after the
+same quarter hour of quiet that the other host sleeps through was 1.4s to first byte on Vercel
+against 11.3s on the Render free instance, and the difference is the sleep rather than the code —
+Render's own documentation spins a free service down after 15 minutes without traffic and says a
+wake takes about a minute. A league mate following a link is the one visitor who cannot be asked
+to wait for that.
+
+**Render is the deploy-and-check copy.** It is the service `render.yaml` describes, so a commit it
+builds is a commit the blueprint's own build command, start command and `healthCheckPath` were
+checked against, and it is where a deploy is watched landing. Two things about it are worth
+knowing before it is treated as interchangeable with the other: its filesystem goes away when it
+sleeps, which is why the History page's summaries are committed in `data/history/` rather than
+written on the host, and it is the long-lived `waitress` process the app's single-worker cache and
+preload are drawn for. On Vercel each invocation is a process of its own, so that cache and the
+Preload button warm one invocation and no other, and the visitor limits in *Keeping crawlers and
+loops out* are counted per instance rather than across the whole host. Neither is a reason not to
+link it; both are worth knowing when a page there feels unlike the same page here.
+
+Two things the Vercel copy is still missing, and both are variables in the project rather than
+anything in this repository:
+
+- **Its session key.** Render's blueprint has the platform generate one; the Vercel project has
+  none, and the app without one generates a key per process, so a cookie one request signed is
+  refused by the next request that lands somewhere else. It is the difference between a visitor
+  connecting once and a visitor connecting again: ten simultaneous requests, each carrying a
+  session cookie this copy had itself just set, were sent to `/` and answered with the connect
+  page seven times on Vercel and none of ten on Render. A key set in the project is one value
+  for every instance of a deployment, so those refusals are what says this project has none yet.
+  `SECRET_KEY` — any long random string, set once and kept — goes in **Settings → Environment
+  Variables**, and the copy needs a redeploy after it. Until then a league mate following the link is asked to connect a Sleeper username
+  again whenever his request reaches a fresh instance, which on Vercel is most of them.
+- **Ask AI's key.** `GEMINI_API_KEY` is set on the Render service and not on the Vercel project,
+  so the Vercel copy draws no Ask AI tab — every page there is exactly the 124 bytes of that tab's
+  markup shorter than the same page on Render — and `/ask` answers with the setup note instead of
+  the question box.
+
+With both set the two copies are one app and the Vercel one is the address to hand out. Vercel,
+concretely, is the section below.
 
 ## Checks before a deploy
 
@@ -315,6 +357,20 @@ back to deploying on every commit, if that wait is ever in the way.
 Any other container platform works the same way with the `Dockerfile` (Fly, Koyeb, Cloud Run,
 DigitalOcean App Platform) — the `Dockerfile` runs the same two commands, so what was verified
 locally is what runs there.
+
+## Vercel, concretely
+
+1. Import this repository at <https://vercel.com/new>. Its **Root Directory** is `DeepThreat` —
+   that is where `vercel.json`, `requirements.txt` and `wsgi.py` are — and the preset is Flask.
+2. Under **Settings → Environment Variables**, set the two things this repository cannot supply:
+   `SECRET_KEY`, a long random string that is set once and kept (see the note above on what a copy
+   without one does to a visitor), and `GEMINI_API_KEY` if Ask AI is wanted there.
+3. Leave **Enable access to System Environment Variables** on, so the copy can name the commit it
+   is running; off, `/healthz` answers `unknown` and the copy cannot be told from a stale one.
+4. Nothing else is set in the dashboard: the build command comes from `vercel.json` in the
+   repository, and a push to the branch is a deployment.
+5. Check it the way Render is checked — `/healthz`, every page, a session set and read back — or
+   run `python tools/check_deployed_revisions.py`, which asks both hosts at once.
 
 ## Verified here, and on the host
 
@@ -361,5 +417,18 @@ Then the same checks on the deployed copy, which answer the questions a local ru
   and scripts on a page carry a digest and answer `public, max-age=31536000, immutable`, and the
   same file asked for without one still answers `no-cache`.
 
-What is still unmeasured on the host itself: its Python patch version and its cold start after
-the free instance sleeps.
+The Vercel copy, asked the same questions:
+
+- Every page answers `200` with its own title — Matchups, Season, Player Data, Pace, Trades,
+  History and Ask AI — and each body is the same size as the same page on Render apart from the
+  Ask AI tab it does not draw, which is what says the two are one build of one commit rather than
+  two builds that happen to resemble each other.
+- `/healthz` answers `source: vercel` with a `stamp` that is that same commit, so the build hook
+  `vercel.json` carries is not insurance on this copy: it is where the revision comes from.
+- `robots.txt` and `X-Robots-Tag: noindex, nofollow` are on its answers, its digest-stamped
+  stylesheets are `public, max-age=31536000, immutable` and the same files asked for without a
+  stamp are `no-cache`, and its logo is the 284 KB `image/webp` rather than the PNG master.
+- A visitor with no cookie is given the connect page rather than somebody else's league.
+
+What is still unmeasured on a host itself: the Python patch version the instance is running, as
+opposed to the one `render.yaml` asks for.

@@ -18,6 +18,19 @@ A pace is chiefly points, and the board opens on them, but it is the stats as a 
 carries the stats that player's own position is measured by, and a stat a position is not
 measured by is a dash in his row rather than a zero, because he has none of it rather than none
 of it so far.
+
+Two of those stats are read with the work that earned them beside them, faded: a back's rushing
+yards have his attempts to their left, and his catches have his targets as a receiver's or a tight
+end's do, exactly as :data:`services.player_pace.CONTEXT_STATS` sets them out. They are
+drawn on a board narrowed to that position and nowhere else -- a board of every position leaves
+them out, because a reader looking at a whole league wants the columns he scores by and not a
+carry count for every one of them, and a board of one position has the room to say what the
+figure beside it was made of.
+
+The board carries one thing besides its own figures: the two backs at the top of this same read,
+which is the comparison the panel beside it opens on. It is worked out here because here is where
+the season has already been read once, and a second read of it for two names would be the whole
+of the board's cost paid twice for a line of the page.
 """
 
 from __future__ import annotations
@@ -25,8 +38,41 @@ from __future__ import annotations
 from collections import Counter
 
 from services.league_tools import pace_lines
-from services.player_pace import SEASON_GAMES, pace_figure, stat_order, stat_table
+from services.player_pace import (SEASON_GAMES, beside_note, context_rows, context_stats,
+                                  pace_figure, stat_order, stat_table)
 from services.sleeper import SleeperError
+
+#: The position the panel's opening comparison is drawn from: a back, because the two of them are
+#: read down the same column of stats and the figures are the ones a trade argument is about.
+EXAMPLE_POSITION = "RB"
+
+
+def _example_players(players: list[dict]) -> list[str]:
+    """The two backs this league has scored the most, as names to open the comparison with.
+
+    The board's read already holds every player's points pace, so the example costs no second
+    read of the season: it is the top two of the backs in it, which is the comparison a reader
+    who has never asked for one can be shown without his typing anything. A name that appears
+    twice in the league is left out rather than offered, because the lookup behind the boxes
+    refuses a name that matches more than one player and an opening that says so would be an
+    example of nothing. A league with fewer than two backs to choose from has none, and the
+    panel opens empty as it did before.
+    """
+    counted = Counter(str(who["name"]) for who in players)
+    ranked: list[tuple[float, str]] = []
+    for who in players:
+        if str(who["position"]).upper() != EXAMPLE_POSITION:
+            continue
+        name = str(who["name"])
+        if counted[name] != 1:
+            continue
+        points = next((row["pace"] for row in who["line"] if row["abbr"] == "PTS"), None)
+        if points is None:
+            continue
+        ranked.append((float(points), name))
+    # Most points first, and a tie broken by the name so the same two come back every time.
+    ranked.sort(key=lambda item: (-item[0], item[1]))
+    return [name for _, name in ranked[:2]]
 
 #: The positions the board offers by name, in the order its chips read. A position the league has
 #: scored that is not named here still gets a chip, so a league that starts a kicker can look at
@@ -64,15 +110,47 @@ def _heads(columns: list[dict]) -> list[dict]:
 
     A stat heading stands for a place in a row's own cells rather than for a value on the row,
     because the stats a row carries are the ones its position is measured by -- and it is the
-    cell's own figure that is sorted, which is the projection the column shows.
+    cell's own figure that is sorted, which is the projection the column shows. A context column
+    is marked as one here rather than worked out again by the page, which is what lets the page
+    set the faded column quiet where it draws it and leave every other column as it is.
     """
     heads = [dict(head) for head in FIXED_HEADS]
-    heads += [
-        {"key": column["abbr"].lower(), "label": column["abbr"], "type": "number",
-         "title": column["label"], "saying": column["label"], "cell": index}
-        for index, column in enumerate(columns)
-    ]
+    labels = {column["abbr"]: column["label"] for column in columns}
+    for index, column in enumerate(columns):
+        # The faded column's own note says what it is read beside, because that is the whole of
+        # what it is there for: a heading of two letters over a figure nobody scores is a puzzle
+        # otherwise. Its ``saying`` is still its own name, which is what the sentence above the
+        # table calls the board by when a reader sorts on it.
+        beside = labels.get(column.get("beside") or "")
+        heads.append({
+            "key": column["abbr"].lower(), "label": column["abbr"], "type": "number",
+            "title": (beside_note(column["label"], beside)
+                      if beside and column.get("context") else column["label"]),
+            "saying": column["label"], "cell": index,
+            "context": bool(column.get("context")),
+        })
     return heads
+
+
+def _with_context(columns: list[dict], beside: list[dict]) -> list[dict]:
+    """The columns with each context stat inserted directly to the left of the stat it stands by.
+
+    The place comes from the stat's own definition -- the abbreviation it is read before -- rather
+    than from a position in a list written down here, so where a faded column sits is the same
+    fact wherever it is asked for: a back's attempts land beside his rushing yards on this board
+    because that is the stat they are defined against, not because this is where they were put.
+    A context stat whose stat is not a column of this board -- one that could never be drawn -- is
+    left off rather than hung at the end of the table with nothing to sit by.
+    """
+    placed = [dict(column) for column in columns]
+    for stat in beside:
+        anchor = next((index for index, column in enumerate(placed)
+                       if column["abbr"] == stat["before"]), None)
+        if anchor is None:
+            continue
+        placed.insert(anchor, {"abbr": stat["abbr"], "label": stat["label"],
+                               "context": True, "beside": stat["before"]})
+    return placed
 
 
 def _value(row: dict, head: dict):
@@ -134,7 +212,7 @@ def _unreadable(season: str, note: str) -> dict:
         "season_games": SEASON_GAMES,
         "weeks": 0, "weeks_read": 0, "unread": [],
         "position": "", "chips": [], "columns": [], "rows": [], "heads": [],
-        "players_total": 0,
+        "players_total": 0, "example": [],
         "sort": "", "direction": "", "saying": "", "opening": True,
         "open_sort": "", "open_direction": "desc",
         "note": note,
@@ -151,6 +229,11 @@ def get_pace_board(league_id: str, season: str = "", position: str = "",
     missing, and the board then opens on points. A season with nothing to project comes back as
     a board that says so in the lookup's own words, rather than as an empty table or an error: a
     league whose first week has not been played is a league the page can still describe.
+
+    A board narrowed to one position carries the stats that position is read beside as well as
+    the ones it is measured by, faded and sorted like any other column; a board of every position
+    carries only the measured ones, so a column that is a faded carry count on one board is not a
+    column at all on the other.
     """
     try:
         board = pace_lines(league_id, season)
@@ -169,6 +252,12 @@ def get_pace_board(league_id: str, season: str = "", position: str = "",
     carried = [abbr for abbr in order
                if any(abbr in {row["abbr"] for row in who["line"]} for who in wanted_players)]
     columns = [{"abbr": abbr, "label": labels[abbr]["label"]} for abbr in carried]
+    # A board narrowed to one position carries the work behind that position's figures as well,
+    # each faded column to the left of the stat it explains. Every other board leaves them out: a
+    # board of every position is read for what the league scores, and a column of carries there
+    # would be a carry count for backs and a dash for everybody else.
+    if wanted:
+        columns = _with_context(columns, context_stats(wanted))
     # A board narrowed to one position is one position all the way down, so the column that would
     # print the same two letters in every row is dropped and the table is headed with the position
     # itself instead. It is dropped here rather than hidden in the page because the headings are
@@ -179,11 +268,17 @@ def get_pace_board(league_id: str, season: str = "", position: str = "",
     rows: list[dict] = []
     for who in wanted_players:
         figures = {row["abbr"]: row for row in who["line"]}
+        # The faded columns are the same season as the line beside them: their figures are
+        # projected here from the totals the line was projected from, on the same games, so a back
+        # reads his carries and his rushing yards as two readings of one season rather than two
+        # seasons that happen to agree.
+        beside = ({row["abbr"]: row for row in context_rows(wanted, who["totals"], who["games"])}
+                  if wanted else {})
         # One entry per column, in the columns' own order, so a row and the header above it are
         # read from the same list rather than from two that have to be kept in step.
         cells = []
         for column in columns:
-            line = figures.get(column["abbr"])
+            line = figures.get(column["abbr"]) or beside.get(column["abbr"])
             cells.append({
                 # A dash, not a zero: this player's position is not measured by this stat, so
                 # there is no figure to print and the table says so where the figure would be.
@@ -240,6 +335,9 @@ def get_pace_board(league_id: str, season: str = "", position: str = "",
         "heads": heads,
         "rows": rows,
         "players_total": len(board["players"]),
+        # The comparison the panel opens on, for a reader who has not asked for one: the two backs
+        # at the top of this same read, whose figures the page then compares like any other pair.
+        "example": _example_players(board["players"]),
         # What an address says to open this same board again: the column and the way round, the
         # words the sentence above the table names it by, and whether this is the board's own
         # opening -- which a link leaves out of itself, because the opening is what a page with

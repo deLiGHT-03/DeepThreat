@@ -69,6 +69,14 @@
 /* A dash is the absence of a figure rather than a zero: it keeps its column and is set quieter
    than the figures beside it. */
 .pace-page .pace-table tbody td.pace-blank{color:#748178}
+/* A faded column is the work a figure was earned in -- a back's carries beside his rushing yards,
+   a target beside a catch -- and it is set the way it is meant to be read: present, and quieter
+   than the figures it stands beside, so the columns a league scores are the ones the eye lands
+   on first. Its figures take a grey that sits between the bright ones and the dash of a stat a
+   position is not measured by, and its heading is dimmed rather than recoloured, which keeps the
+   hover and focus colour the app gives every sortable column it hands back to the pointer. */
+.pace-page .pace-table tbody td.pace-context{color:#91a096}
+.pace-page .pace-table thead th.pace-context .sort-button{opacity:.72}
 /* Points and points a game are the two columns a pace is chiefly read by, and they wear the darker
    cell the app gives a score everywhere else: the same dark box a Player Data table draws around
    its PPG column and the one a player's card puts around his points, so a reader looking for what

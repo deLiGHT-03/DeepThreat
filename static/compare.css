@@ -15,6 +15,9 @@
 .compare-panel{max-width:440px;margin:0 0 20px;padding:12px 14px 14px;border:1px solid #303b33;border-radius:12px;background:#151b17}
 .compare-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 9px}
 .compare-panel-title{margin:0;color:#c2cec6;font:700 10.5px Manrope,sans-serif;letter-spacing:.12em;text-transform:uppercase}
+/* Why the boxes already hold two names, on the panel that opened with an example. It is the
+   panel's own words and not a warning, so it is set quieter than the boxes it explains. */
+.compare-panel .compare-example{margin:0 0 9px;color:#84938a;font-size:9.5px;line-height:1.6}
 /* The card, under the boxes that asked for it. Nothing here is folded away: the panel is as much
    of the page as the board is. */
 .compare-panel .compare-results{margin:13px 0 0}
@@ -197,8 +200,15 @@
   .pace-layout-side .empty-state{grid-area:4/1}
   .pace-layout-side .pace-footnote{grid-area:5/1}
   /* On the table's row, so the two are entered from one line: the figures and the comparison are
-     read together rather than the panel beginning up at the chips the board is narrowed by. */
-  .pace-layout-side .compare-panel{grid-area:4/2;max-width:300px;margin:0}
+     read together rather than the panel beginning up at the chips the board is narrowed by. It
+     also stays on screen: the board runs to thousands of pixels and the panel is a few hundred,
+     so without being stuck to the top of the window the comparison is gone the moment the reader
+     scrolls to the figures he is comparing at. It is stuck inside its own row of the grid, which
+     is the table's height, so it holds there until the board is past, and it is capped at the
+     window's own height so that a comparison taller than a short window scrolls inside the panel
+     rather than running off the bottom of it -- the card is saved from its own box, not from what
+     is on screen, so the picture is the whole card either way. */
+  .pace-layout-side .compare-panel{grid-area:4/2;max-width:300px;margin:0;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto}
   /* The board fills the column it is given here, where being as wide as its columns need would
      leave the gap beside it that this layout exists to close. */
   .pace-page .pace-layout-side .pace-board .pace-table{width:100%}

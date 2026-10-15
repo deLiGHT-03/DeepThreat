@@ -1,0 +1,13 @@
+{# The right-hand side of a page's toolbar: the season being read, over the league it is read in.
+
+   The two switchers ask one question between them -- which season of which league -- so they are
+   stacked and right-aligned above the board rather than set side by side with the tabs: the row
+   above says where you are looking, the row of tabs says which of the pages there you are on.
+
+   The league's own controls come with the league switcher (the key that changes the saved
+   account, the button that loads it, the league list and the theme picker), because they belong
+   on the line they belong to. #}
+<div class="page-controls">
+  {% include "_season_switcher.html" %}
+  {% include "_league_switcher.html" %}
+</div>

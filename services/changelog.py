@@ -51,6 +51,52 @@ COVERED_THROUGH = "f78edb6"
 RELEASES = [
     {
         "date": "2026-10-15",
+        "title": "The work behind a figure is read beside it, faded",
+        "entries": [
+            ("visual",
+             "A board narrowed to one position carries the work behind its figures, faded to the "
+             "left of each one that has any: a back's carries beside his rushing yards, and his "
+             "targets beside his catches as a receiver's or a tight end's are beside his. They "
+             "are grey "
+             "because they are what a figure was made of rather than something the league scores, "
+             "so the columns it does score are still the ones the eye lands on first."),
+            ("visual",
+             "The pace a card draws reads the same way: the carries and targets behind a figure "
+             "sit directly above it there, grey as the board's columns are, so the same faded "
+             "figure means the same thing on a card as on the board it was opened from."),
+            ("also",
+             "The board of every position is left as it was: a faded column is read where a "
+             "reader is looking at one position, not across a whole league."),
+        ],
+    },
+    {
+        "date": "2026-10-15",
+        "title": "The logo takes the page title's place, and a comparison opens with an example",
+        "entries": [
+            ("visual",
+             "Every page opens with the logo where its own title used to be, and the sentence that "
+             "sometimes stood under the title is gone with it: the tabs already name the page, so "
+             "the heading was saying it a second time in bigger letters."),
+            ("visual",
+             "The season being read now sits down the right of the toolbar, directly over the "
+             "league switcher it belongs to, rather than beside the title."),
+            ("functionality",
+             "The Compare panel opens with an example already drawn: the two backs this league "
+             "has scored the most, both names in the boxes and the comparison under them, so a "
+             "reader sees what a comparison is before typing anything. Writing over either name "
+             "asks for a comparison of your own."),
+            ("visual",
+             "A comparison stays on screen while the board scrolls: the panel is stuck to the top "
+             "of the window, so the figures being compared are there to read at the four hundredth "
+             "row of the board as at the first."),
+            ("functionality",
+             "A player card is no longer put away by scrolling past it. Only a click -- on another "
+             "name, or on nothing at all -- or Escape closes it, so a pace generated on a card is "
+             "not lost to a turn of the wheel."),
+        ],
+    },
+    {
+        "date": "2026-10-15",
         "title": "The comparison sits beside every Pace board",
         "entries": [
             ("visual",
@@ -63,7 +109,7 @@ RELEASES = [
              "instead of stopping short with a strip of empty page between the two."),
             ("also",
              "The board of every position carries twelve columns where a board of one carries at "
-             "most nine, so its columns sit closer together to leave the panel room beside them. "
+             "most eleven, so its columns sit closer together to leave the panel room beside them. "
              "Every column is still there."),
         ],
     },

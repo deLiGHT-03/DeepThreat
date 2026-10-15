@@ -19,7 +19,7 @@ from services.matchups import (get_default_week,
 from services.seasonal import get_seasonal_impact_summary, get_seasonal_summary
 from services.player_data import get_player_data
 from services.player_card import get_player_card
-from services.player_pace import get_player_pace
+from services.player_pace import get_card_pace
 from services.pace_board import get_pace_board
 from services.trades import get_trades_summary
 from services import build_info
@@ -497,9 +497,15 @@ def create_app() -> Flask:
 
     @app.get("/league/<league_id>/player/<player_id>/pace")
     def player_pace(league_id: str, player_id: str):
-        """Serve one player's 17-game pace, asked for only when the card's button is pressed."""
+        """Serve one player's 17-game pace, asked for only when the card's button is pressed.
+
+        The card's own reading of the projection -- the line with the work behind a figure on it,
+        which is the same figures the Pace board draws a faded column of, read as a row. What a
+        ranking or an Ask AI answer about a player wants is the scored line alone, and that is
+        what :func:`services.player_pace.get_player_pace` still returns.
+        """
         try:
-            pace = get_player_pace(league_id, player_id)
+            pace = get_card_pace(league_id, player_id)
         except SleeperError as exc:
             return jsonify(error=str(exc)), 404
         response = jsonify(pace)
@@ -806,6 +812,12 @@ def create_app() -> Flask:
         thinking about, with the column it is reordered by and the position chip it is narrowed
         to both read off the address, so a board can be pasted into a league chat and arrive as
         the board it was.
+
+        The Compare panel on it opens on an example -- the two backs at the top of this same
+        board, drawn from the read the board is already built from -- because a comparison is
+        easier to recognise than to describe, and a page that only offers two empty boxes asks a
+        reader to imagine what he would get. An address that names two players, as the boxes
+        themselves write one, replaces it.
         """
         username = request.args.get("username", "").strip() or session.get("username", "")
         manager_id = request.args.get("manager_id", "").strip() or session.get("manager_id", "")
@@ -838,6 +850,15 @@ def create_app() -> Flask:
         # box that asked for it rather than answered as though it were half of one.
         first = request.args.get("player", "").strip()
         second = request.args.get("other", "").strip()
+        # Nothing asked for is not nothing to show: the panel opens on the two backs at the top of
+        # this same board, so a reader who has never asked for a comparison sees one -- two names
+        # already in the boxes and the card under them -- rather than two empty boxes and a
+        # button. The pair comes from the board's own read, so the example costs no second read
+        # of the season; the panel says that it is an example, and writing over either name asks
+        # for a comparison of the reader's own.
+        example = not (first and second)
+        if example:
+            first, second = (list(board.get("example") or ["", ""]) + ["", ""])[:2]
         comparison = (league_tools.compare_paces(root, first, second,
                                                  season=str(league.get("season") or ""))
                       if first and second else None)
@@ -863,6 +884,7 @@ def create_app() -> Flask:
                 history[0]["season"] if history else str(league.get("season") or ""),
                 league["league_id"]),
             board=board, first=first, second=second, comparison=comparison,
+            comparison_is_example=bool(example and comparison and comparison.get("compared")),
         )
 
     @app.get("/league/<league_id>/player-data")
