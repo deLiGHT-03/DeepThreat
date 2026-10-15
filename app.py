@@ -132,9 +132,14 @@ def create_app() -> Flask:
     # History reads every season of the league, which is a lot of Sleeper data for one page.
     # The route stays live either way, so this flag only decides whether the button is there.
     app.jinja_env.globals["show_history"] = True
-    # Ask AI is off until a Gemini key is on the machine. The route stays live either way, so
-    # this flag only decides whether the tab is offered; the page itself says where a key goes.
-    app.jinja_env.globals["show_ask_ai"] = ai_available()
+    # Ask AI is hidden for now, and for the one reason a reader would give: an answer takes tens
+    # of seconds to arrive, where every other page here is open at once. Nothing is taken away
+    # with the tab -- the route, the lookups and the key are all still wired, so its own address
+    # opens the page and an answer's address still brings the answer back -- and this flag is the
+    # whole of the hiding. Put ``ai_available()`` back here to offer the tab again wherever a key
+    # is present, which is what it was: a machine without a key should not be offered a page that
+    # cannot answer.
+    app.jinja_env.globals["show_ask_ai"] = False
     # What's new, written for the reader rather than for the code: services/changelog.py is the
     # one place a change is written down for somebody using the app, and the notebook on every
     # page draws from here. Built once at startup, so a release filed under a kind with no name

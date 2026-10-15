@@ -30,9 +30,18 @@
    board, at the width the page has. The box wrapped around both is what carries that layout; the
    page's own stylesheet is what says where the break between the two is. #}
 <div class="pace-layout pace-layout-side">
-<section class="compare-panel">
+<section class="compare-panel" data-compare-panel>
   <header class="compare-panel-head">
     <h2 class="compare-panel-title">Compare two players</h2>
+    {# The panel's own fold, drawn only where the page has no column to read the panel in beside the
+       board: standing above the figures the page is for, the panel is a few hundred pixels of
+       somebody else's comparison before the first row of the board, so it opens as a line of its
+       own and the two boxes are one tap away. The control carries no words, because the title
+       beside it already says what unfolds and the state is the arrow's own way round; the script
+       names it for a reader who cannot see that. #}
+    <button class="compare-panel-toggle" type="button" data-compare-toggle aria-expanded="true" aria-label="Show the comparison" title="Show the comparison">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.6 5.3 15.3l1.4 1.4L12 11.4l5.3 5.3 1.4-1.4Z"/></svg>
+    </button>
   </header>
   {# A comparison nobody asked for is an example rather than a guess at what the reader wanted,
      and it says so above the boxes that hold it: the two names are the backs at the top of the
@@ -159,23 +168,22 @@
    unless the board is already in its own opening order, which a link leaves unsaid. #}
 <nav class="pace-filters" aria-label="Choose a position">{% for chip in board.chips %}<a class="pace-filter{% if chip.code == board.position %} active{% endif %}" href="{{ url_for('pace', league_id=current_league_id, position=chip.code or none, username=username, manager_id=manager_id, history_id=history_league_id, sort=none if board.opening else board.sort, dir=none if board.opening else board.direction) }}"{% if chip.code == board.position %} aria-current="true"{% endif %}>{{ chip.label }}<small>{{ chip.count }}</small></a>{% endfor %}</nav>
 
-{# What the board is read by is said here, because a sorted board looks like any other board
-   otherwise: the reader who opened a pasted link is told why the rows are in this order, and the
-   one who clicked a heading can read back what that did. The words are the page's, and each
-   column's own copy of them rides on its heading, so the sentence can be kept true after a click
-   without the script having an opinion about what it says. #}
-{% set opening_phrase = "Ranked by points pace" %}
-{% set sorted_prefix = "Sorted by " %}
 {# The two columns a pace is chiefly read by: points, and points a game. They wear the dark cell
    the app gives a score everywhere else, so what a player is worth is found on this board the way
    it is found on a Player Data table or on a card. #}
 {% set score_columns = ("PTS", "PPG") %}
-{# The sentence that says what the board is read by, and any warning that weeks could not be read,
-   are one part of the page rather than two: both describe the figures below them, and a page that
+{# What the board is, in one line, and any warning that weeks could not be read: the two describe
+   the figures below them, and they are one part of the page rather than two because a page that
    reads the board beside a comparison puts the panel on the row the table is on, which it can
-   only do while everything above the table is one thing to place above it. #}
+   only do while everything above the table is one thing to place above it.
+
+   One line, because the board speaks for itself from here down: a column head is a button, a faded
+   column says on hover what it is read beside, the column in force is the one wearing the arrow,
+   and the address is what the reader arrived by. What no board can show is what its figures are
+   and how far they reach -- what a season is a pace of, and the newest week behind it -- which is
+   the whole of what this line says. #}
 <div class="pace-preamble">
-<p class="season-games"><span class="pace-read-by">{{ opening_phrase if board.opening else sorted_prefix ~ board.saying|lower }}</span>, from the {{ board.weeks_read }} weeks of the {{ board.season }} season this league has scored: {% if board.position %}{{ board.rows|length }} of the {{ board.players_total }} players it has scored, at {{ board.position }}.{% else %}{{ board.rows|length }} players, every one it has scored.{% endif %} Click any column to sort by it — a pace is chiefly points, but it is the stats as a whole, so every stat a player's position is measured by is a column here. GP is the games he has actually played, which is what his pace is built from.{% if board.position %} A faded column beside one of them is the work it was earned in rather than a figure the league scores — a back's carries, and the targets behind a back's, a receiver's or a tight end's catches — so only a board of one position draws one.{% endif %} The column and the position are both in the address, so the board you are reading can be pasted into a league chat and open as it is.</p>
+<p class="season-games">Player pace for a {{ board.season_games }}-game season, from data pulled up to Week {{ board.week }}.</p>
 {% if board.unread %}<p class="season-warning">Week{{ 's' if board.unread|length != 1 }} {{ board.unread|join(', ') }} could not be read from Sleeper, so {{ 'they are' if board.unread|length != 1 else 'it is' }} counted in nobody's games.</p>{% endif %}
 </div>
 
@@ -192,13 +200,13 @@
    force is the one the server marked: it arrives sorted, so a pasted board is read the same way
    in the first frame it is drawn in. The two openings are on the table for the browser, which
    leaves them out of the address rather than writing down what a page already does. #}
-<div class="season-table-wrap"><table class="season-table pace-table{% if board.position %} pace-one-position{% endif %}" id="pace-table" data-screenshot-name="pace-{{ board.season }}{{ '-' ~ board.position if board.position else '' }}" data-open-sort="{{ board.open_sort }}" data-open-direction="{{ board.open_direction }}" data-open-phrase="{{ opening_phrase }}">
+<div class="season-table-wrap"><table class="season-table pace-table{% if board.position %} pace-one-position{% endif %}" id="pace-table" data-screenshot-name="pace-{{ board.season }}{{ '-' ~ board.position if board.position else '' }}" data-open-sort="{{ board.open_sort }}" data-open-direction="{{ board.open_direction }}">
   {# A board narrowed to one position names it once, at the head of the table, the way the Player
      Data season tables head their own group -- and says it inside the table rather than above the
      box, so the picture the camera takes carries the name of what it is a picture of. #}
   {% if board.position %}<caption class="pace-group"><span class="position pos-{{ board.position|lower|replace('/', '-') }}">{{ position_names.get(board.position, board.position) }}</span></caption>{% endif %}
   <thead><tr>
-    {% for head in board.heads %}<th scope="col"{% if head.context %} class="pace-context"{% endif %}{% if head.title %} title="{{ head.title }}"{% endif %} aria-sort="{{ head.aria }}"><button class="sort-button" type="button" data-sort-key="{{ head.key }}" data-sort-type="{{ head.type }}" data-sort-phrase="{{ sorted_prefix ~ head.saying|lower }}">{{ head.label }} <span>{{ head.arrow }}</span></button></th>{% endfor %}
+    {% for head in board.heads %}<th scope="col"{% if head.context %} class="pace-context"{% endif %}{% if head.title %} title="{{ head.title }}"{% endif %} aria-sort="{{ head.aria }}"><button class="sort-button" type="button" data-sort-key="{{ head.key }}" data-sort-type="{{ head.type }}">{{ head.label }} <span>{{ head.arrow }}</span></button></th>{% endfor %}
   </tr></thead>
   <tbody>
     {% for row in board.rows %}

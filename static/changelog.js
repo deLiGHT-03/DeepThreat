@@ -29,18 +29,23 @@
     // upwards instead -- the notebook is at the bottom of the window as often as at the top.
     const place = () => {
       const rect = trigger.getBoundingClientRect();
-      const below = window.innerHeight - rect.bottom - 12;
       const above = rect.top - 12;
+      const below = window.innerHeight - rect.bottom - 12;
       const upwards = below < 320 && above > below;
       panel.classList.toggle('changelog-panel-above', upwards);
       // The room that is there, and not a comfortable height the window may not have: the list
       // scrolls, so a short window gets a short panel rather than one off the edge of the screen.
       panel.style.maxHeight = `${Math.max(140, upwards ? above : below)}px`;
-      // The panel is right-aligned to the button, so how wide it may be depends on where the
-      // button is and not on the window: in a narrow one the page's own margin puts the button in
-      // from the edge, and a width measured against the viewport would hang off the other side.
-      const width = window.innerWidth - (window.innerWidth - rect.right) - 12;
-      panel.style.width = `${Math.max(240, Math.min(440, width))}px`;
+      // A column of prose is as wide as the window can hold and no wider, and the panel is placed
+      // after it is that wide rather than from the button alone: the notebook stands at the left
+      // end of a narrow toolbar, where a panel right-aligned to it would open off the left edge of
+      // the page. So the width is settled first and the panel is then shifted back inside the
+      // window, however far left its button is -- which is no shift at all where the button already
+      // sits at the window's right, the way it does on a wide page.
+      const width = Math.max(240, Math.min(440, window.innerWidth - 24));
+      panel.style.width = `${width}px`;
+      const right = Math.min(Math.max(rect.right, 12 + width), window.innerWidth - 12);
+      panel.style.right = `${Math.round(rect.right - right)}px`;
     };
 
     const close = (restoreFocus = false) => {

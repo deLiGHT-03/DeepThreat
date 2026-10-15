@@ -81,23 +81,23 @@ NAMED_POSITIONS = ("QB", "RB", "WR", "TE")
 
 #: The three columns that come before the stats, each as the table draws it: ``key`` is the word
 #: an address names it by, ``label`` the heading it prints, ``type`` whether it is read as a
-#: figure or as a name, ``title`` the note under the heading, ``saying`` what the sentence above
-#: the table calls it, and ``field`` the value in a row it stands for. A stat's own key is the
-#: abbreviation its heading prints, so every column a reader can sort by has a name he can see.
+#: figure or as a name, ``title`` the note under the heading, and ``field`` the value in a row it
+#: stands for. A stat's own key is the abbreviation its heading prints, so every column a reader
+#: can sort by has a name he can see.
 FIXED_HEADS = (
     {
         "key": "player", "label": "Player", "type": "text", "title": "",
-        "saying": "name", "field": "name",
+        "field": "name",
     },
     {
         "key": "pos", "label": "Pos", "type": "text", "title": "",
-        "saying": "position", "field": "position",
+        "field": "position",
     },
     {
         "key": "gp", "label": "GP", "type": "number",
         "title": ("Games he has actually played: a week this league scored and that Sleeper "
                   "recorded him on the field for"),
-        "saying": "games played", "field": "games",
+        "field": "games",
     },
 )
 
@@ -119,14 +119,13 @@ def _heads(columns: list[dict]) -> list[dict]:
     for index, column in enumerate(columns):
         # The faded column's own note says what it is read beside, because that is the whole of
         # what it is there for: a heading of two letters over a figure nobody scores is a puzzle
-        # otherwise. Its ``saying`` is still its own name, which is what the sentence above the
-        # table calls the board by when a reader sorts on it.
+        # otherwise.
         beside = labels.get(column.get("beside") or "")
         heads.append({
             "key": column["abbr"].lower(), "label": column["abbr"], "type": "number",
             "title": (beside_note(column["label"], beside)
                       if beside and column.get("context") else column["label"]),
-            "saying": column["label"], "cell": index,
+            "cell": index,
             "context": bool(column.get("context")),
         })
     return heads
@@ -205,15 +204,30 @@ def _chosen(heads: list[dict], sort: str, direction: str) -> tuple[dict, str]:
     return head, way
 
 
+def _latest_week(weeks: int, unread: list[int]) -> int:
+    """The newest week a board's figures are drawn from.
+
+    The season's own count is the newest data there is, and a week whose stats could not be read
+    steps it back to the week before it: a board drawn from the first seven weeks of an eight-week
+    season says it reaches the seventh, which is the difference between describing the figures and
+    claiming something about them. The one number the page's own line about its data is made of.
+    """
+    missing = set(unread or [])
+    week = int(weeks or 0)
+    while week > 0 and week in missing:
+        week -= 1
+    return week
+
+
 def _unreadable(season: str, note: str) -> dict:
     """A board with nothing to project, in the lookup's own words rather than as an empty table."""
     return {
         "season": str(season or ""),
         "season_games": SEASON_GAMES,
-        "weeks": 0, "weeks_read": 0, "unread": [],
+        "week": 0, "weeks": 0, "weeks_read": 0, "unread": [],
         "position": "", "chips": [], "columns": [], "rows": [], "heads": [],
         "players_total": 0, "example": [],
-        "sort": "", "direction": "", "saying": "", "opening": True,
+        "sort": "", "direction": "", "opening": True,
         "open_sort": "", "open_direction": "desc",
         "note": note,
     }
@@ -326,6 +340,8 @@ def get_pace_board(league_id: str, season: str = "", position: str = "",
     return {
         "season": board["season"],
         "season_games": board["season_games"],
+        # How far the figures reach, for the one line the page says about them.
+        "week": _latest_week(board["weeks"], board["unread"]),
         "weeks": board["weeks"],
         "weeks_read": board["weeks_read"],
         "unread": board["unread"],
@@ -338,15 +354,13 @@ def get_pace_board(league_id: str, season: str = "", position: str = "",
         # The comparison the panel opens on, for a reader who has not asked for one: the two backs
         # at the top of this same read, whose figures the page then compares like any other pair.
         "example": _example_players(board["players"]),
-        # What an address says to open this same board again: the column and the way round, the
-        # words the sentence above the table names it by, and whether this is the board's own
-        # opening -- which a link leaves out of itself, because the opening is what a page with
-        # no words about it already does. The opening is handed over as well, and not only the
-        # fact that this board is it: the browser needs to know which order to leave unsaid when
-        # it writes a sorted board back into the address.
+        # What an address says to open this same board again: the column and the way round, and
+        # whether this is the board's own opening -- which a link leaves out of itself, because
+        # the opening is what a page with no words about it already does. The opening is handed
+        # over as well, and not only the fact that this board is it: the browser needs to know
+        # which order to leave unsaid when it writes a sorted board back into the address.
         "sort": head["key"],
         "direction": way,
-        "saying": head["saying"] if rows else "",
         "opening": opening,
         "open_sort": opening_head["key"],
         "open_direction": opening_way,

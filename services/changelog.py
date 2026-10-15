@@ -51,6 +51,64 @@ COVERED_THROUGH = "07d8219"
 RELEASES = [
     {
         "date": "2026-10-15",
+        "title": "Every page stands on its own sheet",
+        "entries": [
+            ("visual",
+             "A page is one surface now rather than words floating on the background: the brand, the "
+             "toolbar and the tables below them all stand on a raised sheet with an edge, a corner "
+             "and a shadow under it, and the background shows around it. The tables and cards inside "
+             "read as what a page holds rather than as the page itself."),
+        ],
+    },
+    {
+        "date": "2026-10-15",
+        "title": "The Pace board says what it is in one line",
+        "entries": [
+            ("visual",
+             "The paragraph over the Pace board is one line now: what a pace is, how many games it "
+             "is a pace of, and the newest week the figures behind it were pulled up to. Everything "
+             "it explained the long way round is on the board itself -- every column head is a "
+             "button, the column in force wears the arrow, and a faded column says on hover what "
+             "it is read beside -- so the board is read rather than described."),
+        ],
+    },
+    {
+        "date": "2026-10-15",
+        "title": "Ask AI is put away for now",
+        "entries": [
+            ("functionality",
+             "Ask AI is no longer offered as a tab, because an answer takes tens of seconds to "
+             "arrive where every other page here is open at once. Nothing has been taken away: "
+             "the page still opens at its own address, and an answer's address that was pasted "
+             "into a league chat still brings the answer back."),
+        ],
+    },
+    {
+        "date": "2026-10-15",
+        "title": "A narrow window keeps its toolbar on one line, and opens the comparison folded",
+        "entries": [
+            ("visual",
+             "On a narrow window the toolbar is two rows rather than a stack of six: the tabs keep "
+             "a row of their own, and the notebook, the season being read, the button that loads "
+             "the league and the theme are read on one line under them. The league itself takes a "
+             "row of its own on a phone, where it is wider than what is left beside the others."),
+            ("visual",
+             "The Compare panel opens folded where the page has no room to read it beside the "
+             "board: the board begins where it used to end, and the two boxes are one tap away "
+             "under a line that says what they are for. A comparison you asked for -- the two "
+             "names in the address, or two you have just typed -- arrives open, and a panel you "
+             "open by hand stays open while you resize."),
+            ("also",
+             "The notebook opens over the page wherever its button stands: on a narrow toolbar "
+             "that button is the first control on the row, and the list it opens was being drawn "
+             "off the left edge of the page from there."),
+            ("also",
+             "The check that reads every page in a real browser at nine widths now also fails "
+             "when a narrow toolbar stacks those controls instead of reading them on one line."),
+        ],
+    },
+    {
+        "date": "2026-10-15",
         "title": "The work behind a figure is read beside it, faded",
         "entries": [
             ("visual",

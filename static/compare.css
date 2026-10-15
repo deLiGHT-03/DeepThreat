@@ -15,6 +15,22 @@
 .compare-panel{max-width:440px;margin:0 0 20px;padding:12px 14px 14px;border:1px solid #303b33;border-radius:12px;background:#151b17}
 .compare-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 9px}
 .compare-panel-title{margin:0;color:#c2cec6;font:700 10.5px Manrope,sans-serif;letter-spacing:.12em;text-transform:uppercase}
+/* The panel's own fold, and the control that works it. It is drawn only where the panel cannot be
+   read beside the board -- the fold is a narrow window's business, and a control that cannot do
+   anything is worse than no control at all -- so above the breakpoint below it is not in the page
+   at all rather than sitting there doing nothing. The arrow says which way the panel goes: down
+   while there is a comparison folded under the head, and up while the panel is the open one. */
+.compare-panel-toggle{display:none;place-items:center;width:28px;height:26px;flex:none;padding:0;border:1px solid #344038;border-radius:6px;background:#1b221e;color:#b9c8bd;cursor:pointer;transition:color .15s,border-color .15s}
+.compare-panel-toggle svg{width:15px;height:15px;fill:currentColor;transition:transform .15s}
+.compare-panel-toggle:hover,.compare-panel-toggle:focus-visible{border-color:#b7f56d;color:#b7f56d;outline:none}
+.compare-panel.is-folded .compare-panel-toggle svg{transform:rotate(180deg)}
+/* Folded, the panel is its own head: the title and the arrow, on the line the board is reached
+   from. Everything else it holds is put away by the same rule that draws it -- one selector over
+   the panel's own children rather than a body wrapped around them for the fold to hide, so a page
+   without the script draws exactly the panel it drew before there was a fold at all. */
+.compare-panel.is-folded{padding:9px 12px}
+.compare-panel.is-folded .compare-panel-head{margin:0}
+.compare-panel.is-folded>:not(.compare-panel-head){display:none}
 /* Why the boxes already hold two names, on the panel that opened with an example. It is the
    panel's own words and not a warning, so it is set quieter than the boxes it explains. */
 .compare-panel .compare-example{margin:0 0 9px;color:#84938a;font-size:9.5px;line-height:1.6}
@@ -140,6 +156,19 @@
   .compare-panel .compare-table thead th{font-size:8px;letter-spacing:.08em}
   .compare-panel .compare-table tbody th{font-size:10px}
   .compare-panel .compare-abbr{display:none}
+}
+
+/* The window that has no column to read the panel in beside the board is the window the panel
+   folds in: there the board is what the page is for, and a comparison nobody asked for should not
+   be the first thing standing in front of the first row of it. It arrives folded by the script
+   rather than by a rule here, because what is folded is a plain form: a reader whose browser never
+   ran the script would otherwise have no way to unfold the two boxes he can ask for a comparison
+   with, and the panel would be gone from a page that can still serve it. A reader who did ask --
+   the address naming the two players -- arrives with the panel open, which the same script
+   decides. Above this width the panel is read beside the board and never folds, which is why the
+   control is not drawn there. */
+@media(max-width:1079px){
+  .compare-panel-toggle{display:grid}
 }
 
 /* A page at its full width has a column free down its right, so the panel is read there, as a

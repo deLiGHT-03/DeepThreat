@@ -56,6 +56,10 @@
 
 body[data-skin="deepthreat"]{background:radial-gradient(ellipse at 50% -18%,#1a2517 0,transparent 48%),#090c0a;color:#f0f3ed}
 body[data-skin="deepthreat"] .topbar{border-color:#273226}
+/* The page's canvas, a step above this palette's background and a step below its cards (see the
+   .page rule in style.css). Every skin gives it the same surface the cards are drawn on, darkened
+   toward the background it stands over. */
+body[data-skin="deepthreat"] .page{background-color:#0d1310;border-color:#2b3528}
 body[data-skin="deepthreat"] .provider,body[data-skin="deepthreat"] .eyebrow{color:#a9c68b}
 body[data-skin="deepthreat"] .brand-mark,body[data-skin="deepthreat"] .week-tab.active,body[data-skin="deepthreat"] .mode-button.active,body[data-skin="deepthreat"] .form-row button,body[data-skin="deepthreat"] .secondary-button{background:#a8f32f;color:#11180b}
 body[data-skin="deepthreat"] .week-tab,body[data-skin="deepthreat"] .mode-switch{background-color:#121813;border-color:#2c382a}
@@ -80,6 +84,7 @@ body[data-skin="deepthreat"] .week-badge,body[data-skin="deepthreat"] .me-dot{ba
 
 body[data-skin="arctic"]{background:radial-gradient(ellipse at 50% -18%,#1d3a50 0,transparent 48%),#0d1720;color:#e7f2f7}
 body[data-skin="arctic"] .topbar{border-color:#294152}
+body[data-skin="arctic"] .page{background-color:#111f29;border-color:#294152}
 body[data-skin="arctic"] .brand-mark,body[data-skin="arctic"] .week-tab.active,body[data-skin="arctic"] .mode-button.active{background:#83d8e7;color:#10212a}
 body[data-skin="arctic"] .week-tab,body[data-skin="arctic"] .mode-switch{background-color:#152631;border-color:#294152}
 body[data-skin="arctic"] .matchup-card,body[data-skin="arctic"] .season-table,body[data-skin="arctic"] .player-data-table,body[data-skin="arctic"] .player-data-position-card{background:#14232d;border-color:#294152}
@@ -96,6 +101,7 @@ body[data-skin="arctic"] .season-switcher select{background-color:#14232d;backgr
 
 body[data-skin="ember"]{background:radial-gradient(ellipse at 50% -18%,#4a2923 0,transparent 48%),#1b1211;color:#f5e9e2}
 body[data-skin="ember"] .topbar{border-color:#4b3029}
+body[data-skin="ember"] .page{background-color:#211614;border-color:#4b3029}
 body[data-skin="ember"] .brand-mark,body[data-skin="ember"] .week-tab.active,body[data-skin="ember"] .mode-button.active{background:#f2a767;color:#29170f}
 body[data-skin="ember"] .week-tab,body[data-skin="ember"] .mode-switch{background-color:#271916;border-color:#4b3029}
 body[data-skin="ember"] .matchup-card,body[data-skin="ember"] .season-table,body[data-skin="ember"] .player-data-table,body[data-skin="ember"] .player-data-position-card{background:#241916;border-color:#4b3029}
@@ -112,6 +118,7 @@ body[data-skin="ember"] .season-switcher select{background-color:#241916;backgro
 
 body[data-skin="forest"]{background:radial-gradient(ellipse at 50% -18%,#294637 0,transparent 48%),#101914;color:#e8f1e8}
 body[data-skin="forest"] .topbar{border-color:#344a3b}
+body[data-skin="forest"] .page{background-color:#151f19;border-color:#344a3b}
 body[data-skin="forest"] .brand-mark,body[data-skin="forest"] .week-tab.active,body[data-skin="forest"] .mode-button.active{background:#a8ca79;color:#1a271a}
 body[data-skin="forest"] .week-tab,body[data-skin="forest"] .mode-switch{background-color:#19251d;border-color:#344a3b}
 body[data-skin="forest"] .matchup-card,body[data-skin="forest"] .season-table,body[data-skin="forest"] .player-data-table,body[data-skin="forest"] .player-data-position-card{background:#19251d;border-color:#344a3b}
@@ -128,6 +135,7 @@ body[data-skin="forest"] .season-switcher select{background-color:#19251d;backgr
 
 body[data-skin="royal"]{background:radial-gradient(ellipse at 50% -18%,#35275a 0,transparent 48%),#13111d;color:#eeeafa}
 body[data-skin="royal"] .topbar{border-color:#3d3454}
+body[data-skin="royal"] .page{background-color:#181527;border-color:#3d3454}
 body[data-skin="royal"] .brand-mark,body[data-skin="royal"] .week-tab.active,body[data-skin="royal"] .mode-button.active{background:#bea6ff;color:#211936}
 body[data-skin="royal"] .week-tab,body[data-skin="royal"] .mode-switch{background-color:#1d192b;border-color:#3d3454}
 body[data-skin="royal"] .matchup-card,body[data-skin="royal"] .season-table,body[data-skin="royal"] .player-data-table,body[data-skin="royal"] .player-data-position-card{background:#1d192b;border-color:#3d3454}
@@ -144,6 +152,7 @@ body[data-skin="royal"] .season-switcher select{background-color:#1d192b;backgro
 
 body[data-skin="copper"]{background:radial-gradient(ellipse at 50% -18%,#493323 0,transparent 48%),#191512;color:#f3ece5}
 body[data-skin="copper"] .topbar{border-color:#4a382d}
+body[data-skin="copper"] .page{background-color:#201914;border-color:#4a382d}
 body[data-skin="copper"] .brand-mark,body[data-skin="copper"] .week-tab.active,body[data-skin="copper"] .mode-button.active{background:#eda15f;color:#2a1b11}
 body[data-skin="copper"] .week-tab,body[data-skin="copper"] .mode-switch{background-color:#251d18;border-color:#4a382d}
 body[data-skin="copper"] .matchup-card,body[data-skin="copper"] .season-table,body[data-skin="copper"] .player-data-table,body[data-skin="copper"] .player-data-position-card{background:#241c17;border-color:#4a382d}
@@ -170,15 +179,50 @@ body[data-skin="copper"] .skin-picker-menu button:hover,body[data-skin="copper"]
 .positive{color:#b7f56d!important}.negative{color:#ff9d88!important}
 .position.pos-qb1{background:#662f35!important;color:#ffd2d2!important}.position.pos-sf{background:#662f35!important;color:#ffd2d2!important}.position.pos-te{background:#68452a!important;color:#ffe0b5!important}.position.pos-rb1,.position.pos-rb2,.position.pos-rb3{background:#31553a!important;color:#cef4ce!important}.position.pos-wr1,.position.pos-wr2,.position.pos-wr3{background:#294e69!important;color:#ceeaff!important}.position.pos-flex1,.position.pos-flex2,.position.pos-flex3{background:#513765!important;color:#f0d5ff!important}
 
+/* Narrowed, the toolbar is two rows rather than six. The tabs keep a row of their own and scroll
+   across it -- they are what a reader flips between, and letting them wrap moves everything under
+   them down the page every time the window changes -- and every control the toolbar holds is read
+   on one line beneath them.
+
+   The boxes the controls used to be stacked in are taken out of the layout for it
+   (``display:contents``), because a box the row places as a whole is still a column inside that
+   row: the season over the league it is read in, and the league's own row, are what left six
+   controls stacked in a hundred and eighty pixels. Out of the way, each control is an item of one
+   row and the row does the placing.
+
+   They read left to right as they do at the toolbar's full width -- the notebook, the season, the
+   key to the saved account, loading the league, which league, and the theme -- and the league is
+   the one that gives up its place on the row when there is not room for it, below. */
 @media(max-width:980px){
-  .feature-toolbar{align-items:stretch;flex-direction:column;gap:9px}
-  .feature-toolbar .mode-switch{align-self:stretch;max-width:100%;overflow-x:auto;white-space:nowrap}
-  .league-controls{display:flex;align-items:stretch;flex-direction:column;width:100%;gap:7px;margin-left:0}
-  .league-switcher-stack{display:block;width:100%;height:auto}  .page-controls{align-items:stretch;width:100%}
-  /* The season stays directly over the league it is read in rather than drifting to the left
-     edge of the row: the two are one question asked in two halves at every width. */
-  .page-controls .season-account-tools{align-self:flex-end}
-  .league-switcher{width:100%}
-  .league-switcher select{width:100%;max-width:none}
-  .league-controls .skin-picker,.league-controls .preload-button{align-self:flex-end}
+  .feature-toolbar{flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:6px}
+  .feature-toolbar .mode-switch{flex:1 1 100%;align-self:stretch;max-width:100%;overflow-x:auto;white-space:nowrap}
+  .feature-toolbar .page-controls,.feature-toolbar .league-controls{display:contents}
+  .feature-toolbar .changelog{order:1}
+  .feature-toolbar .season-account-tools{order:2}
+  .feature-toolbar .reset-username-key{order:3}
+  .feature-toolbar .preload-button{order:4}
+  .feature-toolbar .league-switcher-stack{order:5;flex:1 1 190px}
+  .feature-toolbar .skin-picker{order:6}
+  /* The margins the season and the league carry to stand apart from each other when they are
+     stacked one over the other are room the row does not have to give them. */
+  .feature-toolbar .season-switcher,.feature-toolbar .league-switcher{margin:0}
+  .feature-toolbar .league-switcher{width:100%;max-width:none}
+  .feature-toolbar .league-switcher select{width:100%;max-width:none}
+}
+
+/* A phone: the league a page is read in is the widest control on the toolbar and names something
+   longer than any of the others, so it takes a row of its own under the four a thumb reaches for
+   -- the notebook, the season, loading the league and the theme -- and fills it, rather than
+   squeezing the row it would share with them. */
+@media(max-width:620px){
+  .feature-toolbar .league-switcher-stack{order:9;flex:1 1 100%}
+}
+
+/* A narrow phone: the season and the button that loads the league give up the room they can spare,
+   which is what keeps the theme on the same line as the rest rather than dropping to a row of its
+   own for the sake of the last few pixels. */
+@media(max-width:430px){
+  .feature-toolbar{gap:5px}
+  .feature-toolbar .season-switcher select{width:118px;min-width:118px;max-width:118px}
+  .feature-toolbar .preload-button{padding:0 8px;gap:5px;font-size:9px;letter-spacing:.04em}
 }

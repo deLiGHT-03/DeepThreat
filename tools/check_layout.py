@@ -127,12 +127,39 @@ MEASURE_JS = r"""
       texts.push(Object.assign(rect(box), { source: describe(child) }));
     }
   }
+  // The toolbar's own boxes and the controls inside them. The wrappers are measured as well as
+  // the controls, because a wrapper is what a control moved up into the band would take with it;
+  // the controls are measured in their own right because one of those wrappers carries no box at
+  // all once the narrow layout reads them on a single row (``display:contents``), and a control
+  // that is only measured through a wrapper would stop being measured at all.
   const toolbar = document.querySelector(".feature-toolbar");
-  for (const control of toolbar ? toolbar.querySelectorAll(".mode-switch, .changelog, .page-controls") : []) {
+  const toolbarBoxes = toolbar
+    ? toolbar.querySelectorAll(".mode-switch, .changelog, .page-controls, select, button")
+    : [];
+  for (const control of toolbarBoxes) {
     if (!shown(control)) continue;
     const box = control.getBoundingClientRect();
     if (box.width < 0.5 || box.height < 0.5) continue;
     texts.push(Object.assign(rect(box), { source: describe(control) }));
+  }
+
+  // The four controls a reader uses at any width -- the notebook, the season being read, the
+  // button that loads the league and the theme -- are one row while the toolbar is narrow: the
+  // whole point of the narrow toolbar is that they are read on a line rather than stacked into
+  // six. Above that layout's own breakpoint the season stands over the league it is read in,
+  // which is the toolbar's design rather than a stack, so the row is only asked for below it.
+  // Two controls share a line when their boxes overlap vertically, which is also what tells a
+  // row apart from a stack: the season is shorter than the buttons beside it, so their tops are
+  // never the same number.
+  const rowControls = [".changelog-button", ".season-switcher select", ".preload-button",
+                      ".skin-picker-trigger"]
+    .map((selector) => (toolbar ? toolbar.querySelector(selector) : null))
+    .filter((element) => element && shown(element));
+  let oneRow = null;
+  if (window.innerWidth <= 980 && rowControls.length > 1) {
+    const boxes = rowControls.map((element) => element.getBoundingClientRect());
+    oneRow = boxes.every((box) => boxes.every(
+      (other) => Math.min(box.bottom, other.bottom) - Math.max(box.top, other.top) > 0.5));
   }
 
   // A gap is the horizontal distance between the logo and a box; a negative gap is how far the
@@ -174,6 +201,7 @@ MEASURE_JS = r"""
     worst: worst,
     edge_gap: edge_gap,
     overflow: overflow,
+    toolbar_row: {rows: rowControls.length, one_row: oneRow},
     web_fonts: document.fonts.status === "loaded"
       && document.fonts.check("700 38px Manrope") && document.fonts.check("400 16px 'DM Sans'"),
   };
@@ -287,6 +315,7 @@ def render(report: list[dict], widths: list[int], slack: float) -> int:
     unmeasured: list[dict] = []
     warnings: list[str] = []
     overflows: list[dict] = []
+    stacked: list[dict] = []
     clearances: list[tuple[float, dict]] = []
     beside_widths = 0
     total = 0
@@ -316,6 +345,13 @@ def render(report: list[dict], widths: list[int], slack: float) -> int:
             if result["overflow"] > slack:
                 cells.append("     !!")
                 overflows.append({**sample, "url": entry["url"], "result": result})
+                continue
+            # A narrow toolbar that has stacked its controls is the other way a header ends up
+            # several rows deep, so it is reported with the same mark as an overlap.
+            row = result.get("toolbar_row") or {}
+            if row.get("one_row") is False:
+                cells.append("     !!")
+                stacked.append({**sample, "url": entry["url"], "result": result})
                 continue
             if result["worst"] and -result["worst"]["gap"] > slack:
                 cells.append("     !!")
@@ -351,7 +387,8 @@ def render(report: list[dict], widths: list[int], slack: float) -> int:
     print(f"{len(report)} page modes x {len(widths)} widths = {total} measurements")
     print("  – = nothing shares the logo's row: the band holds the logo alone")
     print("  number = px of clear space between the logo and what shares its row")
-    print("  !! = something overlaps the logo or runs off the page, ? = could not be measured")
+    print("  !! = something overlaps the logo, runs off the page, or leaves the toolbar's "
+          "controls stacked, ? = could not be measured")
 
     if clearances:
         tightest, where = min(clearances, key=lambda item: item[0])
@@ -393,6 +430,16 @@ def render(report: list[dict], widths: list[int], slack: float) -> int:
                   f"{sample['result']['overflow']:.0f}px wider than the window")
         print("\nSomething on the page asks for more width than it has: a row that cannot wrap "
               "is the usual one, and on a header it is the toolbar's own row.")
+        return 1
+
+    if stacked:
+        print(f"\nTOOLBAR ({len(stacked)}) — the toolbar's controls are not read on one line:")
+        for sample in stacked:
+            print(f"  {label(sample['url'])} at {sample['width']}px: the notebook, the season, "
+                  "loading the league and the theme sit on more than one row")
+        print("\nNarrow, those four are one row: the tabs keep a row of their own above them and "
+              "everything else on the toolbar is placed on that line, the league taking a row "
+              "below it when a phone cannot hold it.")
         return 1
 
     if unmeasured:

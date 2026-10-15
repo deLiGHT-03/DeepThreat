@@ -28,7 +28,7 @@ season the league has played and can take a while on the first request. Waitress
 | Variable | Needed? | What it is |
 | --- | --- | --- |
 | `SECRET_KEY` | **Yes** | Signs the session cookie. Generate one per environment (`python -c "import secrets;print(secrets.token_hex(32))"`); `render.yaml` has the platform generate it. Without it the app still runs — it generates one per process — but then every restart forgets every session, so set it. |
-| `GEMINI_API_KEY` | No | Ask AI only. Without it the tab is hidden and the rest of the app is unaffected. |
+| `GEMINI_API_KEY` | No | Ask AI only, and its tab is hidden for now either way (see *Ask AI's key* below). A copy with no key answers `/ask` with the setup note instead of the question box, and the rest of the app is unaffected. |
 | `PORT` | Set by the platform | The port the server binds. |
 | `DEEPTHREAT_REMEMBER_FILE` | *(unset)* | Remember the connection in the settings file on a served copy as well, which is only right when that copy has exactly one user — see *Remembering the connection* below. |
 
@@ -315,10 +315,11 @@ anything in this repository:
   `SECRET_KEY` — any long random string, set once and kept — goes in **Settings → Environment
   Variables**, and the copy needs a redeploy after it. Until then a league mate following the link is asked to connect a Sleeper username
   again whenever his request reaches a fresh instance, which on Vercel is most of them.
-- **Ask AI's key.** `GEMINI_API_KEY` is set on the Render service and not on the Vercel project,
-  so the Vercel copy draws no Ask AI tab — every page there is exactly the 124 bytes of that tab's
-  markup shorter than the same page on Render — and `/ask` answers with the setup note instead of
-  the question box.
+- **Ask AI's key.** `GEMINI_API_KEY` is set on the Render service and not on the Vercel project.
+  No copy draws an Ask AI tab at the moment — the tab is hidden app-wide while an answer takes
+  tens of seconds, and `show_ask_ai` in `app.py` is the whole of that — so the two copies' pages
+  are the same bytes here. What the key decides now is the page itself: `/ask` answers the
+  question box on Render, and on the Vercel copy it answers with the setup note instead.
 
 With both set the two copies are one app and the Vercel one is the address to hand out. Vercel,
 concretely, is the section below.

@@ -18,10 +18,9 @@
 
    The board's own opening -- its first stat column, highest first -- is left unsaid in the address,
    the way every page of this app spells a default, and the table carries those two words for the
-   browser so it can tell when a board is back in its opening order. It carries the sentence's own
-   words as well, and so does every column head: what the sentence above the table says the board
-   is read by is the same words the server would have drawn, so the sentence stays true after a
-   click instead of describing the board the reader arrived with.
+   browser so it can tell when a board is back in its opening order. What the board is read by is
+   shown by the arrow on the column head in force, which this script moves as it reorders the
+   rows, rather than by a sentence about it above the table.
 
    A name is capped at the width the column keeps on every board, so the longest names in a league
    are clipped rather than holding a column open for themselves, and the part of one that is not
@@ -111,16 +110,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return value === "" ? null : Number(value);
   };
 
-  // What the sentence above the table says the board is read by: the words the server drew for
-  // this column, or the board's own opening words where the board is back in its opening order.
-  const say = () => {
-    const line = document.querySelector(".pace-read-by");
-    if (!line) return;
-    line.textContent = inOpening()
-      ? (table.dataset.openPhrase || "")
-      : (active.dataset.sortPhrase || "");
-  };
-
   const mark = () => {
     buttons.forEach((button) => {
       const here = button === active;
@@ -190,7 +179,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       sortRows();
       mark();
-      say();
       remember();
     });
   });
@@ -199,6 +187,5 @@ document.addEventListener("DOMContentLoaded", () => {
   // this board's own columns written down as its opening -- is put back into the words this page
   // would have written for the board it is showing, so the address a reader copies is the view he
   // is looking at and not the one he arrived by.
-  say();
   remember();
 });
