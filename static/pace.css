@@ -53,16 +53,35 @@
   display:inline-block;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   vertical-align:bottom;
 }
-/* The position a board is narrowed to, named once at the head of the table. It is the table's own
-   caption rather than a bar above the box: the camera saves the table, and a board that arrived
-   as a picture without the position it was showing would be a picture of anonymous figures. The
-   name is the table's title, so it is set as one -- centered over the columns rather than tucked
-   into the left edge where a label sits, and larger than the labels and figures beneath it, so
-   the board below reads as that position's board rather than as a table that happens to start
-   with a chip. It keeps the position's own colour, which is what tells the reader at a glance
-   which of the chips above the board they are looking at. */
-.pace-page .pace-table caption{width:100%;padding:13px 12px;background:#202a23;border-bottom:1px solid #303b33;text-align:center}
-.pace-page .pace-table caption .position{
+/* The position a board is narrowed to, named once at the head of the board. It is a band across the
+   top of the box that scrolls the columns rather than the table's own caption: a caption is as
+   wide as the table, and a phone is shown 350px of a 683px board, so a name centered in a caption
+   is centered over columns the reader cannot see -- which is a label pushed off to the right. A
+   band of its own is as wide as the reader's own view of the board, and it is pinned to the left
+   of that scrolling box, so the name stays over the columns in view however far along the board a
+   reader has scrolled.
+
+   It is still in the picture the camera takes, which is why the camera takes the box that holds
+   the band and the table together: a board that arrived as a picture without the position it was
+   showing would be a picture of anonymous figures. The name is the board's title, so it is set as
+   one -- centered over the columns rather than tucked into the left edge where a label sits, and
+   larger than the labels and figures beneath it, so the board below reads as that position's
+   board rather than as a table that happens to start with a chip. It keeps the position's own
+   colour, which is what tells the reader at a glance which of the chips above the board they are
+   looking at.
+
+   The width is asked for twice, and it is not a repetition. The camera draws its picture from a
+   copy of the board on which every element's own width has been written down in pixels, so a band
+   100% of a phone's view of the board arrives in a picture as wide as the whole board wearing that
+   phone's width -- a name centered over the columns the reader happened to have showing rather
+   than over the board the picture is of. A floor is the one measurement the copy keeps as the
+   percentage it was written as, so it is measured again against whatever holds the band: the
+   reader's view on the page, the whole board in the picture, a name centered in each. */
+.pace-page .pace-group{
+  position:sticky;left:0;width:100%;min-width:100%;padding:13px 12px;background:#202a23;
+  border-bottom:1px solid #303b33;text-align:center;
+}
+.pace-page .pace-group .position{
   display:inline-block;width:auto;min-width:0;padding:7px 18px;border-radius:7px;
   font-size:14px;letter-spacing:.05em;text-align:center;
 }

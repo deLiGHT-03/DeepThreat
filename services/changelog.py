@@ -51,6 +51,18 @@ COVERED_THROUGH = "70d19af"
 RELEASES = [
     {
         "date": "2026-10-15",
+        "title": "A Pace board's title stays over the columns in view",
+        "entries": [
+            ("visual",
+             "The position a Pace board is narrowed to is centered over the columns you can see "
+             "rather than over the whole board: on a phone, where a board is wider than the window, "
+             "the middle of the board is off the screen, so the name was drawn past the right edge "
+             "of the window and half of it was cut off. It now sits in the middle of what is in "
+             "view, and stays there as the board is scrolled along."),
+        ],
+    },
+    {
+        "date": "2026-10-15",
         "title": "The league menu reads as the league you are on",
         "entries": [
             ("visual",

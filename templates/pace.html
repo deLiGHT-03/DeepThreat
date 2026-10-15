@@ -191,7 +191,7 @@
    picture it takes however wide the board comes out: a board only as wide as its columns need
    would leave the button at the page's edge looking at nothing. #}
 <div class="pace-board">
-<div class="season-table-actions"><button class="screenshot-button" type="button" aria-label="Save this pace board as an image" title="Save this pace board as an image" data-screenshot-target="pace-table" data-screenshot-ignore><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.2 5.5 9.5 4h5l1.3 1.5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2h3.2ZM12 8a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0 2a3 3 0 1 1 0 6 3 3 0 0 1-3-3Z"/></svg></button></div>
+<div class="season-table-actions"><button class="screenshot-button" type="button" aria-label="Save this pace board as an image" title="Save this pace board as an image" data-screenshot-target="pace-board-sheet" data-screenshot-ignore><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.2 5.5 9.5 4h5l1.3 1.5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2h3.2ZM12 8a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0 2a3 3 0 1 1 0 6 3 3 0 0 1-3-3Z"/></svg></button></div>
 
 {# One row per player, one column per stat. The board opens on its first stat column (points,
    newest-first of what a pace is), every column head is a button -- sorting is the page's whole
@@ -200,11 +200,24 @@
    force is the one the server marked: it arrives sorted, so a pasted board is read the same way
    in the first frame it is drawn in. The two openings are on the table for the browser, which
    leaves them out of the address rather than writing down what a page already does. #}
-<div class="season-table-wrap"><table class="season-table pace-table{% if board.position %} pace-one-position{% endif %}" id="pace-table" data-screenshot-name="pace-{{ board.season }}{{ '-' ~ board.position if board.position else '' }}" data-open-sort="{{ board.open_sort }}" data-open-direction="{{ board.open_direction }}">
-  {# A board narrowed to one position names it once, at the head of the table, the way the Player
-     Data season tables head their own group -- and says it inside the table rather than above the
-     box, so the picture the camera takes carries the name of what it is a picture of. #}
-  {% if board.position %}<caption class="pace-group"><span class="position pos-{{ board.position|lower|replace('/', '-') }}">{{ position_names.get(board.position, board.position) }}</span></caption>{% endif %}
+{# The board's name and the board itself are one box, and the picture is of the two of them
+   together: a board narrowed to one position says so in a band across its head, and the camera
+   takes this box -- the band and the columns under it -- rather than the table inside it, so the
+   picture still carries the name of what it is a picture of.
+
+   The band is here, in the box that scrolls the columns, rather than in the table's own caption
+   where it was: a caption is as wide as the table, and a phone is shown 350px of a 683px board,
+   so a name centered in the caption was centered over columns nobody could see and read as a
+   label pushed off to the right. A band of its own is as wide as the reader's own view of the
+   board, and it is pinned to the left of this scrolling box, so the name stays over the columns
+   in view however far along the board a reader has scrolled. #}
+<div class="season-table-wrap" id="pace-board-sheet" data-screenshot-name="pace-{{ board.season }}{{ '-' ~ board.position if board.position else '' }}">
+{% if board.position %}<div class="pace-group" aria-hidden="true"><span class="position pos-{{ board.position|lower|replace('/', '-') }}">{{ position_names.get(board.position, board.position) }}</span></div>{% endif %}
+<table class="season-table pace-table{% if board.position %} pace-one-position{% endif %}" id="pace-table" data-open-sort="{{ board.open_sort }}" data-open-direction="{{ board.open_direction }}">
+  {# The table keeps its own name for a reader who cannot see the band, as the caption it has
+     always been: drawn nowhere, so the name is said once and the picture has one band rather
+     than a band over a hidden one. #}
+  {% if board.position %}<caption class="visually-hidden">{{ position_names.get(board.position, board.position) }}</caption>{% endif %}
   <thead><tr>
     {% for head in board.heads %}<th scope="col"{% if head.context %} class="pace-context"{% endif %}{% if head.title %} title="{{ head.title }}"{% endif %} aria-sort="{{ head.aria }}"><button class="sort-button" type="button" data-sort-key="{{ head.key }}" data-sort-type="{{ head.type }}">{{ head.label }} <span>{{ head.arrow }}</span></button></th>{% endfor %}
   </tr></thead>
