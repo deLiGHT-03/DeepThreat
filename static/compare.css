@@ -2,9 +2,10 @@
 
    The two search boxes are the panel's face and the card under them is what those two names
    produce; both are always there, because asking for a comparison is what the panel is for. Where
-   the panel is read is the board's business: beside a board narrowed to a position, which leaves
-   a column free down its right, and above the board of every position, which has none. Either way
-   it is the same panel -- two boxes, a card, and the address of the page carrying both.
+   the panel is read is the width of the page's business: down the right of a page at its full
+   width, which has a column to spare there, and above the board on a window too narrow to hold
+   both. Either way it is the same panel -- two boxes, a card, and the address of the page
+   carrying both.
 
    The card has one job the rest of the app does not: whatever is in it has to survive being
    pasted into a league chat, so it is self-contained -- names, both columns and every figure
@@ -138,24 +139,78 @@
   .compare-panel .compare-abbr{display:none}
 }
 
-/* A board of one position leaves a column free down its right -- it is a table of figures, and it
-   asks for the width of its own columns rather than the page's -- so the panel is read there, as
-   a column of the same page: a comparison beside the figures it is about rather than above them,
-   and both of them read at once.
+/* A page at its full width has a column free down its right, so the panel is read there, as a
+   column of the same page: a comparison beside the figures it is about rather than above them,
+   and both of them read at once. That is every Pace board, the board of every position as much
+   as a board narrowed to one.
 
-   The page does not get wider for it. The panel takes a column of the width the page already has
-   and the board keeps what is left of it, and a board wider than that scrolls inside its column
-   exactly as it scrolls inside the page. The compromise is the panel, not the board: its two
-   boxes are stacked rather than set side by side, which is what leaves the column narrow enough
-   for the widest board the league can be read at to still fit beside it.
+   The two of them are placed on the page's own grid rather than set side by side on a row, because
+   where a row begins is the board's box and where the reader looks for the panel is the table.
+   The chips, the sentence above the figures, the camera, the figures and the note under them are
+   the board's own parts, so a row of two columns puts the panel level with the chips -- or with
+   the sentence, whichever of them comes first -- and the table then begins some way below the top
+   of the panel beside it. On the grid each part is placed on it by name, and the panel is placed
+   on the table's own row: the panel begins where the figures begin, however many rows the board
+   spends above them. The two boxes the board is wrapped in are taken out of the page's boxes for
+   it (``display:contents``), which is what lets the parts inside them be the grid's own items;
+   nothing else about the page changes.
+
+   Filling its column is the other half of the same thing. Alone on the page the board asks for the
+   width its own columns need, which beside the panel would be the figures stopping short of the
+   panel with a column of empty page between the two; here it takes the width it is given instead,
+   and the rows of figures reach the comparison they are read against.
+
+   The board of every position is the widest the page draws -- twelve columns where a board of one
+   position has at most nine -- so the room the two columns leave between them is the least the
+   board can be read at, and the two of them meet in the middle: the board's cells give up most of
+   the room their side padding held, and the panel's column is twenty pixels narrower than it was.
+   The widest board then fits the column it is given with room to spare, in this league and in one
+   whose figures are longer: a column of figures here is as wide as its heading -- a heading that
+   does not change -- until a figure outgrows it, and only the column of names can move, a name
+   being capped. A board of one position is narrower than its column either way and fills that
+   column with or without the change, so the two boards are drawn alike. A board that still asks
+   for more width than its column scrolls inside it, the way it scrolls inside the page when the
+   page is small.
+
+   The page does not get wider for any of it. The panel takes a column of the width the page
+   already has and the board keeps what is left of it. The compromise is the panel, not the
+   board: its two boxes are stacked rather than set side by side, which is what leaves the column
+   narrow enough for the widest board the league can be read at to still fit beside it.
 
    Only where the page is at its full width. Narrower than that, the two columns together would
-   squeeze the board, so the panel returns to where it is on the board of every position: above
-   it, at the width the page has. */
+   squeeze the board, so the panel goes back above it, at the width the page has, and every rule
+   in here stops applying. */
 @media(min-width:1080px){
-  .pace-layout-side{display:flex;align-items:flex-start;gap:18px}
-  .pace-layout-side .pace-main{flex:1 1 auto;min-width:0}
-  .pace-layout-side .compare-panel{order:2;flex:0 0 320px;max-width:320px;margin:0}
+  /* Rows are the parts' own margins' business, so the gap is the one between the columns. */
+  .pace-layout-side{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:0 18px;align-items:start}
+  /* The board's two wrappers are the page's boxes and not the grid's, so that the parts inside
+     them are the grid's own items and can be placed one by one, rows above the table included. */
+  .pace-layout-side .pace-main,
+  .pace-layout-side .pace-board{display:contents}
+  .pace-layout-side .pace-filters{grid-area:1/1}
+  .pace-layout-side .pace-preamble{grid-area:2/1}
+  .pace-layout-side .season-table-actions{grid-area:3/1}
+  .pace-layout-side .season-table-wrap{grid-area:4/1}
+  /* A board with nothing to project has no table and no board around one, so the sentence that
+     says so takes the row the table would have been on: what the page has to say and the panel
+     that reads the board are still side by side, rather than one above the other. */
+  .pace-layout-side .empty-state{grid-area:4/1}
+  .pace-layout-side .pace-footnote{grid-area:5/1}
+  /* On the table's row, so the two are entered from one line: the figures and the comparison are
+     read together rather than the panel beginning up at the chips the board is narrowed by. */
+  .pace-layout-side .compare-panel{grid-area:4/2;max-width:300px;margin:0}
+  /* The board fills the column it is given here, where being as wide as its columns need would
+     leave the gap beside it that this layout exists to close. */
+  .pace-page .pace-layout-side .pace-board .pace-table{width:100%}
+  /* And the cells give up most of the room their side padding held, which is what a twelve-column
+     board needs to fit the column beside the panel: 12px a side is a hand's width of nothing
+     around every figure here, where 6px is the room between two figures. The position column is
+     named as well, being padded on its own a few rules above, and both of them carry a class more
+     than the shared table style does, so this holds whatever order the stylesheets load in. */
+  .pace-page .pace-layout-side .pace-board .pace-table th,
+  .pace-page .pace-layout-side .pace-board .pace-table td,
+  .pace-page .pace-layout-side .pace-board .pace-table th:nth-child(2),
+  .pace-page .pace-layout-side .pace-board .pace-table td:nth-child(2){padding-left:6px;padding-right:6px}
   .pace-layout-side .compare-panel-head{margin:0 0 10px}
   .pace-layout-side .compare-form{flex-direction:column;align-items:stretch;gap:6px}
   .pace-layout-side .compare-form input[type="search"]{flex:none;width:100%}

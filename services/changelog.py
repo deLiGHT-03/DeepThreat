@@ -50,6 +50,24 @@ COVERED_THROUGH = "b77af3a"
 #: Every release, newest first. See the module docstring for what belongs in one.
 RELEASES = [
     {
+        "date": "2026-10-15",
+        "title": "The comparison sits beside every Pace board",
+        "entries": [
+            ("visual",
+             "The board of every position reads its comparison beside it now, on the same line as "
+             "the figures: the panel used to sit above that board, and it now takes a column of "
+             "the page beside it, as it already did on a board narrowed to one position."),
+            ("visual",
+             "A board narrowed to one position fills the width it has and its figures begin on "
+             "the same line as the Compare panel beside them — the board reaches the panel "
+             "instead of stopping short with a strip of empty page between the two."),
+            ("also",
+             "The board of every position carries twelve columns where a board of one carries at "
+             "most nine, so its columns sit closer together to leave the panel room beside them. "
+             "Every column is still there."),
+        ],
+    },
+    {
         "date": "2026-10-14",
         "title": "A back's pace reads in scrimmage yards",
         "entries": [
@@ -93,8 +111,8 @@ RELEASES = [
             ("also",
              "Compare is always shown now: there is nothing left to fold away and open again."),
             ("also",
-             "The board of every position has no room left beside it, so on that one -- and on any "
-             "page too narrow for both -- Compare stays above the board, where it was."),
+             "A page too narrow for the board and the comparison side by side keeps Compare "
+             "above the board instead, where it was."),
         ],
     },
     {
@@ -197,7 +215,7 @@ RELEASES = [
              "board you were reading is still there."),
             ("also",
              "A comparison follows you when you switch season or league, and a link to the old "
-             "Compare page opens the same comparison above the board."),
+             "Compare page opens the same comparison on the Pace board."),
         ],
     },
     {

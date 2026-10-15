@@ -22,14 +22,14 @@
    answers with and the ones the pace button draws on a card -- all three read one lookup -- so the
    panel, an answer and a card cannot disagree.
 
-   Where the panel is read is the board's own business. A board narrowed to a position is a table
-   of figures and needs only the width its columns do, so it leaves a column free down its right
-   and the panel is read there -- beside the figures it is about rather than pushing them down the
-   page. The board of every position is the page's width already, with no room left beside it, so
-   the panel sits above that one instead. The box wrapped around both is what says which of the
-   two a page is. #}
-{% set compare_side = board.position %}
-<div class="pace-layout{% if compare_side %} pace-layout-side{% endif %}">
+   Where the panel is read is the width of the page's business rather than the board's. A page at
+   its full width has a column to spare down its right, so the panel is read there on every Pace
+   board -- beside the figures it is about rather than pushing them down the page, and beginning
+   where the table begins rather than up at the chips above it. A narrower window has no such
+   column, the two together being wider than the page, and there the panel goes back above the
+   board, at the width the page has. The box wrapped around both is what carries that layout; the
+   page's own stylesheet is what says where the break between the two is. #}
+<div class="pace-layout pace-layout-side">
 <section class="compare-panel">
   <header class="compare-panel-head">
     <h2 class="compare-panel-title">Compare two players</h2>
@@ -162,8 +162,14 @@
    the app gives a score everywhere else, so what a player is worth is found on this board the way
    it is found on a Player Data table or on a card. #}
 {% set score_columns = ("PTS", "PPG") %}
+{# The sentence that says what the board is read by, and any warning that weeks could not be read,
+   are one part of the page rather than two: both describe the figures below them, and a page that
+   reads the board beside a comparison puts the panel on the row the table is on, which it can
+   only do while everything above the table is one thing to place above it. #}
+<div class="pace-preamble">
 <p class="season-games"><span class="pace-read-by">{{ opening_phrase if board.opening else sorted_prefix ~ board.saying|lower }}</span>, from the {{ board.weeks_read }} weeks of the {{ board.season }} season this league has scored: {% if board.position %}{{ board.rows|length }} of the {{ board.players_total }} players it has scored, at {{ board.position }}.{% else %}{{ board.rows|length }} players, every one it has scored.{% endif %} Click any column to sort by it — a pace is chiefly points, but it is the stats as a whole, so every stat a player's position is measured by is a column here. GP is the games he has actually played, which is what his pace is built from. The column and the position are both in the address, so the board you are reading can be pasted into a league chat and open as it is.</p>
 {% if board.unread %}<p class="season-warning">Week{{ 's' if board.unread|length != 1 }} {{ board.unread|join(', ') }} could not be read from Sleeper, so {{ 'they are' if board.unread|length != 1 else 'it is' }} counted in nobody's games.</p>{% endif %}
+</div>
 
 {# The board and the button that saves it are one box, so the camera sits at the edge of the
    picture it takes however wide the board comes out: a board only as wide as its columns need

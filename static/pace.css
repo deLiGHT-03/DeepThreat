@@ -7,7 +7,13 @@
    and lets a long one reach the page's edge -- and past it, where the wrapper scrolls it. The
    board and the button that saves it are one box, so a narrower board takes the camera with it
    rather than leaving it at the page's edge looking at nothing; and the note under the board is
-   set from the left edge the board is read from instead of centered under a middle that moves. */
+   set from the left edge the board is read from instead of centered under a middle that moves.
+
+   The one place a board is not left to the width of its own columns is beside the Compare panel,
+   where the column it is given is the page's and the empty half of it would be a gap between the
+   figures and the panel they are read against: there it fills that column instead, and gives up
+   most of the room its cells were padded with, which is the side layout at the end of
+   compare.css. */
 .pace-page .pace-board{width:max-content;max-width:100%}
 .pace-page .pace-board .season-table-wrap{width:100%;max-width:none}
 .pace-page .pace-board .season-table{width:max-content}
